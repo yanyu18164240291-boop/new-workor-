@@ -1,0 +1,632 @@
+import { useEffect, useState } from 'react';
+
+import { getAnonymousFeedbackFlow, toggleMultiChoice } from '../anonymousFeedbackModel.ts';
+import { api, type PermissionItem, type WeeklyFeedbackQuestion } from '../api.ts';
+import {
+  ActionButton,
+  Card,
+  DataRow,
+  IconTile,
+  Modal,
+  SectionCard,
+  StatGrid,
+  StatusChip,
+  StepList,
+} from '../components.tsx';
+import type { DashboardData } from '../dashboardData.ts';
+import { buildHomeProgressStats } from '../homeProgress.ts';
+import { getHomeQuickQuestions, getHomeShortcutItems } from '../routes.ts';
+import {
+  createInitialApplySelection,
+  mapPermissionUiStatus,
+  toggleApplySelection,
+} from '../permissionSelection.ts';
+
+function formatHomeTime(value?: string) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+export function HomePage({ data, navigate }: { data: DashboardData; navigate: (path: string) => void }) {
+  const stats = buildHomeProgressStats({
+    permissions: [...(data.package?.requiredPermissions ?? []), ...(data.package?.optionalPermissions ?? [])],
+    progress: data.progress ?? [],
+    followUps: data.followUps ?? [],
+    newcomer: data.newcomer,
+  });
+  const progressByPermission = new Map((data.progress ?? []).map((item) => [item.permissionItemId, item]));
+  const progressItems = [...(data.package?.requiredPermissions ?? []), ...(data.package?.optionalPermissions ?? [])].slice(0, 4);
+  const [answer, setAnswer] = useState('');
+  const [progressCollapsed, setProgressCollapsed] = useState(false);
+  return (
+    <>
+      <div className="home-content-pad">
+        <div className="home-bot-row">
+          <IconTile icon="bot" tone="blue" />
+          <Card className="bot-bubble-card">
+            <h2>你好呀！我是海纳AI入职Bot 👋</h2>
+            <p>我会陪你完成入职第一周：先知道今天做什么，再处理岗位权限，提交后我会在 4 个工作小时内回访。</p>
+          </Card>
+        </div>
+        <div className="home-shortcut-row">
+          {getHomeShortcutItems().map((item) => (
+            <button className={`home-shortcut-card home-shortcut-${item.tone}`} key={item.path} onClick={() => navigate(item.path)}>
+              <IconTile icon={item.icon} tone={item.tone} />
+              <strong>{item.label}</strong>
+              <span>{item.desc}</span>
+            </button>
+          ))}
+        </div>
+        <Card className="home-progress-card">
+          <button className="home-progress-head" onClick={() => setProgressCollapsed((value) => !value)}>
+            <h2>我的入职进度</h2>
+            <span>{progressCollapsed ? '展开' : '收起'}</span>
+          </button>
+          {!progressCollapsed && (
+            <>
+              <StatGrid items={stats} />
+              <div className="list-space">
+                {progressItems.map((item) => {
+                  const status = mapPermissionUiStatus(progressByPermission.get(item.id)?.status);
+                  return <DataRow key={item.id} title={item.name} desc={progressByPermission.get(item.id)?.submittedAt ? `提交于 ${formatHomeTime(progressByPermission.get(item.id)?.submittedAt)}` : '尚未提交'} chip={status.chip} tone={status.tone} onClick={() => navigate(`/permission-detail/${item.id}`)} />;
+                })}
+              </div>
+            </>
+          )}
+        </Card>
+      </div>
+      <div className="home-fixed-chat">
+        <div className="quick-chip-row">
+          {getHomeQuickQuestions().map((question) => (
+            <button key={question} onClick={() => setAnswer(question)}>
+              {question}
+            </button>
+          ))}
+        </div>
+        <div className="home-chat-input-row">
+          <button>＋</button>
+          <input readOnly value={answer} placeholder="请输入你的问题，例如：ChatGPT账号怎么申请？" />
+          <button onClick={() => setAnswer('ChatGPT账号怎么申请？')}>发送</button>
+        </div>
+      </div>
+      {answer && (
+        <SectionCard title="ChatGPT账号申请方式">
+          <p>你需要在“权限申请”中进入对应权限详情，复制申请理由后提交审批。提交后回到详情页点击“我已提交”，首页进度会同步更新。</p>
+        </SectionCard>
+      )}
+    </>
+  );
+}
+
+export function D1Page({ data, navigate, toast }: { data: DashboardData; navigate: (path: string) => void; toast: (message: string) => void }) {
+  const guide = data.d1GuideConfig;
+  const actions = [
+    guide?.joinGroup
+      ? {
+          no: '1',
+          title: guide.joinGroup.title,
+          desc: `进入 ${guide.joinGroup.targetGroupName}，申请会发送给 ${guide.joinGroup.sendToEmployeeName}`,
+          status: '已完成',
+          label: '已完成',
+          onClick: () => toast(`已模拟打开 ${guide.joinGroup.applyUrl}`),
+        }
+      : null,
+    guide?.employeeGuide
+      ? {
+          no: '2',
+          title: guide.employeeGuide.title,
+          desc: guide.employeeGuide.documentTitle ?? '办公规范、门禁、餐饮、常见问题',
+          status: '进行中',
+          label: '进行中',
+          onClick: () => toast(`已模拟打开 ${guide.employeeGuide.documentUrl}`),
+        }
+      : null,
+    guide?.permissionPackage
+      ? {
+          no: '3',
+          title: guide.permissionPackage.title,
+          desc: guide.permissionPackage.description,
+          status: '下一步',
+          label: '下一步',
+          onClick: () => navigate(guide.permissionPackage.routePath ?? '/permissions'),
+        }
+      : null,
+  ].filter(Boolean) as Array<{ no: string; title: string; desc: string; status: string; label: string; onClick: () => void }>;
+  return (
+    <>
+      <SectionCard title="D1 到达引导包">
+        <p>先完成 3 个关键动作：进部门群、查看员工指南册、查看岗位权限包。</p>
+        <Card className="notice-card inner">当前位置：协同办公产品实习生</Card>
+      </SectionCard>
+      <SectionCard title="今日关键路径" action={<span className="time-hint">预计 20-30 分钟</span>}>
+        <StepList showArrow hideStatus steps={actions.map((item) => ({ no: item.no, title: item.title, desc: item.desc, status: item.status, onClick: item.onClick }))} />
+      </SectionCard>
+      <SectionCard title="Bot 提醒">
+        <p>加入飞书部门群仅模拟发送申请，不会调用真实飞书接口。员工指南册打开的是后台配置的飞书文档链接。</p>
+      </SectionCard>
+    </>
+  );
+}
+
+export function PermissionPage({
+  data,
+  navigate,
+  openModal,
+}: {
+  data: DashboardData;
+  navigate: (path: string) => void;
+  openModal: (type: 'required' | 'optional') => void;
+}) {
+  const required = data.package?.requiredPermissions ?? [];
+  const optional = data.package?.optionalPermissions ?? [];
+  const progressByPermission = new Map((data.progress ?? []).map((item) => [item.permissionItemId, item]));
+  return (
+    <>
+      <Card className="permission-package-card">
+        <IconTile icon="shield" tone="warning" />
+        <div>
+          <h2>{data.package?.role.department ?? '协同办公'}产品实习生权限包</h2>
+          <p>适用于入职第一周 · D1-D7</p>
+        </div>
+        <StatusChip tone="blue">岗位默认推荐</StatusChip>
+      </Card>
+      <SectionCard title="必开权限" action={<button className="mini-primary" onClick={() => openModal('required')}>必开权限：一键申请</button>}>
+        {required.map((item) => {
+          const status = mapPermissionUiStatus(progressByPermission.get(item.id)?.status);
+          return <DataRow key={item.id} title={item.name} desc={`Owner：${item.ownerName}`} chip={status.chip} tone={status.tone} onClick={() => navigate(`/permission-detail/${item.id}`)} />;
+        })}
+      </SectionCard>
+      <SectionCard title="可选权限" action={<button className="mini-primary" onClick={() => openModal('optional')}>可选权限：一键申请</button>}>
+        {optional.map((item) => {
+          const status = mapPermissionUiStatus(progressByPermission.get(item.id)?.status);
+          return (
+            <DataRow
+              key={item.id}
+              title={item.name}
+              desc={item.sensitive ? '敏感权限需导师或 Owner 确认' : `Owner：${item.ownerName}`}
+              chip={status.chip}
+              tone={status.tone}
+              onClick={() => navigate(`/permission-detail/${item.id}`)}
+            />
+          );
+        })}
+      </SectionCard>
+      <Card className="notice-card">
+        BPM 系统等敏感权限需导师或权限 Owner 确认后再申请。一键申请会把未申请权限更新为进行中，并进入 4 小时回访。
+      </Card>
+    </>
+  );
+}
+
+export function PermissionDetailPage({
+  data,
+  params,
+  navigate,
+  toast,
+  reload,
+}: {
+  data: DashboardData;
+  params: Record<string, string>;
+  navigate: (path: string) => void;
+  toast: (message: string) => void;
+  reload: () => Promise<void>;
+}) {
+  const item = [...(data.package?.requiredPermissions ?? []), ...(data.package?.optionalPermissions ?? [])].find((permission) => permission.id === params.id);
+  const progress = data.progress?.find((record) => record.permissionItemId === item?.id);
+  const isSubmitted = Boolean(progress);
+  const permissionStatus = mapPermissionUiStatus(progress?.status);
+
+  async function submitProgress() {
+    if (!data.newcomer || !item) return;
+    const result = await api.submitPermissionProgress(data.newcomer.id, item.id);
+    toast('已登记提交状态');
+    await reload();
+    navigate(`/follow-up/${result.followUpTask.id}`);
+  }
+
+  return (
+    <>
+      <Card className="permission-detail-card">
+        <div className="detail-head">
+          <IconTile icon="sparkles" tone="ai" />
+          <div>
+            <h2>{item?.name ?? 'ChatGPT 账号'}申请</h2>
+            <p>{item?.category ?? 'AI 工具'} / 协同办公提效</p>
+          </div>
+          <StatusChip tone={permissionStatus.tone}>{permissionStatus.chip}</StatusChip>
+        </div>
+      </Card>
+      <SectionCard title="申请入口">
+        <p className="link-text">{item?.applyUrl ?? 'approval.haina-ai.com/v1/tools/chatgpt-access'}</p>
+      </SectionCard>
+      <SectionCard title="申请理由模板">
+        <p>{item?.reasonTemplate ?? '本人为协同办公组新入职产品实习生，需申请 ChatGPT 账号用于 PRD 编写、资料整理、测试用例生成，提升办公效率。'}</p>
+      </SectionCard>
+      <SectionCard title="审批人 / 负责人">
+        <DataRow title={item?.approverName ?? '刘长省（协同办公组）'} desc={`Owner：${item?.ownerName ?? '协同办公权限Owner'} · ${item?.ownerContact ?? 'IT 支持群'}`} chip="可联系" tone="blue" />
+      </SectionCard>
+      <SectionCard title="常见等待原因">
+        <div className="tag-row">
+          {(item?.commonWaitingReasons ?? ['审批人暂未处理', '申请理由不够清楚', '账号额度等待中']).map((reason) => (
+            <span key={reason}>{reason}</span>
+          ))}
+        </div>
+      </SectionCard>
+      <SectionCard title="申请进度追踪">
+        <StepList
+          steps={[
+            { no: '1', title: '待提交申请', desc: '复制理由并打开审批入口', status: isSubmitted ? '已完成' : '进行中' },
+            { no: '2', title: '等待审批中', desc: '提交后等待审批人与系统开通', status: isSubmitted ? '进行中' : '下一步' },
+            { no: '3', title: '完成开通', desc: '确认账号可登录后结束提醒', status: '下一步' },
+          ]}
+        />
+      </SectionCard>
+      <div className="fixed-actions">
+        <ActionButton
+          tone="secondary"
+          hideIcon
+          onClick={() => {
+            toast('已打开审批入口');
+          }}
+        >
+          打开入口
+        </ActionButton>
+        <ActionButton
+          tone="secondary"
+          hideIcon
+          onClick={() => {
+            navigator.clipboard?.writeText(item?.reasonTemplate ?? '');
+            toast('已复制申请理由');
+          }}
+        >
+          复制理由
+        </ActionButton>
+        <ActionButton hideIcon onClick={submitProgress}>我已提交</ActionButton>
+      </div>
+    </>
+  );
+}
+
+export function FollowUpPage({ navigate, toast, openOwner }: { navigate: (path: string) => void; toast: (message: string) => void; openOwner: () => void }) {
+  const [unfinished, setUnfinished] = useState(true);
+  return (
+    <>
+      <SectionCard title="你登记的权限有进展了吗？">
+        <p>我不会真实催办，只帮你准备话术与 Owner 路径。</p>
+      </SectionCard>
+      <SectionCard title="ChatGPT账号申请">
+        <div className="time-pair">
+          <span>提交时间：09:15</span>
+          <span>预计回访：13:15</span>
+        </div>
+        <div className="segmented">
+          <button className={!unfinished ? 'selected' : ''} onClick={() => setUnfinished(false)}>
+            已完成
+          </button>
+          <button className={unfinished ? 'selected' : ''} onClick={() => setUnfinished(true)}>
+            未完成
+          </button>
+        </div>
+      </SectionCard>
+      {unfinished && (
+        <SectionCard title="未完成时，下一步">
+          <Card className="notice-card inner">
+            催办话术示例：你好，我是协同办公组新入职同学，今天上午已提交 ChatGPT 账号申请。想确认下当前是否还需要我补充信息，辛苦帮忙看一下，谢谢。
+          </Card>
+          <div className="dual-actions">
+            <ActionButton
+              hideIcon
+              onClick={() => {
+                toast('已模拟发送催办信息');
+              }}
+            >
+              发送催办信息
+            </ActionButton>
+            <ActionButton tone="secondary" hideIcon onClick={openOwner}>
+              联系 Owner
+            </ActionButton>
+          </div>
+          <ActionButton tone="secondary" hideIcon onClick={() => navigate('/anonymous-feedback')}>
+            匿名反馈
+          </ActionButton>
+        </SectionCard>
+      )}
+      <SectionCard title="流程修正说明">
+        <p>点击“一键申请”会把未申请权限更新为进行中，并生成 4 小时回访任务；真实审批与飞书消息仍保持模拟。</p>
+      </SectionCard>
+    </>
+  );
+}
+
+export function WeeklyFeedbackPage({ data, reload, toast }: { data: DashboardData; reload: () => Promise<void>; toast: (message: string) => void }) {
+  const [submitted, setSubmitted] = useState(false);
+  const questions = data.weeklyConfig?.questions ?? [];
+  const [selectedByQuestion, setSelectedByQuestion] = useState<Record<string, string[]>>(() =>
+    Object.fromEntries(
+      questions
+        .filter((question) => question.inputType === 'single' && question.options[0])
+        .map((question) => [question.id, [question.options[0].id]]),
+    ),
+  );
+  const [message, setMessage] = useState('这一周整体适应还可以，团队同学都很友好。目前主要还是部分权限没有完全开通。');
+
+  useEffect(() => {
+    setSelectedByQuestion((current) => {
+      const next: Record<string, string[]> = {};
+      for (const question of questions) {
+        if (question.inputType === 'text') continue;
+        const validOptionIds = new Set(question.options.map((option) => option.id));
+        const selected = (current[question.id] ?? []).filter((id) => validOptionIds.has(id));
+        next[question.id] = selected.length > 0 ? selected : question.inputType === 'single' && question.options[0] ? [question.options[0].id] : [];
+      }
+      return next;
+    });
+  }, [data.weeklyConfig]);
+
+  function toggleOption(question: WeeklyFeedbackQuestion, optionId: string) {
+    setSelectedByQuestion((current) => {
+      const selected = current[question.id] ?? [];
+      if (question.inputType === 'single') return { ...current, [question.id]: [optionId] };
+      return selected.includes(optionId)
+        ? { ...current, [question.id]: selected.filter((id) => id !== optionId) }
+        : { ...current, [question.id]: [...selected, optionId] };
+    });
+  }
+
+  async function submit() {
+    if (!data.newcomer) return;
+    const missing = questions.find((question) => question.required && question.inputType !== 'text' && (selectedByQuestion[question.id] ?? []).length === 0);
+    if (missing) {
+      toast(`请先选择：${missing.title}`);
+      return;
+    }
+    await api.submitWeeklyFeedback({
+      newcomerId: data.newcomer.id,
+      answers: questions.map((question) =>
+        question.inputType === 'text'
+          ? { questionId: question.id, textValue: message }
+          : { questionId: question.id, selectedOptionIds: selectedByQuestion[question.id] ?? [] },
+      ),
+    });
+    setSubmitted(true);
+    toast('已提交首周反馈');
+    await reload();
+  }
+  return (
+    <>
+      <SectionCard title="填写给管理者看的首周反馈">
+        <p>该反馈不匿名，由新人填写，提交后供管理者在页面 12 查看与跟进，不用于绩效评价。</p>
+      </SectionCard>
+      {questions.map((question) => (
+        <SectionCard title={question.title} key={question.id}>
+          {question.inputType === 'text' ? (
+            <textarea value={message} maxLength={question.maxLength ?? 500} onChange={(event) => setMessage(event.target.value)} />
+          ) : (
+            <div className="tag-row tag-grid tag-grid-two">
+              {question.options.map((option) => {
+                const selected = (selectedByQuestion[question.id] ?? []).includes(option.id);
+                return (
+                  <button key={option.id} type="button" className={selected ? 'selected' : ''} onClick={() => toggleOption(question, option.id)}>
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </SectionCard>
+      ))}
+      {questions.length === 0 && <Card className="quiet-card">首周反馈题目尚未配置，请先到后台配置维护台补充题目与选项。</Card>}
+      {submitted || data.weekly ? (
+        <Card className="success-card">首周反馈已提交，管理者可在“管理者视角 / 新人首周反馈”中只读查看。</Card>
+      ) : null}
+      <div className="fixed-actions">
+        <ActionButton hideIcon onClick={submit}>提交反馈</ActionButton>
+      </div>
+    </>
+  );
+}
+
+export function AnonymousFeedbackPage({ data, reload, toast }: { data: DashboardData; reload: () => Promise<void>; toast: (message: string) => void }) {
+  const [done, setDone] = useState(false);
+  const flow = getAnonymousFeedbackFlow();
+  const sections = Object.fromEntries(flow.sections.map((section) => [section.key, section]));
+  const modules = data.anonymousConfig?.modules ?? [];
+  const [description, setDescription] = useState('');
+  const [moduleKey, setModuleKey] = useState('');
+  const [problemTypeKey, setProblemTypeKey] = useState('');
+  const [problemTypeOtherText, setProblemTypeOtherText] = useState('');
+  const [expectedActionKeys, setExpectedActionKeys] = useState<string[]>([]);
+  const [expectedActionOtherText, setExpectedActionOtherText] = useState('');
+  const selectedModule = modules.find((item) => item.moduleKey === moduleKey) ?? modules[0];
+  const selectedProblemType = selectedModule?.problemTypes.find((item) => item.typeKey === problemTypeKey);
+  const selectedExpectedActions = selectedModule?.expectedActions.filter((item) => expectedActionKeys.includes(item.actionKey)) ?? [];
+
+  useEffect(() => {
+    if (!selectedModule) return;
+    if (moduleKey !== selectedModule.moduleKey) setModuleKey(selectedModule.moduleKey);
+    if (!selectedModule.problemTypes.some((item) => item.typeKey === problemTypeKey)) {
+      setProblemTypeKey(selectedModule.problemTypes[0]?.typeKey ?? '');
+      setProblemTypeOtherText('');
+    }
+    const validActionKeys = new Set(selectedModule.expectedActions.map((item) => item.actionKey));
+    const keptActionKeys = expectedActionKeys.filter((key) => validActionKeys.has(key));
+    if (keptActionKeys.length !== expectedActionKeys.length) setExpectedActionKeys(keptActionKeys);
+    if (keptActionKeys.length === 0 && selectedModule.expectedActions[0]) setExpectedActionKeys([selectedModule.expectedActions[0].actionKey]);
+  }, [selectedModule, moduleKey, problemTypeKey, expectedActionKeys]);
+
+  async function submit() {
+    if (!description.trim()) {
+      toast('请先填写问题描述');
+      return;
+    }
+    if (!problemTypeKey) {
+      toast('请选择问题类型');
+      return;
+    }
+    if (selectedProblemType?.requiresText && !problemTypeOtherText.trim()) {
+      toast('请补充其他问题类型说明');
+      return;
+    }
+    if (expectedActionKeys.length === 0) {
+      toast('请选择希望如何处理');
+      return;
+    }
+    if (selectedExpectedActions.some((item) => item.requiresText) && !expectedActionOtherText.trim()) {
+      toast('请补充其他处理方式说明');
+      return;
+    }
+    await api.submitAnonymousFeedback({
+      moduleKey,
+      problemTypeKey,
+      problemTypeOtherText: problemTypeOtherText.trim() || undefined,
+      expectedActionKeys,
+      expectedActionOtherText: expectedActionOtherText.trim() || undefined,
+      description: description.trim(),
+      isAnonymous: true,
+      submittedByNewcomerId: data.newcomer?.id,
+    });
+    setDone(true);
+    toast('已提交匿名反馈');
+    await reload();
+  }
+
+  function sectionTitle(key: 'description' | 'module' | 'type' | 'expectedAction') {
+    const section = sections[key];
+    return (
+      <>
+        {section.title}
+        {section.required && <span className="required-star">*</span>}
+        {section.suffix && <span className="title-suffix">{section.suffix}</span>}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <SectionCard title="你可以匿名反馈流程问题">
+        <p>反馈会进入产品 / 内容 Owner 的匿名反馈池，不向管理者展示原文，也不用于个人评价。</p>
+      </SectionCard>
+      <SectionCard title={sectionTitle('description')}>
+        <textarea value={description} placeholder={flow.description.placeholder} onChange={(event) => setDescription(event.target.value)} />
+      </SectionCard>
+      <SectionCard title={sectionTitle('module')}>
+        <div className="tag-row tag-grid tag-grid-two">
+          {modules.map((item) => (
+            <button
+              key={item.moduleKey}
+              type="button"
+              className={selectedModule?.moduleKey === item.moduleKey ? 'selected' : ''}
+              onClick={() => {
+                setModuleKey(item.moduleKey);
+                setProblemTypeKey(item.problemTypes[0]?.typeKey ?? '');
+                setProblemTypeOtherText('');
+                setExpectedActionKeys(item.expectedActions[0] ? [item.expectedActions[0].actionKey] : []);
+                setExpectedActionOtherText('');
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </SectionCard>
+      <SectionCard title={sectionTitle('type')}>
+        <div className="tag-row tag-grid tag-grid-two">
+          {(selectedModule?.problemTypes ?? []).map((item) => (
+            <button key={item.typeKey} type="button" className={problemTypeKey === item.typeKey ? 'selected' : ''} onClick={() => setProblemTypeKey(item.typeKey)}>
+              {item.label}
+            </button>
+          ))}
+        </div>
+        {selectedProblemType?.requiresText && (
+          <input
+            className="inline-text-input"
+            value={problemTypeOtherText}
+            placeholder="请补充具体问题类型"
+            onChange={(event) => setProblemTypeOtherText(event.target.value)}
+          />
+        )}
+      </SectionCard>
+      <SectionCard title={sectionTitle('expectedAction')}>
+        <div className="tag-row tag-grid tag-grid-two">
+          {(selectedModule?.expectedActions ?? []).map((item) => (
+            <button key={item.actionKey} type="button" className={expectedActionKeys.includes(item.actionKey) ? 'selected' : ''} onClick={() => setExpectedActionKeys((current) => toggleMultiChoice(current, item.actionKey))}>
+              {item.label}
+            </button>
+          ))}
+        </div>
+        {selectedExpectedActions.some((item) => item.requiresText) && (
+          <input
+            className="inline-text-input"
+            value={expectedActionOtherText}
+            placeholder="请补充希望如何处理"
+            onChange={(event) => setExpectedActionOtherText(event.target.value)}
+          />
+        )}
+      </SectionCard>
+      {modules.length === 0 && <Card className="quiet-card">匿名反馈分类尚未配置，请先到后台配置维护台补充。</Card>}
+      {done && <Card className="success-card">匿名反馈已进入反馈池，后台配置维护台可查看处理状态。</Card>}
+      <div className="fixed-actions">
+        <ActionButton tone="secondary" hideIcon onClick={() => window.history.back()}>
+          取消
+        </ActionButton>
+        <ActionButton hideIcon onClick={submit}>提交反馈</ActionButton>
+      </div>
+    </>
+  );
+}
+
+export function ApplyModal({
+  title,
+  items,
+  note,
+  onClose,
+  onConfirm,
+}: {
+  title: string;
+  items: PermissionItem[];
+  note: string;
+  onClose: () => void;
+  onConfirm: (selectedIds: string[]) => void | Promise<void>;
+}) {
+  const [selectedIds, setSelectedIds] = useState(() => createInitialApplySelection(items.map((item) => item.id)));
+  const selectedCount = selectedIds.size;
+  return (
+    <Modal title={title} onClose={onClose}>
+      {items.length > 0 ? (
+        <div className="modal-list">
+          {items.map((item) => {
+            const selected = selectedIds.has(item.id);
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={`selectable-permission-row ${selected ? 'selected' : ''}`}
+                aria-pressed={selected}
+                onClick={() => setSelectedIds((current) => toggleApplySelection(current, item.id))}
+              >
+                <span>
+                  <strong>{item.name}</strong>
+                  <small>{item.permissionType === 'optional' && item.sensitive ? '默认不选中，需确认后申请' : '将进入进行中并生成回访任务'}</small>
+                </span>
+                <em>{selected ? '勾选' : '未选'}</em>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <Card className="quiet-card inner">当前没有未申请权限，已申请过的权限不会重复展示。</Card>
+      )}
+      <Card className="notice-card inner">{note}</Card>
+      <div className="dual-actions">
+        <ActionButton tone="secondary" hideIcon onClick={onClose}>
+          取消
+        </ActionButton>
+        <ActionButton hideIcon disabled={items.length === 0} onClick={() => onConfirm([...selectedIds])}>
+          {selectedCount > 0 ? '确认申请' : '确认取消'}
+        </ActionButton>
+      </div>
+    </Modal>
+  );
+}

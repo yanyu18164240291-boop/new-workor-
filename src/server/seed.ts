@@ -1,0 +1,651 @@
+import type { SQLInputValue } from 'node:sqlite';
+
+import type { Database } from './db.ts';
+
+const seedTime = '2026-06-24T01:00:00.000Z';
+
+const tables = [
+  'manager_feedback_actions',
+  'weekly_feedback_answers',
+  'weekly_feedback_options',
+  'weekly_feedback_questions',
+  'weekly_feedbacks',
+  'anonymous_feedback_details',
+  'anonymous_feedback_expected_actions',
+  'anonymous_feedback_problem_types',
+  'anonymous_feedback_modules',
+  'anonymous_feedbacks',
+  'follow_up_message_cards',
+  'follow_up_tasks',
+  'permission_progress',
+  'newcomer_task_states',
+  'd1_guide_configs',
+  'newcomers',
+  'role_permission_items',
+  'permission_items',
+  'roles',
+  'knowledge_base_docs',
+];
+
+function insert(db: Database, table: string, row: Record<string, unknown>): void {
+  const keys = Object.keys(row);
+  const placeholders = keys.map(() => '?').join(', ');
+  db.prepare(`INSERT INTO ${table} (${keys.join(', ')}) VALUES (${placeholders})`).run(...keys.map((key) => row[key] as SQLInputValue));
+}
+
+function addHours(iso: string, hours: number): string {
+  return new Date(new Date(iso).getTime() + hours * 60 * 60 * 1000).toISOString();
+}
+
+export function seedD1GuideConfig(db: Database): void {
+  insert(db, 'd1_guide_configs', {
+    actionKey: 'join_group',
+    title: '加入飞书部门群',
+    description: '进入新人群，导师会在群内同步安排。',
+    targetGroupName: '协同办公部门新人群',
+    applyUrl: 'mock-feishu://chat/cooffice-newcomer',
+    sendToEmployeeName: '刘长省',
+    sendToEmployeeContact: 'liuchangsheng@haina.example',
+    documentTitle: null,
+    documentUrl: null,
+    routePath: null,
+    label: '加入飞书部门群',
+    ownerName: '协同办公部门',
+    enabled: 1,
+    sortOrder: 1,
+    createdAt: seedTime,
+    updatedAt: seedTime,
+  });
+
+  insert(db, 'd1_guide_configs', {
+    actionKey: 'employee_guide',
+    title: '查看员工指南册',
+    description: '办公规范、门禁、餐饮、常见问题。',
+    targetGroupName: null,
+    applyUrl: null,
+    sendToEmployeeName: null,
+    sendToEmployeeContact: null,
+    documentTitle: '协同办公部门员工指南册',
+    documentUrl: 'mock-feishu://doc/cooffice-employee-guide',
+    routePath: null,
+    label: '查看员工指南册',
+    ownerName: '协同办公内容 Owner',
+    enabled: 1,
+    sortOrder: 2,
+    createdAt: seedTime,
+    updatedAt: seedTime,
+  });
+
+  insert(db, 'd1_guide_configs', {
+    actionKey: 'permission_package',
+    title: '申请岗位权限',
+    description: '优先完成 OA、邮箱、AI 工具。',
+    targetGroupName: null,
+    applyUrl: null,
+    sendToEmployeeName: null,
+    sendToEmployeeContact: null,
+    documentTitle: null,
+    documentUrl: null,
+    routePath: '/permissions',
+    label: '申请岗位权限',
+    ownerName: '协同办公权限 Owner',
+    enabled: 1,
+    sortOrder: 3,
+    createdAt: seedTime,
+    updatedAt: seedTime,
+  });
+}
+
+export function seedJoinFeishuOrgTasks(db: Database): void {
+  const newcomers = db.prepare('SELECT id, createdAt FROM newcomers ORDER BY createdAt').all() as Array<{ id: string; createdAt?: string }>;
+  for (const newcomer of newcomers) {
+    const existing = db
+      .prepare('SELECT id FROM newcomer_task_states WHERE newcomerId = ? AND taskKey = ?')
+      .get(newcomer.id, 'join_feishu_org');
+    if (existing) continue;
+    const completedAt = newcomer.id === 'newcomer-yanyu' ? '2026-06-19T02:00:00.000Z' : (newcomer.createdAt ?? seedTime);
+    insert(db, 'newcomer_task_states', {
+      id: `task-join-feishu-org-${newcomer.id}`,
+      newcomerId: newcomer.id,
+      taskKey: 'join_feishu_org',
+      taskName: '加入飞书组织群',
+      status: 'completed',
+      completedAt,
+      createdAt: seedTime,
+      updatedAt: seedTime,
+    });
+  }
+}
+
+export function seedSubmittedPermissionFollowUps(db: Database): void {
+  const pendingRows = db.prepare("SELECT id, lastActionAt, createdAt FROM permission_progress WHERE status = 'pending'").all() as Array<{
+    id: string;
+    lastActionAt?: string | null;
+    createdAt?: string | null;
+  }>;
+  for (const row of pendingRows) {
+    const submittedAt = row.lastActionAt ?? row.createdAt ?? seedTime;
+    db.prepare('UPDATE permission_progress SET status = ?, submittedAt = COALESCE(submittedAt, ?), updatedAt = ? WHERE id = ?').run(
+      'submitted',
+      submittedAt,
+      seedTime,
+      row.id,
+    );
+  }
+
+  const submittedRows = db
+    .prepare(
+      `SELECT pp.id, pp.newcomerId, pp.submittedAt, pp.lastActionAt, pp.createdAt, pi.ownerName
+       FROM permission_progress pp
+       JOIN permission_items pi ON pi.id = pp.permissionItemId
+       WHERE pp.status = 'submitted'
+       ORDER BY pp.createdAt`,
+    )
+    .all() as Array<{
+    id: string;
+    newcomerId: string;
+    submittedAt?: string | null;
+    lastActionAt?: string | null;
+    createdAt?: string | null;
+    ownerName: string;
+  }>;
+
+  for (const row of submittedRows) {
+    const existing = db.prepare('SELECT id FROM follow_up_tasks WHERE permissionProgressId = ?').get(row.id);
+    if (existing) continue;
+    const submittedAt = row.submittedAt ?? row.lastActionAt ?? row.createdAt ?? seedTime;
+    insert(db, 'follow_up_tasks', {
+      id: `follow-up-${row.id}`,
+      newcomerId: row.newcomerId,
+      permissionProgressId: row.id,
+      submittedAt,
+      followUpAt: addHours(submittedAt, 4),
+      status: 'pending',
+      ownerName: row.ownerName,
+      createdAt: seedTime,
+      updatedAt: seedTime,
+    });
+  }
+}
+
+export function seedWeeklyFeedbackConfig(db: Database): void {
+  const existing = db.prepare('SELECT COUNT(*) AS total FROM weekly_feedback_questions').get() as { total: number };
+  if (existing.total > 0) return;
+
+  const questions = [
+    {
+      id: 'wfq-overall',
+      questionKey: 'overall_feeling',
+      title: '首周整体感受',
+      description: '选择最接近你当前状态的一项。',
+      inputType: 'single',
+      required: 1,
+      maxLength: null,
+      sortOrder: 1,
+      options: [
+        ['overall-adapting', 'adapting', '适应中'],
+        ['overall-smooth', 'smooth', '整体顺利'],
+        ['overall-pressure', 'pressure', '有些压力'],
+      ],
+    },
+    {
+      id: 'wfq-blockers',
+      questionKey: 'blockers',
+      title: '目前主要卡点（可多选）',
+      description: '帮助管理者判断哪里需要支持。',
+      inputType: 'multi',
+      required: 1,
+      maxLength: null,
+      sortOrder: 2,
+      options: [
+        ['blocker-permission', 'permission', '剩余权限开通'],
+        ['blocker-background', 'background', '业务背景理解'],
+        ['blocker-tools', 'tools', '工具使用'],
+        ['blocker-rhythm', 'rhythm', '任务节奏'],
+        ['blocker-none', 'none', '暂无明显卡点'],
+      ],
+    },
+    {
+      id: 'wfq-support',
+      questionKey: 'support_needed',
+      title: '希望管理者提供的支持（可多选）',
+      description: '选择你希望管理者优先提供的支持。',
+      inputType: 'multi',
+      required: 1,
+      maxLength: null,
+      sortOrder: 3,
+      options: [
+        ['support-permission', 'permission', '帮助跟进权限'],
+        ['support-business', 'business', '补充业务介绍'],
+        ['support-task', 'task', '安排轻量任务'],
+        ['support-priority', 'priority', '明确优先级'],
+        ['support-none', 'none', '暂时不需要'],
+      ],
+    },
+    {
+      id: 'wfq-message',
+      questionKey: 'message',
+      title: '新人想说的话',
+      description: '选填，最多 500 字。',
+      inputType: 'text',
+      required: 0,
+      maxLength: 500,
+      sortOrder: 4,
+      options: [],
+    },
+  ];
+
+  for (const question of questions) {
+    insert(db, 'weekly_feedback_questions', {
+      id: question.id,
+      questionKey: question.questionKey,
+      title: question.title,
+      description: question.description,
+      inputType: question.inputType,
+      required: question.required,
+      maxLength: question.maxLength,
+      enabled: 1,
+      sortOrder: question.sortOrder,
+      createdAt: seedTime,
+      updatedAt: seedTime,
+    });
+    question.options.forEach((option, index) => {
+      insert(db, 'weekly_feedback_options', {
+        id: option[0],
+        questionId: question.id,
+        optionKey: option[1],
+        label: option[2],
+        enabled: 1,
+        sortOrder: index + 1,
+        createdAt: seedTime,
+        updatedAt: seedTime,
+      });
+    });
+  }
+}
+
+export function seedAnonymousFeedbackConfig(db: Database): void {
+  const existing = db.prepare('SELECT COUNT(*) AS total FROM anonymous_feedback_modules').get() as { total: number };
+  if (existing.total > 0) return;
+
+  const modules = [
+    {
+      id: 'afm-knowledge',
+      moduleKey: 'knowledge',
+      label: '知识问答',
+      problemTypes: [
+        ['not_found', '没查到答案', 0],
+        ['inaccurate', '答案不准确', 0],
+        ['too_generic', '答案太泛，不能执行', 0],
+        ['missing_source_owner', '来源/Owner缺失', 0],
+        ['other', '其他', 1],
+      ],
+      expectedActions: [
+        ['add_answer', '补充答案', 0],
+        ['fix_answer', '修正答案', 0],
+        ['add_source_owner', '补充来源/Owner', 0],
+        ['transfer_content_owner', '转内容Owner核对', 0],
+        ['review_only', '仅记录复盘', 0],
+      ],
+    },
+    {
+      id: 'afm-d1-guide',
+      moduleKey: 'd1_guide',
+      label: 'D1引导',
+      problemTypes: [
+        ['today_unclear', '今日事项不清楚', 0],
+        ['order_unreasonable', '顺序不合理', 0],
+        ['missing_content', '内容缺失', 0],
+        ['process_mismatch', '和实际流程不一致', 0],
+        ['other', '其他', 1],
+      ],
+      expectedActions: [
+        ['add_d1_task', '补充D1事项', 0],
+        ['adjust_order', '调整事项顺序', 0],
+        ['fix_copy', '修正文案说明', 0],
+        ['transfer_content_owner', '转内容Owner核对', 0],
+        ['review_only', '仅记录复盘', 0],
+      ],
+    },
+    {
+      id: 'afm-permission',
+      moduleKey: 'permission',
+      label: '权限申请',
+      problemTypes: [
+        ['entry_missing', '不知道从哪里申请', 0],
+        ['form_unclear', '不知道怎么填写', 0],
+        ['owner_unclear', '审批人/Owner不清楚', 0],
+        ['no_response_after_submit', '提交后没人处理', 0],
+        ['other', '其他', 1],
+      ],
+      expectedActions: [
+        ['add_entry', '补充申请入口', 0],
+        ['fix_template', '修正申请模板', 0],
+        ['add_owner', '补充审批人/Owner', 0],
+        ['transfer_permission_owner', '转权限Owner核对', 0],
+        ['review_only', '仅记录复盘', 0],
+      ],
+    },
+    {
+      id: 'afm-follow-up',
+      moduleKey: 'follow_up',
+      label: '4小时回访',
+      problemTypes: [
+        ['no_reminder', '没收到提醒', 0],
+        ['bad_timing', '提醒时间不合理', 0],
+        ['options_insufficient', '回访选项不够用', 0],
+        ['suggestion_invalid', '未完成处理建议无效', 0],
+        ['other', '其他', 1],
+      ],
+      expectedActions: [
+        ['resend_reminder', '补充提醒触达', 0],
+        ['adjust_timing', '调整提醒时间', 0],
+        ['add_followup_options', '补充回访选项', 0],
+        ['transfer_process_owner', '转流程Owner核对', 0],
+        ['review_only', '仅记录复盘', 0],
+      ],
+    },
+  ];
+
+  modules.forEach((module, moduleIndex) => {
+    insert(db, 'anonymous_feedback_modules', {
+      id: module.id,
+      moduleKey: module.moduleKey,
+      label: module.label,
+      enabled: 1,
+      sortOrder: moduleIndex + 1,
+      createdAt: seedTime,
+      updatedAt: seedTime,
+    });
+    module.problemTypes.forEach((item, index) => {
+      insert(db, 'anonymous_feedback_problem_types', {
+        id: `afpt-${module.moduleKey}-${item[0]}`,
+        moduleId: module.id,
+        typeKey: item[0],
+        label: item[1],
+        requiresText: item[2],
+        enabled: 1,
+        sortOrder: index + 1,
+        createdAt: seedTime,
+        updatedAt: seedTime,
+      });
+    });
+    module.expectedActions.forEach((item, index) => {
+      insert(db, 'anonymous_feedback_expected_actions', {
+        id: `afea-${module.moduleKey}-${item[0]}`,
+        moduleId: module.id,
+        actionKey: item[0],
+        label: item[1],
+        requiresText: item[2],
+        enabled: 1,
+        sortOrder: index + 1,
+        createdAt: seedTime,
+        updatedAt: seedTime,
+      });
+    });
+  });
+}
+
+export function seedDatabase(db: Database): void {
+  db.exec('PRAGMA foreign_keys = OFF;');
+  for (const table of tables) {
+    db.exec(`DELETE FROM ${table};`);
+  }
+  db.exec('PRAGMA foreign_keys = ON;');
+
+  insert(db, 'roles', {
+    id: 'role-product-intern',
+    name: '协同办公产品实习生',
+    department: '协同办公部门',
+    description: '面向协同办公产品方向实习生的 D1 权限与知识包。',
+    createdAt: seedTime,
+    updatedAt: seedTime,
+  });
+
+  const permissions = [
+    {
+      id: 'perm-oa',
+      name: 'OA 系统',
+      category: '办公基础',
+      permissionType: 'required',
+      sensitive: 0,
+      ownerName: '刘长省',
+      ownerContact: 'IT 支持群',
+      applyUrl: 'mock-feishu://approval/oa',
+      reasonTemplate: '新人入职 D1 需要 OA 系统用于查看制度与提交基础流程。',
+      approverName: '刘长省（协同办公组）',
+      commonWaitingReasons: JSON.stringify(['审批人在会议中', '账号同步存在 10-20 分钟延迟']),
+      enabled: 1,
+      createdAt: seedTime,
+      updatedAt: seedTime,
+    },
+    {
+      id: 'perm-mail',
+      name: 'Mail 海底捞邮箱',
+      category: '办公基础',
+      permissionType: 'required',
+      sensitive: 0,
+      ownerName: 'IT 支持群',
+      ownerContact: 'it-help@haina.example',
+      applyUrl: 'mock-feishu://approval/mail',
+      reasonTemplate: '新人入职需要邮箱接收会议、文档和系统通知。',
+      approverName: 'IT 服务台',
+      commonWaitingReasons: JSON.stringify(['邮箱账号创建排队中', '需要确认手机号绑定']),
+      enabled: 1,
+      createdAt: seedTime,
+      updatedAt: seedTime,
+    },
+    {
+      id: 'perm-bpm',
+      name: 'BPM 系统',
+      category: '流程工具',
+      permissionType: 'optional',
+      sensitive: 0,
+      ownerName: 'BPM Owner',
+      ownerContact: 'bpm-owner@haina.example',
+      applyUrl: 'mock-feishu://approval/bpm',
+      reasonTemplate: '产品实习生需要查看流程样例并跟进试点需求。',
+      approverName: '流程平台 Owner',
+      commonWaitingReasons: JSON.stringify(['Owner 需确认项目参与范围']),
+      enabled: 1,
+      createdAt: seedTime,
+      updatedAt: seedTime,
+    },
+    {
+      id: 'perm-chatgpt',
+      name: 'ChatGPT 账号',
+      category: 'AI 工具',
+      permissionType: 'optional',
+      sensitive: 0,
+      ownerName: '刘长省',
+      ownerContact: 'IT 支持群',
+      applyUrl: 'approval.haina-ai.com/v1/tools/chatgpt-access',
+      reasonTemplate: '本人为协同办公组新入职产品实习生，需申请 ChatGPT 账号用于 PRD 编写、资料整理、测试用例生成，提升办公效率。',
+      approverName: '刘长省（协同办公组）',
+      commonWaitingReasons: JSON.stringify(['需确认业务用途', '许可证名额每周统一处理']),
+      enabled: 1,
+      createdAt: seedTime,
+      updatedAt: seedTime,
+    },
+    {
+      id: 'perm-qoderwork',
+      name: 'QoderWork 账号',
+      category: '研发协作',
+      permissionType: 'optional',
+      sensitive: 0,
+      ownerName: 'QoderWork 对接人',
+      ownerContact: 'qoderwork-owner@haina.example',
+      applyUrl: 'mock-feishu://approval/qoderwork',
+      reasonTemplate: '用于查看 H5 原型任务、需求文档和技术方案。',
+      approverName: '研发协作平台 Owner',
+      commonWaitingReasons: JSON.stringify(['项目空间管理员需拉入成员']),
+      enabled: 1,
+      createdAt: seedTime,
+      updatedAt: seedTime,
+    },
+  ];
+
+  for (const permission of permissions) {
+    insert(db, 'permission_items', permission);
+  }
+
+  permissions.forEach((permission, index) => {
+    insert(db, 'role_permission_items', {
+      id: `rpi-${permission.id}`,
+      roleId: 'role-product-intern',
+      permissionItemId: permission.id,
+      sortOrder: index + 1,
+      createdAt: seedTime,
+      updatedAt: seedTime,
+    });
+  });
+
+  const newcomers = [
+    {
+      id: 'newcomer-yanyu',
+      name: '燕余',
+      roleId: 'role-product-intern',
+      department: '协同办公部门',
+      stage: 'D7',
+      managerName: '刘长省',
+      mentorName: '刘长省',
+      status: 'onboarding',
+      d1GuideCompleted: 0,
+      permissionPackageViewed: 1,
+      weeklyFeedbackSubmitted: 1,
+      managerViewedFeedback: 1,
+      createdAt: seedTime,
+      updatedAt: seedTime,
+    },
+    {
+      id: 'newcomer-cuilingfei',
+      name: '崔令飞',
+      roleId: 'role-product-intern',
+      department: '协同办公部门',
+      stage: 'W1',
+      managerName: '刘长省',
+      mentorName: '刘长省',
+      status: 'onboarding',
+      d1GuideCompleted: 1,
+      permissionPackageViewed: 1,
+      weeklyFeedbackSubmitted: 0,
+      managerViewedFeedback: 0,
+      createdAt: seedTime,
+      updatedAt: seedTime,
+    },
+  ];
+
+  for (const newcomer of newcomers) {
+    insert(db, 'newcomers', newcomer);
+    insert(db, 'newcomer_task_states', {
+      id: `task-d1-${newcomer.id}`,
+      newcomerId: newcomer.id,
+      taskKey: 'd1_guide',
+      taskName: 'D1 到达引导包',
+      status: newcomer.d1GuideCompleted ? 'completed' : 'pending',
+      completedAt: newcomer.d1GuideCompleted ? '2026-06-24T03:30:00.000Z' : null,
+      createdAt: seedTime,
+      updatedAt: seedTime,
+    });
+  }
+
+  seedJoinFeishuOrgTasks(db);
+  seedSubmittedPermissionFollowUps(db);
+  seedD1GuideConfig(db);
+  seedWeeklyFeedbackConfig(db);
+  seedAnonymousFeedbackConfig(db);
+
+  insert(db, 'permission_progress', {
+    id: 'progress-yanyu-oa',
+    newcomerId: 'newcomer-yanyu',
+    permissionItemId: 'perm-oa',
+    status: 'submitted',
+    submittedAt: '2026-06-24T02:00:00.000Z',
+    completedAt: null,
+    lastActionAt: '2026-06-24T02:00:00.000Z',
+    createdAt: seedTime,
+    updatedAt: seedTime,
+  });
+
+  insert(db, 'follow_up_tasks', {
+    id: 'follow-up-yanyu-oa',
+    newcomerId: 'newcomer-yanyu',
+    permissionProgressId: 'progress-yanyu-oa',
+    submittedAt: '2026-06-24T02:00:00.000Z',
+    followUpAt: '2026-06-24T06:00:00.000Z',
+    status: 'pending',
+    ownerName: '王敏',
+    createdAt: seedTime,
+    updatedAt: seedTime,
+  });
+
+  insert(db, 'anonymous_feedbacks', {
+    id: 'anon-001',
+    feedbackNo: 'AF-20260624-001',
+    type: '流程建议',
+    module: 'D1 到达引导',
+    description: '权限申请卡片里可以提前说明审批等待原因。',
+    expectedAction: '补充常见等待说明',
+    isAnonymous: 1,
+    contactName: null,
+    contactInfo: null,
+    submittedByNewcomerId: 'newcomer-yanyu',
+    submittedAt: '2026-06-24T04:00:00.000Z',
+    ownerName: '产品运营',
+    status: 'open',
+    result: '待纳入复盘',
+    includedInReview: 1,
+    createdAt: seedTime,
+    updatedAt: seedTime,
+  });
+
+  insert(db, 'weekly_feedbacks', {
+    id: 'weekly-yanyu',
+    newcomerId: 'newcomer-yanyu',
+    overallFeeling: '整体清晰，权限等待有一点不确定',
+    blockers: 'OA 已提交，邮箱还在等待开通',
+    supportNeeded: '希望 mentor 帮忙确认邮箱进度',
+    message: '第一周对业务和工具链有基本理解，感谢团队支持。',
+    visibleToManager: 1,
+    lifecycle: 'submitted',
+    submittedAt: '2026-06-24T05:00:00.000Z',
+    createdAt: seedTime,
+    updatedAt: seedTime,
+  });
+
+  insert(db, 'manager_feedback_actions', {
+    id: 'manager-action-yanyu',
+    weeklyFeedbackId: 'weekly-yanyu',
+    managerName: '刘长省',
+    managerViewed: 1,
+    managerViewedAt: '2026-06-24T05:30:00.000Z',
+    managerActionStatus: 'pending_follow_up',
+    actionNote: '已看到反馈，待确认邮箱权限',
+    createdAt: seedTime,
+    updatedAt: seedTime,
+  });
+
+  const docs = [
+    ['kb-001', 'D1 到达引导清单', '入职流程', '协同办公产品实习生', 'D1', 'mock-drive://d1-guide', 'HRBP', 'enabled', 'parsed', 'simulated'],
+    ['kb-002', '协同办公产品常用系统说明', '系统权限', '协同办公产品实习生', 'D1-D3', 'mock-drive://systems', '产品运营', 'enabled', 'parsed', 'simulated'],
+    ['kb-003', '首周反馈填写说明', '反馈机制', '协同办公产品实习生', 'W1', 'mock-drive://weekly-feedback', '组织发展', 'enabled', 'parsed', 'simulated'],
+  ];
+
+  docs.forEach((doc, index) => {
+    insert(db, 'knowledge_base_docs', {
+      id: doc[0],
+      title: doc[1],
+      category: doc[2],
+      applicableRole: doc[3],
+      applicableStage: doc[4],
+      sourceUrl: doc[5],
+      ownerName: doc[6],
+      status: doc[7],
+      parseStatus: doc[8],
+      vectorStatus: doc[9],
+      hitCount: 8 - index * 2,
+      updatedAt: seedTime,
+      createdAt: seedTime,
+    });
+  });
+}

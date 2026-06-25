@@ -1,0 +1,4 @@
+﻿interface:
+  display_name: "海纳入职 H5 MVP 开发"
+  short_description: "按最终 PRD 开发带 P0 真实后端的海纳 AI 入职 Bot H5 MVP"
+  default_prompt: "请使用本项目 skill 和 docs/specs 阶段规格推进海纳 AI 入职 Bot H5 MVP 开发，P0 数据必须接真实后端和数据库。"
