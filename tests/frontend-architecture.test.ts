@@ -36,6 +36,14 @@ describe('frontend architecture boundaries', () => {
     assert.equal(existsSync('src/server/routes/adminRoutes.ts'), true);
     assert.equal(existsSync('src/server/routes/managerRoutes.ts'), true);
     assert.equal(existsSync('src/server/routes/reviewRoutes.ts'), true);
+    assert.equal(existsSync('src/server/services/newcomerService.ts'), true);
+    assert.equal(existsSync('src/server/services/adminService.ts'), true);
+    assert.equal(existsSync('src/server/services/managerService.ts'), true);
+    assert.equal(existsSync('src/server/services/reviewService.ts'), true);
+    assert.equal(existsSync('src/server/repositories/configRepository.ts'), true);
+    assert.equal(existsSync('src/server/repositories/feedbackRepository.ts'), true);
+    assert.equal(existsSync('src/server/repositories/metricsRepository.ts'), true);
+    assert.equal(existsSync('src/server/repositories/permissionRepository.ts'), true);
 
     const serverApp = readFileSync('src/server/app.ts', 'utf8');
     assert.equal(serverApp.includes('CREATE TABLE'), false);
@@ -52,5 +60,25 @@ describe('frontend architecture boundaries', () => {
     assert.match(apiRoutes, /adminRoutes/);
     assert.match(apiRoutes, /managerRoutes/);
     assert.match(apiRoutes, /reviewRoutes/);
+
+    const routeKit = readFileSync('src/server/routeKit.ts', 'utf8');
+    assert.equal(routeKit.includes('db.prepare'), false);
+    assert.equal(routeKit.includes('SELECT * FROM'), false);
+    assert.equal(routeKit.includes('INSERT INTO'), false);
+    assert.equal(routeKit.includes('UPDATE '), false);
+
+    for (const routeFile of [
+      'src/server/routes/newcomerRoutes.ts',
+      'src/server/routes/adminRoutes.ts',
+      'src/server/routes/managerRoutes.ts',
+      'src/server/routes/reviewRoutes.ts',
+    ]) {
+      const routeSource = readFileSync(routeFile, 'utf8');
+      assert.equal(routeSource.includes('db.prepare'), false, `${routeFile} should delegate SQL work to services`);
+      assert.equal(routeSource.includes('SELECT * FROM'), false, `${routeFile} should not contain read SQL`);
+      assert.equal(routeSource.includes('INSERT INTO'), false, `${routeFile} should not contain insert SQL`);
+      assert.equal(routeSource.includes('UPDATE '), false, `${routeFile} should not contain update SQL`);
+      assert.match(routeSource, /handler: [a-zA-Z]/, `${routeFile} should map patterns to named service handlers`);
+    }
   });
 });
