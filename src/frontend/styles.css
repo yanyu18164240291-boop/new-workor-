@@ -19,7 +19,8 @@ body {
 
 button,
 input,
-textarea {
+textarea,
+select {
   font: inherit;
 }
 
@@ -1086,7 +1087,9 @@ button {
 }
 
 .config-row-head input,
-.config-option-grid input {
+.config-option-grid input,
+.config-row-head select,
+.config-option-grid select {
   min-width: 0;
   height: 34px;
   border: 1px solid #dce6f4;
@@ -1097,6 +1100,22 @@ button {
   outline: none;
   font-size: 12px;
   font-weight: 800;
+}
+
+.admin-check-row {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.admin-check-row input {
+  width: 14px;
+  height: 14px;
+  accent-color: #3370ff;
 }
 
 .config-option-grid {

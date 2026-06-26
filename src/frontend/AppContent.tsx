@@ -50,7 +50,7 @@ export function AppContent({
     case '08':
       return <AdminPage data={data} search={search} toast={toast} reload={reload} />;
     case '09':
-      return <ReviewPage data={data} navigate={navigate} />;
+      return <ReviewPage data={data} navigate={navigate} toast={toast} />;
     case '10':
       return <ManagerPage data={data} navigate={navigate} toast={toast} />;
     case '11':

@@ -3,6 +3,7 @@ export type Role = {
   name: string;
   department: string;
   description: string;
+  updatedBy?: string;
 };
 
 export type PermissionItem = {
@@ -18,6 +19,15 @@ export type PermissionItem = {
   approverName: string;
   commonWaitingReasons: string[];
   enabled: boolean;
+  updatedBy?: string;
+};
+
+export type RolePermissionItem = {
+  id: string;
+  roleId: string;
+  permissionItemId: string;
+  sortOrder: number;
+  updatedBy?: string;
 };
 
 export type Newcomer = {
@@ -66,7 +76,7 @@ export type FollowUpTask = {
 export type AdminConfig = {
   roles: Role[];
   permissionItems: PermissionItem[];
-  rolePermissionItems: unknown[];
+  rolePermissionItems: RolePermissionItem[];
   d1GuideConfig?: D1GuideConfig;
   anonymousFeedbackConfig?: AnonymousFeedbackConfig;
   anonymousFeedbacks: AnonymousFeedback[];
@@ -79,6 +89,13 @@ export type AnonymousFeedback = {
   module: string;
   description: string;
   expectedAction?: string;
+  isAnonymous: boolean;
+  ownerName?: string;
+  result?: string;
+  handlerName?: string;
+  handledAt?: string;
+  resolutionNote?: string;
+  updatedBy?: string;
   status: string;
   includedInReview: boolean;
   detail?: {
@@ -98,6 +115,7 @@ export type AnonymousFeedbackProblemType = {
   requiresText: boolean;
   enabled: boolean;
   sortOrder: number;
+  updatedBy?: string;
 };
 
 export type AnonymousFeedbackExpectedAction = {
@@ -108,6 +126,7 @@ export type AnonymousFeedbackExpectedAction = {
   requiresText: boolean;
   enabled: boolean;
   sortOrder: number;
+  updatedBy?: string;
 };
 
 export type AnonymousFeedbackModule = {
@@ -116,6 +135,7 @@ export type AnonymousFeedbackModule = {
   label: string;
   enabled: boolean;
   sortOrder: number;
+  updatedBy?: string;
   problemTypes: AnonymousFeedbackProblemType[];
   expectedActions: AnonymousFeedbackExpectedAction[];
 };
@@ -140,10 +160,12 @@ export type KnowledgeDoc = {
   applicableRole: string;
   applicableStage: string;
   ownerName: string;
+  sourceUrl?: string;
   status: string;
   parseStatus: string;
   vectorStatus: string;
   hitCount: number;
+  updatedBy?: string;
 };
 
 export type D1GuideConfigItem = {
@@ -160,6 +182,7 @@ export type D1GuideConfigItem = {
   label: string;
   ownerName: string;
   enabled: boolean;
+  updatedBy?: string;
 };
 
 export type D1GuideConfig = {
@@ -191,6 +214,7 @@ export type WeeklyFeedbackOption = {
   label: string;
   enabled: boolean;
   sortOrder: number;
+  updatedBy?: string;
 };
 
 export type WeeklyFeedbackQuestion = {
@@ -203,6 +227,7 @@ export type WeeklyFeedbackQuestion = {
   maxLength?: number | null;
   enabled: boolean;
   sortOrder: number;
+  updatedBy?: string;
   options: WeeklyFeedbackOption[];
 };
 
@@ -322,6 +347,50 @@ export const api = {
     sourceUrl?: string;
     ownerName: string;
   }) => apiSend<KnowledgeDoc>('/api/admin/knowledge-base-docs', 'POST', body),
+  updateRole: (id: string, body: { name?: string; department?: string; description?: string }) =>
+    apiSend<Role>(`/api/admin/roles/${id}`, 'PATCH', body),
+  createPermissionItem: (body: {
+    name: string;
+    category: string;
+    permissionType: 'required' | 'optional';
+    ownerName: string;
+    ownerContact: string;
+    applyUrl: string;
+    reasonTemplate: string;
+    approverName: string;
+    commonWaitingReasons: string[];
+    enabled?: boolean;
+  }) => apiSend<PermissionItem>('/api/admin/permission-items', 'POST', body),
+  createRolePermissionItem: (body: { roleId: string; permissionItemId: string; sortOrder?: number }) =>
+    apiSend<RolePermissionItem>('/api/admin/role-permission-items', 'POST', body),
+  updatePermissionItem: (
+    id: string,
+    body: Partial<
+      Pick<
+        PermissionItem,
+        | 'name'
+        | 'category'
+        | 'permissionType'
+        | 'sensitive'
+        | 'ownerName'
+        | 'ownerContact'
+        | 'applyUrl'
+        | 'reasonTemplate'
+        | 'approverName'
+        | 'commonWaitingReasons'
+        | 'enabled'
+      >
+    >,
+  ) => apiSend<PermissionItem>(`/api/admin/permission-items/${id}`, 'PATCH', body),
+  updateD1GuideConfig: (items: Array<Partial<D1GuideConfigItem> & { actionKey: string }>) =>
+    apiSend<D1GuideConfig>('/api/admin/d1-guide-config', 'PATCH', { items }),
+  updateAnonymousFeedbackConfig: (body: {
+    modules?: Array<{ id: string; label?: string; enabled?: boolean }>;
+    problemTypes?: Array<{ id: string; moduleId?: string; typeKey?: string; label?: string; requiresText?: boolean; enabled?: boolean; sortOrder?: number }>;
+    expectedActions?: Array<{ id: string; moduleId?: string; actionKey?: string; label?: string; requiresText?: boolean; enabled?: boolean; sortOrder?: number }>;
+  }) => apiSend<AnonymousFeedbackConfig>('/api/admin/anonymous-feedback-config', 'PATCH', body),
+  updateAnonymousFeedback: (id: string, body: { status?: string; ownerName?: string; result?: string; handlerName?: string; resolutionNote?: string; includedInReview?: boolean }) =>
+    apiSend<AnonymousFeedback>(`/api/admin/anonymous-feedbacks/${id}`, 'PATCH', body),
   getReviewMetrics: () => apiGet<ReviewMetrics>('/api/review/metrics'),
   getWeeklyFeedbackConfig: () => apiGet<WeeklyFeedbackConfig>('/api/weekly-feedback-config'),
   getWeeklyFeedbackAnalysis: () => apiGet<WeeklyFeedbackAnalysis>('/api/admin/weekly-feedback-analysis'),

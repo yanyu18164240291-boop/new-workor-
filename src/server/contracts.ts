@@ -9,7 +9,17 @@ export type TaskStatus = (typeof taskStatuses)[number];
 export const followUpStatuses = ['pending', 'completed', 'closed'] as const;
 export type FollowUpStatus = (typeof followUpStatuses)[number];
 
-export const anonymousFeedbackStatuses = ['open', 'in_progress', 'resolved', 'archived'] as const;
+export const anonymousFeedbackStatuses = [
+  'open',
+  'pending',
+  'in_progress',
+  'knowledge_added',
+  'permission_entry_fixed',
+  'deferred',
+  'resolved',
+  'archived',
+  'closed',
+] as const;
 export type AnonymousFeedbackStatus = (typeof anonymousFeedbackStatuses)[number];
 
 export const managerActionStatuses = ['unread', 'pending_follow_up', 'viewed', 'followed_up', 'closed'] as const;

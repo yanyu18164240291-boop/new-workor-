@@ -5,10 +5,14 @@ import {
   listKnowledgeBaseDocs,
   getWeeklyFeedbackAnalysis,
   createRole,
+  updateRole,
+  createPermissionItem,
   createRolePermissionItem,
   createKnowledgeBaseDoc,
   updatePermissionItem,
   updateWeeklyFeedbackConfig,
+  updateD1GuideConfig,
+  updateAnonymousFeedbackConfig,
   updateAnonymousFeedback,
   acceptAdminConfigPatch
 } from '../services/adminService.ts';
@@ -38,6 +42,10 @@ export const adminRoutes: Record<string, RouteMatch[]> = {
       handler: createRole,
     },
     {
+      pattern: /^\/api\/admin\/permission-items$/,
+      handler: createPermissionItem,
+    },
+    {
       pattern: /^\/api\/admin\/role-permission-items$/,
       handler: createRolePermissionItem,
     },
@@ -48,12 +56,24 @@ export const adminRoutes: Record<string, RouteMatch[]> = {
   ],
   PATCH: [
     {
+      pattern: /^\/api\/admin\/roles\/([^/]+)$/,
+      handler: updateRole,
+    },
+    {
       pattern: /^\/api\/admin\/permission-items\/([^/]+)$/,
       handler: updatePermissionItem,
     },
     {
+      pattern: /^\/api\/admin\/d1-guide-config$/,
+      handler: updateD1GuideConfig,
+    },
+    {
       pattern: /^\/api\/admin\/weekly-feedback-config$/,
       handler: updateWeeklyFeedbackConfig,
+    },
+    {
+      pattern: /^\/api\/admin\/anonymous-feedback-config$/,
+      handler: updateAnonymousFeedbackConfig,
     },
     {
       pattern: /^\/api\/admin\/anonymous-feedbacks\/([^/]+)$/,

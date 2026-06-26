@@ -6,7 +6,8 @@ CREATE TABLE IF NOT EXISTS roles (
   department TEXT NOT NULL,
   description TEXT NOT NULL,
   createdAt TEXT NOT NULL,
-  updatedAt TEXT NOT NULL
+  updatedAt TEXT NOT NULL,
+  updatedBy TEXT NOT NULL DEFAULT 'demo-admin'
 );
 
 CREATE TABLE IF NOT EXISTS permission_items (
@@ -23,7 +24,8 @@ CREATE TABLE IF NOT EXISTS permission_items (
   commonWaitingReasons TEXT NOT NULL,
   enabled INTEGER NOT NULL CHECK (enabled IN (0, 1)),
   createdAt TEXT NOT NULL,
-  updatedAt TEXT NOT NULL
+  updatedAt TEXT NOT NULL,
+  updatedBy TEXT NOT NULL DEFAULT 'demo-admin'
 );
 
 CREATE TABLE IF NOT EXISTS role_permission_items (
@@ -33,6 +35,7 @@ CREATE TABLE IF NOT EXISTS role_permission_items (
   sortOrder INTEGER NOT NULL,
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL,
+  updatedBy TEXT NOT NULL DEFAULT 'demo-admin',
   UNIQUE(roleId, permissionItemId)
 );
 
@@ -81,7 +84,8 @@ CREATE TABLE IF NOT EXISTS d1_guide_configs (
   enabled INTEGER NOT NULL CHECK (enabled IN (0, 1)),
   sortOrder INTEGER NOT NULL,
   createdAt TEXT NOT NULL,
-  updatedAt TEXT NOT NULL
+  updatedAt TEXT NOT NULL,
+  updatedBy TEXT NOT NULL DEFAULT 'demo-admin'
 );
 
 CREATE TABLE IF NOT EXISTS permission_progress (
@@ -143,9 +147,13 @@ CREATE TABLE IF NOT EXISTS anonymous_feedbacks (
   ownerName TEXT NOT NULL,
   status TEXT NOT NULL,
   result TEXT NOT NULL,
+  handlerName TEXT,
+  handledAt TEXT,
+  resolutionNote TEXT,
   includedInReview INTEGER NOT NULL CHECK (includedInReview IN (0, 1)),
   createdAt TEXT NOT NULL,
-  updatedAt TEXT NOT NULL
+  updatedAt TEXT NOT NULL,
+  updatedBy TEXT NOT NULL DEFAULT 'demo-admin'
 );
 
 CREATE TABLE IF NOT EXISTS anonymous_feedback_modules (
@@ -155,7 +163,8 @@ CREATE TABLE IF NOT EXISTS anonymous_feedback_modules (
   enabled INTEGER NOT NULL CHECK (enabled IN (0, 1)),
   sortOrder INTEGER NOT NULL,
   createdAt TEXT NOT NULL,
-  updatedAt TEXT NOT NULL
+  updatedAt TEXT NOT NULL,
+  updatedBy TEXT NOT NULL DEFAULT 'demo-admin'
 );
 
 CREATE TABLE IF NOT EXISTS anonymous_feedback_problem_types (
@@ -168,6 +177,7 @@ CREATE TABLE IF NOT EXISTS anonymous_feedback_problem_types (
   sortOrder INTEGER NOT NULL,
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL,
+  updatedBy TEXT NOT NULL DEFAULT 'demo-admin',
   UNIQUE(moduleId, typeKey)
 );
 
@@ -181,6 +191,7 @@ CREATE TABLE IF NOT EXISTS anonymous_feedback_expected_actions (
   sortOrder INTEGER NOT NULL,
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL,
+  updatedBy TEXT NOT NULL DEFAULT 'demo-admin',
   UNIQUE(moduleId, actionKey)
 );
 
@@ -222,7 +233,8 @@ CREATE TABLE IF NOT EXISTS weekly_feedback_questions (
   enabled INTEGER NOT NULL CHECK (enabled IN (0, 1)),
   sortOrder INTEGER NOT NULL,
   createdAt TEXT NOT NULL,
-  updatedAt TEXT NOT NULL
+  updatedAt TEXT NOT NULL,
+  updatedBy TEXT NOT NULL DEFAULT 'demo-admin'
 );
 
 CREATE TABLE IF NOT EXISTS weekly_feedback_options (
@@ -234,6 +246,7 @@ CREATE TABLE IF NOT EXISTS weekly_feedback_options (
   sortOrder INTEGER NOT NULL,
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL,
+  updatedBy TEXT NOT NULL DEFAULT 'demo-admin',
   UNIQUE(questionId, optionKey)
 );
 
@@ -272,5 +285,6 @@ CREATE TABLE IF NOT EXISTS knowledge_base_docs (
   vectorStatus TEXT NOT NULL,
   hitCount INTEGER NOT NULL,
   updatedAt TEXT NOT NULL,
-  createdAt TEXT NOT NULL
+  createdAt TEXT NOT NULL,
+  updatedBy TEXT NOT NULL DEFAULT 'demo-admin'
 );
