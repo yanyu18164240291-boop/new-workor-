@@ -40,9 +40,280 @@ button {
 
 .admin-canvas {
   min-height: 100vh;
-  display: grid;
-  grid-template-columns: 240px 1fr;
+  display: block;
   background: #f4f7fb;
+}
+
+.admin-workbench {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 238px minmax(0, 1fr);
+  color: #172033;
+  background: #f4f7fb;
+}
+
+.admin-workbench-sidebar {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 18px 16px;
+  border-right: 1px solid #e2e8f4;
+  background: #ffffff;
+}
+
+.admin-workbench-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 34px;
+}
+
+.admin-workbench-brand span {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  color: #ffffff;
+  background: #1f6bff;
+  font-size: 22px;
+  font-weight: 950;
+}
+
+.admin-workbench-brand strong {
+  display: block;
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.admin-workbench-brand p {
+  margin: 3px 0 0;
+  color: #1f6bff;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.admin-workbench-nav {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-workbench-nav > p {
+  margin: 0 0 6px 10px;
+  color: #8a96aa;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.admin-workbench-nav button {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 14px;
+  color: #46556c;
+  text-align: left;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.admin-workbench-nav button.active {
+  color: #1f6bff;
+  background: #edf4ff;
+}
+
+.admin-workbench-sidebar-footer {
+  margin-top: auto;
+  display: grid;
+  gap: 14px;
+}
+
+.admin-workbench-sidebar-footer button {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid #dce6f4;
+  border-radius: 8px;
+  color: #172033;
+  background: #ffffff;
+  font-weight: 900;
+}
+
+.admin-workbench-sidebar-footer small {
+  color: #8a96aa;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.admin-workbench-main {
+  min-width: 0;
+  min-height: 100vh;
+}
+
+.admin-workbench-topbar {
+  min-height: 72px;
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(360px, 1fr) auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 24px;
+  border-bottom: 1px solid #e2e8f4;
+  background: #ffffff;
+}
+
+.admin-workbench-search,
+.admin-workbench-filters label,
+.admin-workbench-user,
+.admin-workbench-refresh {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #dce6f4;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.admin-workbench-search {
+  padding: 0 12px;
+  color: #7a8596;
+}
+
+.admin-workbench-search input,
+.admin-workbench-filters select,
+.admin-workbench-filters input {
+  min-width: 0;
+  border: 0;
+  outline: none;
+  color: #172033;
+  background: transparent;
+}
+
+.admin-workbench-search input {
+  width: 100%;
+}
+
+.admin-workbench-filters {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.admin-workbench-filters label {
+  padding: 0 10px;
+  color: #172033;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.admin-workbench-filters select {
+  appearance: none;
+  font-weight: 900;
+}
+
+.admin-workbench-filters input {
+  width: 104px;
+  font-weight: 900;
+}
+
+.admin-workbench-user {
+  border: 0;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.admin-workbench-user span {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #ffffff;
+  background: #1f6bff;
+  font-weight: 950;
+}
+
+.admin-workbench-user strong,
+.admin-workbench-user small {
+  display: block;
+}
+
+.admin-workbench-user small {
+  margin-top: 2px;
+  color: #8a96aa;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.admin-workbench-refresh {
+  padding: 0 13px;
+  color: #1f6bff;
+  border-color: #b9d0ff;
+  font-weight: 900;
+}
+
+.admin-workbench-content {
+  padding: 24px;
+}
+
+.admin-workbench-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.admin-page-title span {
+  color: #1f6bff;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.admin-page-title h1 {
+  margin: 5px 0 0;
+  color: #172033;
+  font-size: 28px;
+  line-height: 1.2;
+}
+
+.admin-page-title p {
+  margin: 8px 0 0;
+  color: #667085;
+  font-size: 14px;
+}
+
+.admin-placeholder-card {
+  width: min(760px, 100%);
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid #e2e8f4;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.admin-placeholder-card strong {
+  font-size: 17px;
+}
+
+.admin-placeholder-card p {
+  margin: 0;
+  color: #667085;
+  line-height: 1.6;
+}
+
+.admin-placeholder-card button {
+  justify-self: start;
+  min-height: 36px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 14px;
+  color: #ffffff;
+  background: #1f6bff;
+  font-weight: 900;
 }
 
 .admin-sidebar {

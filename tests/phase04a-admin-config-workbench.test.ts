@@ -45,4 +45,21 @@ describe('Phase 04A admin config workbench contract', () => {
     assert.match(service, /processAnonymousFeedback/);
     assert.match(service, /demo-admin/);
   });
+
+  it('renders the fixed sidebar and topbar copy from the admin prototype', () => {
+    const sidebar = readFileSync('src/frontend/components/admin-config/AdminSidebar.tsx', 'utf8');
+    const topbar = readFileSync('src/frontend/components/admin-config/AdminTopbar.tsx', 'utf8');
+    assert.match(sidebar, /海纳AI入职Bot/);
+    assert.match(sidebar, /后台配置台/);
+    assert.match(sidebar, /核心配置/);
+    assert.match(sidebar, /收起菜单/);
+    assert.match(sidebar, /© 2026 Haidilao/);
+    assert.match(sidebar, /v1\.0\.0/);
+    assert.match(topbar, /搜索岗位、权限、文档、反馈/);
+    assert.match(topbar, /全部组织/);
+    assert.match(topbar, /全部状态/);
+    assert.match(topbar, /2026-06-23/);
+    assert.match(topbar, /demo-admin/);
+    assert.match(topbar, /刷新数据/);
+  });
 });

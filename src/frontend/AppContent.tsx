@@ -1,5 +1,6 @@
 import type { DashboardData } from './dashboardData.ts';
-import { AdminPage, ReviewPage } from './pages/adminPages.tsx';
+import { AdminConfigPage } from './pages/AdminConfig/AdminConfigPage.tsx';
+import { ReviewPage } from './pages/adminPages.tsx';
 import { ManagerDetailPage, ManagerFeedbackPage, ManagerPage } from './pages/managerPages.tsx';
 import {
   AnonymousFeedbackPage,
@@ -48,7 +49,7 @@ export function AppContent({
     case '07':
       return <AnonymousFeedbackPage data={data} reload={reload} toast={toast} />;
     case '08':
-      return <AdminPage data={data} search={search} toast={toast} reload={reload} />;
+      return <AdminConfigPage data={data} search={search} toast={toast} reload={reload} navigate={navigate} />;
     case '09':
       return <ReviewPage data={data} navigate={navigate} toast={toast} />;
     case '10':

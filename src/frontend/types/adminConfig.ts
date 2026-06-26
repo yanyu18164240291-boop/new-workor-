@@ -18,6 +18,13 @@ export type AdminConfigTab = {
   path: string;
 };
 
+export type AdminConfigFilters = {
+  keyword: string;
+  organization: string;
+  status: string;
+  date: string;
+};
+
 export const adminConfigTabs: AdminConfigTab[] = [
   { id: 'overview', label: '配置总览', path: '/admin-config?tab=overview' },
   { id: 'role-packages', label: '岗位权限包', path: '/admin-config?tab=role-packages' },
@@ -36,3 +43,10 @@ export function resolveAdminConfigTab(search: string): AdminConfigTabId {
   if (adminConfigTabs.some((item) => item.id === tab)) return tab as AdminConfigTabId;
   return 'overview';
 }
+
+export const defaultAdminConfigFilters: AdminConfigFilters = {
+  keyword: '',
+  organization: '全部组织',
+  status: '全部状态',
+  date: '2026-06-23',
+};
