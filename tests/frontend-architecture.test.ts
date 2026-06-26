@@ -1,8 +1,16 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
 describe('frontend architecture boundaries', () => {
+  function collectSourceFiles(dir: string): string[] {
+    return readdirSync(dir).flatMap((name) => {
+      const path = `${dir}/${name}`;
+      if (statSync(path).isDirectory()) return collectSourceFiles(path);
+      return path.endsWith('.ts') || path.endsWith('.tsx') ? [path] : [];
+    });
+  }
+
   it('keeps role pages outside the application shell', () => {
     assert.equal(existsSync('src/frontend/pages/newcomerPages.tsx'), true);
     assert.equal(existsSync('src/frontend/pages/adminPages.tsx'), true);
@@ -26,6 +34,20 @@ describe('frontend architecture boundaries', () => {
       'ManagerFeedbackPage',
     ]) {
       assert.equal(app.includes(`function ${component}`), false, `${component} should live outside App.tsx`);
+    }
+  });
+
+  it('keeps frontend HTTP access behind the API client', () => {
+    assert.equal(existsSync('src/frontend/api.ts'), true);
+
+    const apiClient = readFileSync('src/frontend/api.ts', 'utf8');
+    assert.match(apiClient, /class ApiClientError/);
+    assert.match(apiClient, /formatApiErrorMessage/);
+    assert.match(apiClient, /fetch\(/);
+
+    for (const file of collectSourceFiles('src/frontend').filter((file) => file !== 'src/frontend/api.ts')) {
+      const source = readFileSync(file, 'utf8');
+      assert.equal(source.includes('fetch('), false, `${file} should call the shared api client instead of fetch directly`);
     }
   });
 

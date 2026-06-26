@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { api } from './api.ts';
+import { api, formatApiErrorMessage } from './api.ts';
 import type { DashboardData } from './dashboardData.ts';
 import { DEMO_NEWCOMER_ID } from './demoConfig.ts';
 
@@ -61,7 +61,7 @@ export function useDashboardData() {
       });
       setStatus('ready');
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : '后端数据加载失败');
+      setError(formatApiErrorMessage(caught));
       setStatus('error');
     }
   }

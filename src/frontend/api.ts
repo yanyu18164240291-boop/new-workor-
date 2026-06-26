@@ -220,26 +220,88 @@ export type WeeklyFeedbackAnalysis = {
   }>;
 };
 
-async function apiGet<T>(path: string): Promise<T> {
-  const response = await fetch(path);
-  const payload = (await response.json()) as { data?: T; error?: string };
-  if (!response.ok || payload.error) {
-    throw new Error(payload.error ?? `Request failed: ${path}`);
+export type ApiErrorCode =
+  | 'BAD_REQUEST'
+  | 'VALIDATION_ERROR'
+  | 'NOT_FOUND'
+  | 'INVALID_JSON'
+  | 'INTERNAL_ERROR'
+  | 'NETWORK_ERROR'
+  | 'PARSE_ERROR';
+
+type ApiPayload<T> = {
+  data?: T;
+  error?: string;
+  code?: ApiErrorCode;
+};
+
+export class ApiClientError extends Error {
+  readonly status: number;
+  readonly code: ApiErrorCode;
+  readonly path: string;
+  readonly method: string;
+
+  constructor(message: string, options: { status: number; code: ApiErrorCode; path: string; method: string }) {
+    super(message);
+    this.name = 'ApiClientError';
+    this.status = options.status;
+    this.code = options.code;
+    this.path = options.path;
+    this.method = options.method;
   }
-  return payload.data as T;
+}
+
+export function isApiClientError(error: unknown): error is ApiClientError {
+  return error instanceof ApiClientError;
+}
+
+export function formatApiErrorMessage(error: unknown, fallback = '后端数据加载失败'): string {
+  if (!isApiClientError(error)) return error instanceof Error ? error.message : fallback;
+  if (error.code === 'NETWORK_ERROR') return '后端未连接，请确认 API 服务已启动。';
+  if (error.code === 'NOT_FOUND') return `接口不存在或数据不存在：${error.path}`;
+  if (error.code === 'INVALID_JSON') return '请求数据格式错误，请刷新页面后重试。';
+  if (error.code === 'VALIDATION_ERROR' || error.code === 'BAD_REQUEST') return error.message;
+  return fallback;
+}
+
+async function readApiPayload<T>(response: Response, path: string, method: string): Promise<ApiPayload<T>> {
+  try {
+    return (await response.json()) as ApiPayload<T>;
+  } catch {
+    throw new ApiClientError('Backend response is not valid JSON', { status: response.status, code: 'PARSE_ERROR', path, method });
+  }
+}
+
+async function requestApi<T>(path: string, init?: RequestInit): Promise<T> {
+  const method = init?.method ?? 'GET';
+  try {
+    const response = await fetch(path, init);
+    const payload = await readApiPayload<T>(response, path, method);
+    if (!response.ok || payload.error) {
+      throw new ApiClientError(payload.error ?? `Request failed: ${path}`, {
+        status: response.status,
+        code: payload.code ?? (response.status === 404 ? 'NOT_FOUND' : 'BAD_REQUEST'),
+        path,
+        method,
+      });
+    }
+    return payload.data as T;
+  } catch (error) {
+    if (error instanceof ApiClientError) throw error;
+    throw new ApiClientError('Backend is not reachable', { status: 0, code: 'NETWORK_ERROR', path, method });
+  }
+}
+
+async function apiGet<T>(path: string): Promise<T> {
+  return requestApi<T>(path);
 }
 
 async function apiSend<T>(path: string, method: 'POST' | 'PATCH', body: Record<string, unknown>): Promise<T> {
-  const response = await fetch(path, {
+  return requestApi<T>(path, {
     method,
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
-  const payload = (await response.json()) as { data?: T; error?: string };
-  if (!response.ok || payload.error) {
-    throw new Error(payload.error ?? `Request failed: ${path}`);
-  }
-  return payload.data as T;
 }
 
 export const api = {
