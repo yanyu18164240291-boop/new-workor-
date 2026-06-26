@@ -1,5 +1,12 @@
 import type { RouteMatch } from '../routeKit.ts';
 import {
+  isSubmittedPermissionStatus,
+  parseFollowUpStatus,
+  parsePermissionProgressStatus,
+  parseTaskStatus,
+  parseWeeklyAnswerInputs
+} from '../contracts.ts';
+import {
   addHours,
   boolToDb,
   createdId,
@@ -142,8 +149,7 @@ export const createPermissionProgress: RouteMatch['handler'] = async ({ db, requ
         const newcomerId = decodeURIComponent(match[1]);
         const body = await readBody(request);
         const permissionItemId = requiredString(body, 'permissionItemId');
-        const status = typeof body.status === 'string' ? body.status : 'submitted';
-        if (!['submitted', 'completed', 'pending', 'rejected'].includes(status)) throw new Error('status is invalid');
+        const status = parsePermissionProgressStatus(body.status);
         const permission = getPermission(db, permissionItemId);
         if (!permission) return { status: 404, error: 'Permission item not found' };
 
@@ -152,7 +158,7 @@ export const createPermissionProgress: RouteMatch['handler'] = async ({ db, requ
           | undefined;
         const time = nowIso();
         const progressId = existing?.id ? String(existing.id) : createdId('progress');
-        const submittedAt = status === 'submitted' || status === 'completed' ? time : null;
+        const submittedAt = isSubmittedPermissionStatus(status) ? time : null;
         if (existing) {
           db.prepare('UPDATE permission_progress SET status = ?, submittedAt = COALESCE(submittedAt, ?), lastActionAt = ?, updatedAt = ? WHERE id = ?').run(
             status,
@@ -169,7 +175,7 @@ export const createPermissionProgress: RouteMatch['handler'] = async ({ db, requ
         db.prepare('UPDATE newcomers SET permissionPackageViewed = 1, updatedAt = ? WHERE id = ?').run(time, newcomerId);
 
         let followUp = db.prepare('SELECT * FROM follow_up_tasks WHERE permissionProgressId = ?').get(progressId) as Record<string, unknown> | undefined;
-        if ((status === 'submitted' || status === 'completed') && !followUp) {
+        if (isSubmittedPermissionStatus(status) && !followUp) {
           const followUpId = createdId('follow-up');
           const submitted = submittedAt ?? time;
           db.prepare(
@@ -255,7 +261,7 @@ export const createAnonymousFeedback: RouteMatch['handler'] = async ({ db, reque
 export const createWeeklyFeedback: RouteMatch['handler'] = async ({ db, request }) => {
         const body = await readBody(request);
         const newcomerId = requiredString(body, 'newcomerId');
-        const structuredAnswers = Array.isArray(body.answers) ? (body.answers as Array<Record<string, unknown>>) : [];
+        const structuredAnswers = parseWeeklyAnswerInputs(body.answers);
         if (structuredAnswers.length > 0) validateWeeklyAnswers(db, structuredAnswers);
         const derived = structuredAnswers.length > 0 ? deriveWeeklyLegacyFields(db, structuredAnswers) : null;
         const submittedAt = nowIso();
@@ -364,7 +370,7 @@ export const updateNewcomerTaskState: RouteMatch['handler'] = async ({ db, reque
         const newcomerId = decodeURIComponent(match[1]);
         const taskKey = decodeURIComponent(match[2]);
         const body = await readBody(request);
-        const status = typeof body.status === 'string' ? body.status : 'completed';
+        const status = parseTaskStatus(body.status);
         const time = nowIso();
         db.prepare('UPDATE newcomer_task_states SET status = ?, completedAt = ?, updatedAt = ? WHERE newcomerId = ? AND taskKey = ?').run(
           status,
@@ -415,8 +421,9 @@ export const updateFollowUpTask: RouteMatch['handler'] = async ({ db, request },
         const existing = normalizeRow(db.prepare('SELECT * FROM follow_up_tasks WHERE id = ?').get(id) as Record<string, unknown> | undefined);
         if (!existing) return { status: 404, error: 'Follow-up task not found' };
         const time = nowIso();
+        const existingStatus = parseFollowUpStatus(existing.status);
         db.prepare('UPDATE follow_up_tasks SET status = ?, updatedAt = ? WHERE id = ?').run(
-          sqlValue(typeof body.status === 'string' ? body.status : existing.status),
+          sqlValue(parseFollowUpStatus(body.status, existingStatus)),
           time,
           id,
         );

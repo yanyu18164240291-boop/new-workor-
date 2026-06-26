@@ -1,4 +1,5 @@
 import type { RouteMatch } from '../routeKit.ts';
+import { parseManagerActionStatus } from '../contracts.ts';
 import {
   normalizeRow,
   nowIso,
@@ -20,11 +21,12 @@ export const updateManagerFeedbackAction: RouteMatch['handler'] = async ({ db, r
         );
         if (!existing) return { status: 404, error: 'Manager action not found' };
         const time = nowIso();
+        const existingStatus = parseManagerActionStatus(existing.managerActionStatus, 'unread');
         db.prepare(
           'UPDATE manager_feedback_actions SET managerViewed = 1, managerViewedAt = COALESCE(managerViewedAt, ?), managerActionStatus = ?, actionNote = ?, updatedAt = ? WHERE weeklyFeedbackId = ?',
         ).run(
           time,
-          sqlValue(typeof body.managerActionStatus === 'string' ? body.managerActionStatus : existing.managerActionStatus),
+          sqlValue(parseManagerActionStatus(body.managerActionStatus, existingStatus)),
           sqlValue(typeof body.actionNote === 'string' ? body.actionNote : existing.actionNote),
           time,
           weeklyFeedbackId,

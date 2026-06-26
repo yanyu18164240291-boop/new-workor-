@@ -1,4 +1,5 @@
 import type { RouteMatch } from '../routeKit.ts';
+import { parseAnonymousFeedbackStatus } from '../contracts.ts';
 import {
   boolToDb,
   createdId,
@@ -196,8 +197,9 @@ export const updateAnonymousFeedback: RouteMatch['handler'] = async ({ db, reque
         const existing = normalizeRow(db.prepare('SELECT * FROM anonymous_feedbacks WHERE id = ?').get(id) as Record<string, unknown> | undefined);
         if (!existing) return { status: 404, error: 'Anonymous feedback not found' };
         const time = nowIso();
+        const existingStatus = parseAnonymousFeedbackStatus(existing.status, 'open');
         db.prepare('UPDATE anonymous_feedbacks SET status = ?, result = ?, includedInReview = ?, updatedAt = ? WHERE id = ?').run(
-          sqlValue(typeof body.status === 'string' ? body.status : existing.status),
+          sqlValue(parseAnonymousFeedbackStatus(body.status, existingStatus)),
           sqlValue(typeof body.result === 'string' ? body.result : existing.result),
           'includedInReview' in body ? boolToDb(body.includedInReview) : boolToDb(existing.includedInReview),
           time,

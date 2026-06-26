@@ -32,6 +32,7 @@ describe('frontend architecture boundaries', () => {
   it('keeps backend HTTP server separate from API route SQL handlers', () => {
     assert.equal(existsSync('src/server/apiRoutes.ts'), true);
     assert.equal(existsSync('src/server/routeKit.ts'), true);
+    assert.equal(existsSync('src/server/contracts.ts'), true);
     assert.equal(existsSync('src/server/routes/newcomerRoutes.ts'), true);
     assert.equal(existsSync('src/server/routes/adminRoutes.ts'), true);
     assert.equal(existsSync('src/server/routes/managerRoutes.ts'), true);

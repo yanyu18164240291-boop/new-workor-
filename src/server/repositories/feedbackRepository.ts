@@ -1,4 +1,5 @@
 import type { Database } from '../db.ts';
+import type { WeeklyAnswerInput } from '../contracts.ts';
 import { createdId, normalizeRow, requiredString, sqlValue, stringArray } from '../routeKit.ts';
 
 export function getWeeklyWithAction(db: Database, weeklyFeedbackId: string): Record<string, unknown> | undefined {
@@ -105,7 +106,7 @@ export function optionLabels(db: Database, optionIds: string[]): string[] {
     .map((item) => item.label);
 }
 
-export function answerSelection(answer: Record<string, unknown>): string[] {
+export function answerSelection(answer: WeeklyAnswerInput | Record<string, unknown>): string[] {
   return Array.isArray(answer.selectedOptionIds)
     ? answer.selectedOptionIds.filter((item): item is string => typeof item === 'string' && item.trim() !== '').map((item) => item.trim())
     : [];
@@ -113,7 +114,7 @@ export function answerSelection(answer: Record<string, unknown>): string[] {
 
 export function deriveWeeklyLegacyFields(
   db: Database,
-  answers: Array<Record<string, unknown>>,
+  answers: WeeklyAnswerInput[],
 ): { overallFeeling: string; blockers: string; supportNeeded: string; message: string } {
   const questions = db.prepare('SELECT id, questionKey FROM weekly_feedback_questions').all() as Array<{ id: string; questionKey: string }>;
   const byId = new Map(questions.map((question) => [question.id, question.questionKey]));
@@ -135,7 +136,7 @@ export function deriveWeeklyLegacyFields(
   };
 }
 
-export function validateWeeklyAnswers(db: Database, answers: Array<Record<string, unknown>>): void {
+export function validateWeeklyAnswers(db: Database, answers: WeeklyAnswerInput[]): void {
   const questions = db.prepare('SELECT * FROM weekly_feedback_questions WHERE enabled = 1 ORDER BY sortOrder').all() as Array<Record<string, unknown>>;
   const options = db.prepare('SELECT id, questionId FROM weekly_feedback_options WHERE enabled = 1').all() as Array<{ id: string; questionId: string }>;
   const optionQuestionById = new Map(options.map((option) => [option.id, option.questionId]));
@@ -158,10 +159,10 @@ export function validateWeeklyAnswers(db: Database, answers: Array<Record<string
   }
 }
 
-export function saveWeeklyAnswers(db: Database, weeklyFeedbackId: string, answers: Array<Record<string, unknown>>, time: string): void {
+export function saveWeeklyAnswers(db: Database, weeklyFeedbackId: string, answers: WeeklyAnswerInput[], time: string): void {
   db.prepare('DELETE FROM weekly_feedback_answers WHERE weeklyFeedbackId = ?').run(weeklyFeedbackId);
   for (const answer of answers) {
-    const questionId = requiredString(answer, 'questionId');
+    const questionId = answer.questionId.trim();
     const selectedOptionIds = answerSelection(answer);
     const textValue = typeof answer.textValue === 'string' ? answer.textValue.trim() : '';
     if (selectedOptionIds.length > 0) {
