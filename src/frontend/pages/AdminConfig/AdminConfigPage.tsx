@@ -9,6 +9,7 @@ import {
   type AdminConfigFilters,
   type AdminConfigTabId,
 } from '../../types/adminConfig.ts';
+import { OverviewTab } from './OverviewTab.tsx';
 
 type AdminConfigPageProps = {
   data: DashboardData;
@@ -49,7 +50,7 @@ export function AdminConfigPage({ data, search, toast, reload, navigate }: Admin
 
   return (
     <AdminConfigLayout activeTab={activeTab} filters={filters} onFiltersChange={setFilters} navigate={navigate} reload={reload}>
-      <PlaceholderTab activeTab={activeTab} data={data} toast={toast} />
+      {activeTab === 'overview' ? <OverviewTab data={data} navigate={navigate} /> : <PlaceholderTab activeTab={activeTab} data={data} toast={toast} />}
     </AdminConfigLayout>
   );
 }

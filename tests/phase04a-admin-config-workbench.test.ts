@@ -62,4 +62,14 @@ describe('Phase 04A admin config workbench contract', () => {
     assert.match(topbar, /demo-admin/);
     assert.match(topbar, /刷新数据/);
   });
+
+  it('renders overview metrics, queues, change log, and quick actions', () => {
+    const overview = readFileSync('src/frontend/pages/AdminConfig/OverviewTab.tsx', 'utf8');
+    for (const label of ['岗位数', '权限项数', '知识库资料数', '待处理匿名反馈数', '配置完整度', '待处理事项', '最近变更记录', '快捷操作']) {
+      assert.match(overview, new RegExp(label));
+    }
+    for (const quickAction of ['新增权限项', '新增岗位', '设置 D1 引导', '新增反馈问题', '上传知识库资料', '查看反馈池']) {
+      assert.match(overview, new RegExp(quickAction));
+    }
+  });
 });

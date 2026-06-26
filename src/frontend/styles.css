@@ -316,6 +316,245 @@ button {
   font-weight: 900;
 }
 
+.admin-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.admin-metric-card {
+  min-height: 118px;
+  display: grid;
+  align-content: center;
+  gap: 7px;
+  padding: 18px 22px;
+  border: 1px solid #e2e8f4;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.admin-metric-card span {
+  color: #172033;
+  font-size: 30px;
+  line-height: 1;
+  font-weight: 950;
+}
+
+.admin-metric-card strong {
+  color: #43516a;
+  font-size: 15px;
+}
+
+.admin-metric-card p {
+  margin: 0;
+  color: #8a96aa;
+  font-size: 13px;
+}
+
+.admin-metric-blue {
+  border-color: #cfe0ff;
+}
+
+.admin-metric-success {
+  border-color: #cbeedd;
+}
+
+.admin-metric-warning {
+  border-color: #ffdca7;
+}
+
+.admin-metric-ai {
+  border-color: #ded6ff;
+}
+
+.admin-overview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.92fr);
+  gap: 16px;
+}
+
+.admin-overview-bottom {
+  grid-template-columns: minmax(0, 1.35fr) minmax(340px, 0.65fr);
+}
+
+.admin-card {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid #e2e8f4;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.admin-card h2 {
+  margin: 0 0 14px;
+  color: #172033;
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.admin-progress-list {
+  display: grid;
+  gap: 13px;
+}
+
+.admin-progress-list button {
+  display: grid;
+  grid-template-columns: 116px minmax(0, 1fr) 54px 54px;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  color: #344054;
+  text-align: left;
+  background: transparent;
+  font-weight: 850;
+}
+
+.admin-progress-list i {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e4eaf3;
+}
+
+.admin-progress-list b {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #1f6bff;
+}
+
+.admin-progress-list strong,
+.admin-progress-list em {
+  color: #172033;
+  font-style: normal;
+}
+
+.admin-progress-list em {
+  color: #8a96aa;
+}
+
+.admin-queue-list {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-queue-list button {
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-bottom: 1px solid #edf1f7;
+  color: #344054;
+  text-align: left;
+  background: transparent;
+}
+
+.admin-status-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  border-radius: 999px;
+  padding: 0 9px;
+  background: #eef2f7;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.admin-status-blue {
+  color: #1f5fcc;
+  background: #edf4ff;
+}
+
+.admin-status-success {
+  color: #137333;
+  background: #e8f7ef;
+}
+
+.admin-status-warning {
+  color: #a15c00;
+  background: #fff2d8;
+}
+
+.admin-status-danger {
+  color: #b42318;
+  background: #ffe9e6;
+}
+
+.admin-status-ai {
+  color: #5b35c8;
+  background: #f1edff;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  overflow: hidden;
+  border: 1px solid #e2e8f4;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #e8eef7;
+  color: #344054;
+  text-align: left;
+  vertical-align: top;
+}
+
+.admin-table th {
+  color: #475467;
+  background: #f8fbff;
+  font-weight: 950;
+}
+
+.admin-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.admin-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-quick-grid button {
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid #dce6f4;
+  border-radius: 8px;
+  color: #172033;
+  background: #ffffff;
+  font-weight: 900;
+}
+
+.admin-quick-grid svg {
+  color: #1f6bff;
+}
+
+.admin-info-strip {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 18px;
+  border: 1px solid #cfe0ff;
+  border-radius: 8px;
+  color: #345071;
+  background: #edf4ff;
+  font-size: 14px;
+  font-weight: 800;
+}
+
 .admin-sidebar {
   min-height: 100vh;
   padding: 22px 16px;
