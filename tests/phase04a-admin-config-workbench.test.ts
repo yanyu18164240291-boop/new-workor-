@@ -34,4 +34,15 @@ describe('Phase 04A admin config workbench contract', () => {
       assert.equal(routes.includes(forbidden), false, forbidden);
     }
   });
+
+  it('keeps admin config saves behind a service layer', () => {
+    const service = readFileSync('src/frontend/services/adminConfigApi.ts', 'utf8');
+    assert.match(service, /saveRolePackagePermission/);
+    assert.match(service, /saveD1GuideItem/);
+    assert.match(service, /saveWeeklyFeedbackQuestion/);
+    assert.match(service, /saveAnonymousFeedbackConfig/);
+    assert.match(service, /uploadKnowledgeMetadata/);
+    assert.match(service, /processAnonymousFeedback/);
+    assert.match(service, /demo-admin/);
+  });
 });

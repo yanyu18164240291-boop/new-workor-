@@ -395,7 +395,17 @@ export const api = {
   getWeeklyFeedbackConfig: () => apiGet<WeeklyFeedbackConfig>('/api/weekly-feedback-config'),
   getWeeklyFeedbackAnalysis: () => apiGet<WeeklyFeedbackAnalysis>('/api/admin/weekly-feedback-analysis'),
   getAnonymousFeedbackConfig: () => apiGet<AnonymousFeedbackConfig>('/api/anonymous-feedback-config'),
-  updateWeeklyFeedbackConfig: (questions: Array<{ id: string; title: string; options?: Array<{ id: string; label: string }> }>) =>
+  updateWeeklyFeedbackConfig: (
+    questions: Array<{
+      id: string;
+      title: string;
+      description?: string | null;
+      required?: boolean;
+      maxLength?: number | null;
+      enabled?: boolean;
+      options?: Array<{ id: string; label: string; enabled?: boolean }>;
+    }>,
+  ) =>
     apiSend<WeeklyFeedbackConfig>('/api/admin/weekly-feedback-config', 'PATCH', { questions }),
   getWeeklyFeedback: (newcomerId: string) => apiGet<WeeklyFeedback>(`/api/newcomers/${newcomerId}/weekly-feedback`),
   getManagerFeedback: (weeklyFeedbackId: string) => apiGet<WeeklyFeedback>(`/api/manager/feedback/${weeklyFeedbackId}`),
