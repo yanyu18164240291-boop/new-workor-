@@ -2,6 +2,7 @@ import http from 'node:http';
 
 import type { Database } from './db.ts';
 import { handleApiRequest } from './apiRoutes.ts';
+import { apiErrorPayload, inferErrorCode, notFound, toApiError } from './errors.ts';
 
 function writeJson(response: http.ServerResponse, status: number, payload: unknown): void {
   response.writeHead(status, {
@@ -28,7 +29,7 @@ export async function createApiServer(options: { db: Database; port?: number }):
     try {
       const url = new URL(request.url ?? '/', 'http://127.0.0.1');
       if (!url.pathname.startsWith('/api/')) {
-        writeJson(response, 404, { error: 'Only /api routes are served by the backend.' });
+        writeJson(response, 404, apiErrorPayload(notFound('Only /api routes are served by the backend.')));
         return;
       }
       const result = await handleApiRequest({
@@ -39,12 +40,14 @@ export async function createApiServer(options: { db: Database; port?: number }):
         response,
       });
       if (result.error) {
-        writeJson(response, result.status ?? 400, { error: result.error });
+        const status = result.status ?? 400;
+        writeJson(response, status, { error: result.error, code: result.errorCode ?? inferErrorCode(status) });
       } else {
         writeJson(response, result.status ?? 200, { data: result.data });
       }
     } catch (error) {
-      writeJson(response, 400, { error: error instanceof Error ? error.message : 'Unknown error' });
+      const apiError = toApiError(error);
+      writeJson(response, apiError.status, apiErrorPayload(apiError));
     }
   });
 

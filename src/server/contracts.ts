@@ -1,3 +1,5 @@
+import { badRequest } from './errors.ts';
+
 export const permissionProgressStatuses = ['pending', 'submitted', 'completed', 'rejected'] as const;
 export type PermissionProgressStatus = (typeof permissionProgressStatuses)[number];
 
@@ -23,31 +25,31 @@ export type WeeklyAnswerInput = {
 
 export function parsePermissionProgressStatus(value: unknown, fallback: PermissionProgressStatus = 'submitted'): PermissionProgressStatus {
   const status = typeof value === 'string' ? value : fallback;
-  if (!isOneOf(status, permissionProgressStatuses)) throw new Error('status is invalid');
+  if (!isOneOf(status, permissionProgressStatuses)) throw badRequest('status is invalid');
   return status;
 }
 
 export function parseTaskStatus(value: unknown, fallback: TaskStatus = 'completed'): TaskStatus {
   const status = typeof value === 'string' ? value : fallback;
-  if (!isOneOf(status, taskStatuses)) throw new Error('status is invalid');
+  if (!isOneOf(status, taskStatuses)) throw badRequest('status is invalid');
   return status;
 }
 
 export function parseFollowUpStatus(value: unknown, fallback: FollowUpStatus = 'pending'): FollowUpStatus {
   const status = typeof value === 'string' ? value : fallback;
-  if (!isOneOf(status, followUpStatuses)) throw new Error('status is invalid');
+  if (!isOneOf(status, followUpStatuses)) throw badRequest('status is invalid');
   return status;
 }
 
 export function parseAnonymousFeedbackStatus(value: unknown, fallback: AnonymousFeedbackStatus): AnonymousFeedbackStatus {
   const status = typeof value === 'string' ? value : fallback;
-  if (!isOneOf(status, anonymousFeedbackStatuses)) throw new Error('status is invalid');
+  if (!isOneOf(status, anonymousFeedbackStatuses)) throw badRequest('status is invalid');
   return status;
 }
 
 export function parseManagerActionStatus(value: unknown, fallback: ManagerActionStatus): ManagerActionStatus {
   const status = typeof value === 'string' ? value : fallback;
-  if (!isOneOf(status, managerActionStatuses)) throw new Error('managerActionStatus is invalid');
+  if (!isOneOf(status, managerActionStatuses)) throw badRequest('managerActionStatus is invalid');
   return status;
 }
 

@@ -33,6 +33,7 @@ describe('frontend architecture boundaries', () => {
     assert.equal(existsSync('src/server/apiRoutes.ts'), true);
     assert.equal(existsSync('src/server/routeKit.ts'), true);
     assert.equal(existsSync('src/server/contracts.ts'), true);
+    assert.equal(existsSync('src/server/errors.ts'), true);
     assert.equal(existsSync('src/server/routes/newcomerRoutes.ts'), true);
     assert.equal(existsSync('src/server/routes/adminRoutes.ts'), true);
     assert.equal(existsSync('src/server/routes/managerRoutes.ts'), true);

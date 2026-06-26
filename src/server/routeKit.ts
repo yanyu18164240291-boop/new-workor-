@@ -4,6 +4,8 @@ import type { SQLInputValue } from 'node:sqlite';
 
 import { boolFromDb, boolToDb, nowIso } from './db.ts';
 import type { Database } from './db.ts';
+import { badRequest } from './errors.ts';
+import type { ApiErrorCode } from './errors.ts';
 
 export { boolToDb, nowIso };
 
@@ -19,6 +21,7 @@ export type ApiResult = {
   status?: number;
   data?: unknown;
   error?: string;
+  errorCode?: ApiErrorCode;
 };
 
 export type RouteMatch = {
@@ -60,21 +63,21 @@ export async function readBody(request: http.IncomingMessage): Promise<Record<st
   try {
     return JSON.parse(Buffer.concat(chunks).toString('utf8'));
   } catch {
-    throw new Error('Invalid JSON body');
+    throw badRequest('Invalid JSON body', 'INVALID_JSON');
   }
 }
 
 export function requiredString(body: Record<string, unknown>, key: string): string {
   const value = body[key];
   if (typeof value !== 'string' || value.trim() === '') {
-    throw new Error(`${key} is required`);
+    throw badRequest(`${key} is required`);
   }
   return value.trim();
 }
 
 export function stringArray(body: Record<string, unknown>, key: string): string[] {
   const value = body[key];
-  if (!Array.isArray(value)) throw new Error(`${key} is required`);
+  if (!Array.isArray(value)) throw badRequest(`${key} is required`);
   return value.filter((item): item is string => typeof item === 'string' && item.trim() !== '').map((item) => item.trim());
 }
 
@@ -93,7 +96,7 @@ export function addHours(iso: string, hours: number): string {
 export function validIsoNow(value: unknown): string {
   if (typeof value !== 'string') return nowIso();
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) throw new Error('now is invalid');
+  if (Number.isNaN(date.getTime())) throw badRequest('now is invalid');
   return date.toISOString();
 }
 

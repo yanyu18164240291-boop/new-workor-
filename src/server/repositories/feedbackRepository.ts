@@ -1,5 +1,6 @@
 import type { Database } from '../db.ts';
 import type { WeeklyAnswerInput } from '../contracts.ts';
+import { badRequest } from '../errors.ts';
 import { createdId, normalizeRow, requiredString, sqlValue, stringArray } from '../routeKit.ts';
 
 export function getWeeklyWithAction(db: Database, weeklyFeedbackId: string): Record<string, unknown> | undefined {
@@ -61,15 +62,15 @@ export function resolveStructuredAnonymousFeedback(
       | Record<string, unknown>
       | undefined,
   );
-  if (!module) throw new Error('moduleKey is invalid');
+  if (!module) throw badRequest('moduleKey is invalid');
   const problemType = normalizeRow(
     db
       .prepare('SELECT * FROM anonymous_feedback_problem_types WHERE moduleId = ? AND typeKey = ? AND enabled = 1')
       .get(sqlValue(module.id), problemTypeKey) as Record<string, unknown> | undefined,
   );
-  if (!problemType) throw new Error('problemTypeKey is invalid');
+  if (!problemType) throw badRequest('problemTypeKey is invalid');
   const problemTypeOtherText = typeof body.problemTypeOtherText === 'string' ? body.problemTypeOtherText.trim() : '';
-  if (problemType.requiresText && problemTypeOtherText.length === 0) throw new Error('problemTypeOtherText is required');
+  if (problemType.requiresText && problemTypeOtherText.length === 0) throw badRequest('problemTypeOtherText is required');
   const actionRows = expectedActionKeys.map((actionKey) =>
     normalizeRow(
       db
@@ -77,10 +78,10 @@ export function resolveStructuredAnonymousFeedback(
         .get(sqlValue(module.id), actionKey) as Record<string, unknown> | undefined,
     ),
   );
-  if (actionRows.some((row) => !row)) throw new Error('expectedActionKeys is invalid');
+  if (actionRows.some((row) => !row)) throw badRequest('expectedActionKeys is invalid');
   const expectedActionOtherText = typeof body.expectedActionOtherText === 'string' ? body.expectedActionOtherText.trim() : '';
   for (const action of actionRows) {
-    if (action?.requiresText && expectedActionOtherText.length === 0) throw new Error('expectedActionOtherText is required');
+    if (action?.requiresText && expectedActionOtherText.length === 0) throw badRequest('expectedActionOtherText is required');
   }
   return {
     moduleLabel: String(module.label),
@@ -143,18 +144,18 @@ export function validateWeeklyAnswers(db: Database, answers: WeeklyAnswerInput[]
   const byQuestionId = new Map(answers.map((answer) => [String(answer.questionId), answer]));
   for (const question of questions) {
     const answer = byQuestionId.get(String(question.id));
-    if (question.required && !answer) throw new Error(`${question.title} is required`);
+    if (question.required && !answer) throw badRequest(`${question.title} is required`);
     if (!answer) continue;
-    if (question.inputType === 'single' && answerSelection(answer).length !== 1) throw new Error(`${question.title} must select one option`);
-    if (question.inputType === 'multi' && question.required && answerSelection(answer).length === 0) throw new Error(`${question.title} must select at least one option`);
+    if (question.inputType === 'single' && answerSelection(answer).length !== 1) throw badRequest(`${question.title} must select one option`);
+    if (question.inputType === 'multi' && question.required && answerSelection(answer).length === 0) throw badRequest(`${question.title} must select at least one option`);
     for (const optionId of answerSelection(answer)) {
-      if (optionQuestionById.get(optionId) !== question.id) throw new Error(`${question.title} has invalid option`);
+      if (optionQuestionById.get(optionId) !== question.id) throw badRequest(`${question.title} has invalid option`);
     }
     if (question.inputType === 'text' && question.required && (typeof answer.textValue !== 'string' || answer.textValue.trim().length === 0)) {
-      throw new Error(`${question.title} is required`);
+      throw badRequest(`${question.title} is required`);
     }
     if (question.inputType === 'text' && typeof answer.textValue === 'string' && question.maxLength && answer.textValue.length > Number(question.maxLength)) {
-      throw new Error(`${question.title} exceeds max length`);
+      throw badRequest(`${question.title} exceeds max length`);
     }
   }
 }
