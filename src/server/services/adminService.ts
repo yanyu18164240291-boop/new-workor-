@@ -211,8 +211,10 @@ export const createPermissionItem: RouteMatch['handler'] = async ({ db, request 
           category: requiredString(body, 'category'),
           permissionType: assertPermissionType(body.permissionType, 'optional'),
           sensitive: 'sensitive' in body ? boolToDb(body.sensitive) : 0,
+          ownerType: typeof body.ownerType === 'string' && body.ownerType.trim() ? body.ownerType.trim() : 'department',
           ownerName: requiredString(body, 'ownerName'),
           ownerContact: requiredString(body, 'ownerContact'),
+          applyEntryName: requiredString(body, 'applyEntryName'),
           applyUrl: requiredString(body, 'applyUrl'),
           reasonTemplate: requiredString(body, 'reasonTemplate'),
           approverName: requiredString(body, 'approverName'),
@@ -225,16 +227,18 @@ export const createPermissionItem: RouteMatch['handler'] = async ({ db, request 
         assertAdminUrl(row.applyUrl, 'applyUrl', ['mock-feishu://approval/']);
         db.prepare(
           `INSERT INTO permission_items
-           (id, name, category, permissionType, sensitive, ownerName, ownerContact, applyUrl, reasonTemplate, approverName, commonWaitingReasons, enabled, createdAt, updatedAt, updatedBy)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (id, name, category, permissionType, sensitive, ownerType, ownerName, ownerContact, applyEntryName, applyUrl, reasonTemplate, approverName, commonWaitingReasons, enabled, createdAt, updatedAt, updatedBy)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         ).run(
           row.id,
           row.name,
           row.category,
           row.permissionType,
           row.sensitive,
+          row.ownerType,
           row.ownerName,
           row.ownerContact,
+          row.applyEntryName,
           row.applyUrl,
           row.reasonTemplate,
           row.approverName,
@@ -314,15 +318,17 @@ export const updatePermissionItem: RouteMatch['handler'] = async ({ db, request 
         assertAdminUrl(applyUrl, 'applyUrl', ['mock-feishu://approval/']);
         db.prepare(
           `UPDATE permission_items
-           SET name = ?, category = ?, permissionType = ?, sensitive = ?, ownerName = ?, ownerContact = ?, applyUrl = ?, reasonTemplate = ?, approverName = ?, commonWaitingReasons = ?, enabled = ?, updatedAt = ?, updatedBy = ?
+           SET name = ?, category = ?, permissionType = ?, sensitive = ?, ownerType = ?, ownerName = ?, ownerContact = ?, applyEntryName = ?, applyUrl = ?, reasonTemplate = ?, approverName = ?, commonWaitingReasons = ?, enabled = ?, updatedAt = ?, updatedBy = ?
            WHERE id = ?`,
         ).run(
           sqlValue(optionalString(body, 'name', existing.name)),
           sqlValue(optionalString(body, 'category', existing.category)),
           permissionType,
           'sensitive' in body ? boolToDb(body.sensitive) : boolToDb(existing.sensitive),
+          sqlValue(typeof body.ownerType === 'string' && body.ownerType.trim() ? body.ownerType.trim() : existing.ownerType ?? 'department'),
           sqlValue(typeof body.ownerName === 'string' ? body.ownerName : existing.ownerName),
           sqlValue(typeof body.ownerContact === 'string' ? body.ownerContact : existing.ownerContact),
+          sqlValue(optionalString(body, 'applyEntryName', existing.applyEntryName ?? existing.name)),
           sqlValue(applyUrl),
           sqlValue(typeof body.reasonTemplate === 'string' ? body.reasonTemplate : existing.reasonTemplate),
           sqlValue(typeof body.approverName === 'string' ? body.approverName : existing.approverName),

@@ -30,8 +30,10 @@ const blankPermission = {
   name: '',
   category: '办公基础',
   permissionType: 'optional' as const,
+  ownerType: 'department',
   ownerName: '',
   ownerContact: '',
+  applyEntryName: '',
   applyUrl: 'mock-feishu://approval/',
   reasonTemplate: '',
   approverName: '',
@@ -287,6 +289,7 @@ export function AdminPage({ data, search, toast, reload }: { data: DashboardData
                 <input placeholder="权限名称" value={newPermission.name} onChange={(event) => setNewPermission({ ...newPermission, name: event.target.value })} />
                 <input placeholder="Owner" value={newPermission.ownerName} onChange={(event) => setNewPermission({ ...newPermission, ownerName: event.target.value })} />
                 <input placeholder="Owner 联系方式" value={newPermission.ownerContact} onChange={(event) => setNewPermission({ ...newPermission, ownerContact: event.target.value })} />
+                <input placeholder="申请入口名称" value={newPermission.applyEntryName} onChange={(event) => setNewPermission({ ...newPermission, applyEntryName: event.target.value })} />
                 <input placeholder="申请入口" value={newPermission.applyUrl} onChange={(event) => setNewPermission({ ...newPermission, applyUrl: event.target.value })} />
               </div>
               <textarea placeholder="理由模板" value={newPermission.reasonTemplate} onChange={(event) => setNewPermission({ ...newPermission, reasonTemplate: event.target.value })} />

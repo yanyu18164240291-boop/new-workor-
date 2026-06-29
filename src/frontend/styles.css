@@ -555,6 +555,277 @@ button {
   font-weight: 800;
 }
 
+.admin-role-summary-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 16px;
+}
+
+.admin-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.admin-section-heading h2 {
+  margin: 0;
+}
+
+.admin-section-heading select {
+  min-height: 34px;
+  border: 1px solid #dce6f4;
+  border-radius: 8px;
+  padding: 0 10px;
+  color: #172033;
+  background: #ffffff;
+  font-weight: 900;
+}
+
+.admin-definition-list {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  gap: 12px 18px;
+  margin: 0;
+}
+
+.admin-definition-list dt {
+  color: #7a8596;
+  font-weight: 900;
+}
+
+.admin-definition-list dd {
+  margin: 0;
+  color: #172033;
+  font-weight: 800;
+}
+
+.admin-completeness-ring {
+  width: 120px;
+  height: 120px;
+  display: grid;
+  place-items: center;
+  margin: 6px auto 16px;
+  border: 12px solid #dce8ff;
+  border-top-color: #1f6bff;
+  border-radius: 50%;
+  color: #172033;
+  font-size: 28px;
+  font-weight: 950;
+}
+
+.admin-package-counts {
+  display: grid;
+  gap: 7px;
+  color: #475467;
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.admin-tab-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-tab-row button {
+  min-height: 36px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 0 8px;
+  color: #64748b;
+  background: transparent;
+  font-weight: 900;
+}
+
+.admin-tab-row button.active {
+  color: #1f6bff;
+  border-bottom-color: #1f6bff;
+}
+
+.admin-toolbar-actions,
+.admin-table-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-primary-action,
+.admin-secondary-action,
+.admin-icon-action,
+.admin-table-actions button {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-radius: 8px;
+  padding: 0 13px;
+  font-weight: 900;
+}
+
+.admin-primary-action {
+  border: 0;
+  color: #ffffff;
+  background: #1f6bff;
+}
+
+.admin-secondary-action {
+  border: 1px solid #dce6f4;
+  color: #172033;
+  background: #ffffff;
+}
+
+.admin-icon-action,
+.admin-table-actions button {
+  border: 1px solid #dce6f4;
+  color: #1f6bff;
+  background: #ffffff;
+}
+
+.admin-table-actions button:disabled {
+  color: #98a2b3;
+  cursor: not-allowed;
+}
+
+.admin-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 40;
+  width: min(390px, 100vw);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #e2e8f4;
+  background: #ffffff;
+  box-shadow: -16px 0 34px rgba(21, 43, 80, 0.1);
+}
+
+.admin-drawer-head {
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 20px;
+  border-bottom: 1px solid #e8eef7;
+}
+
+.admin-drawer-head h2 {
+  margin: 0;
+  color: #172033;
+  font-size: 18px;
+}
+
+.admin-drawer-head button {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  color: #172033;
+  background: transparent;
+}
+
+.admin-drawer-body {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  padding: 18px 20px 20px;
+}
+
+.admin-drawer-footer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #e8eef7;
+  background: #ffffff;
+}
+
+.admin-drawer-form {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-drawer-form label,
+.admin-drawer-form fieldset {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  color: #344054;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.admin-drawer-form b {
+  color: #f04438;
+}
+
+.admin-drawer-form input,
+.admin-drawer-form select,
+.admin-drawer-form textarea {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid #dce6f4;
+  border-radius: 8px;
+  padding: 0 10px;
+  color: #172033;
+  background: #ffffff;
+  outline: none;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.admin-drawer-form textarea {
+  min-height: 86px;
+  padding: 10px;
+}
+
+.admin-drawer-form fieldset {
+  border: 0;
+  grid-template-columns: 1fr 1fr;
+  padding: 0;
+}
+
+.admin-drawer-form legend {
+  grid-column: 1 / -1;
+}
+
+.admin-drawer-form fieldset label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-drawer-form fieldset input,
+.admin-switch-row input {
+  width: 16px;
+  min-height: 16px;
+  accent-color: #1f6bff;
+}
+
+.admin-switch-row {
+  display: flex !important;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.admin-field-error {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #ffd5d1;
+  border-radius: 8px;
+  color: #b42318;
+  background: #fff7f6;
+  font-size: 13px;
+  font-weight: 900;
+}
+
 .admin-sidebar {
   min-height: 100vh;
   padding: 22px 16px;

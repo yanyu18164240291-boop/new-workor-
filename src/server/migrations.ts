@@ -29,6 +29,9 @@ function ensureAuditColumns(db: Database): void {
   for (const table of updatedByTables) {
     addColumnIfMissing(db, table, 'updatedBy', "TEXT NOT NULL DEFAULT 'demo-admin'");
   }
+  addColumnIfMissing(db, 'permission_items', 'ownerType', "TEXT NOT NULL DEFAULT 'department'");
+  addColumnIfMissing(db, 'permission_items', 'applyEntryName', "TEXT NOT NULL DEFAULT ''");
+  db.exec("UPDATE permission_items SET applyEntryName = name WHERE applyEntryName = '' OR applyEntryName IS NULL;");
   addColumnIfMissing(db, 'anonymous_feedbacks', 'handlerName', 'TEXT');
   addColumnIfMissing(db, 'anonymous_feedbacks', 'handledAt', 'TEXT');
   addColumnIfMissing(db, 'anonymous_feedbacks', 'resolutionNote', 'TEXT');

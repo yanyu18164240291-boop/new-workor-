@@ -12,8 +12,10 @@ export type PermissionItem = {
   category: string;
   permissionType: 'required' | 'optional';
   sensitive: boolean;
+  ownerType: 'personal' | 'department' | 'group' | string;
   ownerName: string;
   ownerContact: string;
+  applyEntryName: string;
   applyUrl: string;
   reasonTemplate: string;
   approverName: string;
@@ -353,8 +355,10 @@ export const api = {
     name: string;
     category: string;
     permissionType: 'required' | 'optional';
+    ownerType?: 'personal' | 'department' | 'group' | string;
     ownerName: string;
     ownerContact: string;
+    applyEntryName: string;
     applyUrl: string;
     reasonTemplate: string;
     approverName: string;
@@ -372,8 +376,10 @@ export const api = {
         | 'category'
         | 'permissionType'
         | 'sensitive'
+        | 'ownerType'
         | 'ownerName'
         | 'ownerContact'
+        | 'applyEntryName'
         | 'applyUrl'
         | 'reasonTemplate'
         | 'approverName'

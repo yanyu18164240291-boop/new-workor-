@@ -72,4 +72,26 @@ describe('Phase 04A admin config workbench contract', () => {
       assert.match(overview, new RegExp(quickAction));
     }
   });
+
+  it('renders role package permission fields without physical delete semantics', () => {
+    const roleTab = readFileSync('src/frontend/pages/AdminConfig/RolePackagesTab.tsx', 'utf8');
+    for (const label of [
+      '权限名称',
+      '所属分类',
+      '权限类型',
+      'Owner 类型',
+      'Owner 名称',
+      'Owner 联系方式',
+      '申请入口名称',
+      '申请入口 URL',
+      '审批人',
+      '理由模板',
+      '常见等待原因',
+      '启用状态',
+    ]) {
+      assert.match(roleTab, new RegExp(label));
+    }
+    assert.equal(roleTab.includes('删除'), false);
+    assert.match(roleTab, /停用/);
+  });
 });

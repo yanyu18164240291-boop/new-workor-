@@ -77,7 +77,9 @@ describe('Phase 04A writable admin configuration', () => {
         id: string;
         name: string;
         permissionType: string;
+        ownerType: string;
         ownerName: string;
+        applyEntryName: string;
         applyUrl: string;
         reasonTemplate: string;
         commonWaitingReasons: string[];
@@ -90,8 +92,10 @@ describe('Phase 04A writable admin configuration', () => {
         name: 'ChatGPT Admin Access',
         category: 'AI tools',
         permissionType: 'required',
+        ownerType: 'department',
         ownerName: 'Admin Owner',
         ownerContact: 'admin-owner@example.com',
+        applyEntryName: 'ChatGPT Admin Access Form',
         applyUrl: 'mock-feishu://approval/chatgpt-admin',
         reasonTemplate: 'Apply because the role needs configured AI tools.',
         approverName: 'Admin Approver',
@@ -102,7 +106,9 @@ describe('Phase 04A writable admin configuration', () => {
     assert.equal(permission.status, 200);
     assert.equal(permission.body.data.name, 'ChatGPT Admin Access');
     assert.equal(permission.body.data.permissionType, 'required');
+    assert.equal(permission.body.data.ownerType, 'department');
     assert.equal(permission.body.data.ownerName, 'Admin Owner');
+    assert.equal(permission.body.data.applyEntryName, 'ChatGPT Admin Access Form');
     assert.deepEqual(permission.body.data.commonWaitingReasons, ['Owner validating scope', 'License queue']);
     assert.equal(permission.body.data.enabled, false);
     assert.equal(permission.body.data.updatedBy, 'demo-admin');
@@ -110,12 +116,21 @@ describe('Phase 04A writable admin configuration', () => {
     const admin = await requestJson<{
       data: {
         roles: Array<{ id: string; name: string }>;
-        permissionItems: Array<{ id: string; name: string; enabled: boolean }>;
+        permissionItems: Array<{ id: string; name: string; ownerType: string; applyEntryName: string; enabled: boolean }>;
       };
     }>('/api/admin/config');
     assert.equal(admin.status, 200);
     assert.ok(admin.body.data.roles.some((item) => item.id === 'role-product-intern' && item.name === 'Admin configured role'));
-    assert.ok(admin.body.data.permissionItems.some((item) => item.id === 'perm-chatgpt' && item.name === 'ChatGPT Admin Access' && item.enabled === false));
+    assert.ok(
+      admin.body.data.permissionItems.some(
+        (item) =>
+          item.id === 'perm-chatgpt' &&
+          item.name === 'ChatGPT Admin Access' &&
+          item.ownerType === 'department' &&
+          item.applyEntryName === 'ChatGPT Admin Access Form' &&
+          item.enabled === false,
+      ),
+    );
 
     const progress = await requestJson<{ data: Array<{ permissionItemId: string }> }>('/api/newcomers/newcomer-yanyu/permission-progress');
     assert.equal(progress.status, 200);
