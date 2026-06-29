@@ -110,6 +110,16 @@ export function App() {
     </>
   );
 
+  if (route.pageNo === '08') {
+    return (
+      <div className="admin-canvas admin-config-canvas">
+        <LoadingState status={status} error={error} />
+        {content}
+        {modalLayer}
+      </div>
+    );
+  }
+
   if (shellKind === 'desktop') {
     return (
       <div className="admin-canvas">

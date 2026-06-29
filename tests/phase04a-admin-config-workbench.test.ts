@@ -49,6 +49,8 @@ describe('Phase 04A admin config workbench contract', () => {
   it('renders the fixed sidebar and topbar copy from the admin prototype', () => {
     const sidebar = readFileSync('src/frontend/components/admin-config/AdminSidebar.tsx', 'utf8');
     const topbar = readFileSync('src/frontend/components/admin-config/AdminTopbar.tsx', 'utf8');
+    const app = readFileSync('src/frontend/App.tsx', 'utf8');
+    const styles = readFileSync('src/frontend/styles.css', 'utf8');
     assert.match(sidebar, /海纳AI入职Bot/);
     assert.match(sidebar, /后台配置台/);
     assert.match(sidebar, /核心配置/);
@@ -61,6 +63,9 @@ describe('Phase 04A admin config workbench contract', () => {
     assert.match(topbar, /2026-06-23/);
     assert.match(topbar, /demo-admin/);
     assert.match(topbar, /刷新数据/);
+    assert.equal(app.includes('AdminPage'), false);
+    assert.match(app, /route\.pageNo === '08'/);
+    assert.match(styles, /\.admin-workbench-content\s*{[^}]*width:\s*100%/s);
   });
 
   it('renders overview metrics, queues, change log, and quick actions', () => {

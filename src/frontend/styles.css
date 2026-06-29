@@ -44,7 +44,13 @@ button {
   background: #f4f7fb;
 }
 
+.admin-config-canvas {
+  overflow-x: auto;
+}
+
 .admin-workbench {
+  width: 100%;
+  min-width: 1180px;
   min-height: 100vh;
   display: grid;
   grid-template-columns: 238px minmax(0, 1fr);
@@ -153,12 +159,14 @@ button {
 .admin-workbench-main {
   min-width: 0;
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .admin-workbench-topbar {
   min-height: 72px;
   display: grid;
-  grid-template-columns: minmax(260px, 340px) minmax(360px, 1fr) auto auto;
+  grid-template-columns: minmax(320px, 420px) minmax(470px, 1fr) auto auto;
   align-items: center;
   gap: 14px;
   padding: 16px 24px;
@@ -258,7 +266,9 @@ button {
 }
 
 .admin-workbench-content {
-  padding: 24px;
+  width: 100%;
+  flex: 1;
+  padding: 24px 24px 32px;
 }
 
 .admin-workbench-panel {
