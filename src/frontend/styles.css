@@ -561,6 +561,13 @@ button {
   gap: 16px;
 }
 
+.admin-split-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
+  gap: 16px;
+  align-items: start;
+}
+
 .admin-section-heading {
   display: flex;
   align-items: center;

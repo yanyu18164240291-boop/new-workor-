@@ -57,3 +57,16 @@ export function getAnonymousFeedbackConfig(db: Database): Record<string, unknown
     })),
   };
 }
+
+export function getAdminAnonymousFeedbackConfig(db: Database): Record<string, unknown> {
+  const modules = normalizeRows(db.prepare('SELECT * FROM anonymous_feedback_modules ORDER BY sortOrder').all() as Array<Record<string, unknown>>);
+  const problemTypes = normalizeRows(db.prepare('SELECT * FROM anonymous_feedback_problem_types ORDER BY sortOrder').all() as Array<Record<string, unknown>>);
+  const expectedActions = normalizeRows(db.prepare('SELECT * FROM anonymous_feedback_expected_actions ORDER BY sortOrder').all() as Array<Record<string, unknown>>);
+  return {
+    modules: modules.map((module) => ({
+      ...module,
+      problemTypes: problemTypes.filter((item) => item.moduleId === module.id),
+      expectedActions: expectedActions.filter((item) => item.moduleId === module.id),
+    })),
+  };
+}

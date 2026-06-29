@@ -110,4 +110,12 @@ describe('Phase 04A admin config workbench contract', () => {
     }
     assert.equal(weeklyTab.includes('删除'), false);
   });
+
+  it('renders editable anonymous feedback three-level config without physical delete semantics', () => {
+    const anonymousTab = readFileSync('src/frontend/pages/AdminConfig/AnonymousConfigTab.tsx', 'utf8');
+    for (const label of ['反馈模块列表', '当前模块', '问题类型', '希望如何处理', 'typeKey', 'actionKey', '是否需要补充文本']) {
+      assert.match(anonymousTab, new RegExp(label));
+    }
+    assert.equal(anonymousTab.includes('删除'), false);
+  });
 });

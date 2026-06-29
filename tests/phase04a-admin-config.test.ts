@@ -295,6 +295,42 @@ describe('Phase 04A writable admin configuration', () => {
     assert.ok(reloaded.body.data.modules.some((item) => item.id === 'afm-permission' && item.label === 'Configured permission feedback'));
   });
 
+  it('rejects duplicate anonymous feedback typeKey and actionKey in the same module', async () => {
+    const duplicateType = await requestJson<{ error: string }>('/api/admin/anonymous-feedback-config', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        problemTypes: [
+          {
+            id: 'afpt-duplicate-type',
+            moduleId: 'afm-permission',
+            typeKey: 'entry_missing',
+            label: 'Duplicate type key',
+            enabled: true,
+          },
+        ],
+      }),
+    });
+    assert.equal(duplicateType.status, 400);
+    assert.match(duplicateType.body.error, /typeKey/);
+
+    const duplicateAction = await requestJson<{ error: string }>('/api/admin/anonymous-feedback-config', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        expectedActions: [
+          {
+            id: 'afea-duplicate-action',
+            moduleId: 'afm-permission',
+            actionKey: 'add_entry',
+            label: 'Duplicate action key',
+            enabled: true,
+          },
+        ],
+      }),
+    });
+    assert.equal(duplicateAction.status, 400);
+    assert.match(duplicateAction.body.error, /actionKey/);
+  });
+
   it('updates anonymous feedback pool status, conclusion, and review inclusion', async () => {
     const updated = await requestJson<{
       data: {

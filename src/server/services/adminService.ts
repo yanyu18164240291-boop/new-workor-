@@ -11,7 +11,13 @@ import {
   requiredString,
   sqlValue
 } from '../routeKit.ts';
-import { getAdminWeeklyFeedbackConfig, getAnonymousFeedbackConfig, getD1GuideConfig, getWeeklyFeedbackConfig } from '../repositories/configRepository.ts';
+import {
+  getAdminAnonymousFeedbackConfig,
+  getAdminWeeklyFeedbackConfig,
+  getAnonymousFeedbackConfig,
+  getD1GuideConfig,
+  getWeeklyFeedbackConfig,
+} from '../repositories/configRepository.ts';
 import { withAnonymousFeedbackDetail } from '../repositories/feedbackRepository.ts';
 import { count } from '../repositories/metricsRepository.ts';
 import { getPermission } from '../repositories/permissionRepository.ts';
@@ -31,7 +37,7 @@ export const getAdminConfig: RouteMatch['handler'] = ({ db }) => ({
           rolePermissionItems: normalizeRows(db.prepare('SELECT * FROM role_permission_items ORDER BY sortOrder').all() as Array<Record<string, unknown>>),
           d1GuideConfig: getD1GuideConfig(db),
           weeklyFeedbackConfig: getAdminWeeklyFeedbackConfig(db),
-          anonymousFeedbackConfig: getAnonymousFeedbackConfig(db),
+          anonymousFeedbackConfig: getAdminAnonymousFeedbackConfig(db),
           anonymousFeedbacks: normalizeRows(db.prepare('SELECT * FROM anonymous_feedbacks ORDER BY submittedAt DESC').all() as Array<Record<string, unknown>>).map((row) =>
             withAnonymousFeedbackDetail(db, row),
           ),
@@ -197,6 +203,18 @@ function assertWeeklyInputType(value: unknown): 'single' | 'multi' | 'text' {
 function assertWeeklyOptionBelongsToQuestion(db: Parameters<RouteMatch['handler']>[0]['db'], optionId: string, questionId: string): void {
   const row = db.prepare('SELECT questionId FROM weekly_feedback_options WHERE id = ?').get(optionId) as { questionId: string } | undefined;
   if (!row || row.questionId !== questionId) throw badRequest('weekly feedback option must belong to current question');
+}
+
+function assertUniqueAnonymousKey(
+  db: Parameters<RouteMatch['handler']>[0]['db'],
+  table: 'anonymous_feedback_problem_types' | 'anonymous_feedback_expected_actions',
+  keyColumn: 'typeKey' | 'actionKey',
+  moduleId: string,
+  keyValue: string,
+  id: string,
+): void {
+  const duplicate = db.prepare(`SELECT id FROM ${table} WHERE moduleId = ? AND ${keyColumn} = ? AND id <> ?`).get(moduleId, keyValue, id);
+  if (duplicate) throw badRequest(`${keyColumn} must be unique in the same module`);
 }
 
 export const createRole: RouteMatch['handler'] = async ({ db, request }) => {
@@ -536,6 +554,8 @@ export const updateAnonymousFeedbackConfig: RouteMatch['handler'] = async ({ db,
           if (!existing) {
             const moduleId = requiredString(problemType, 'moduleId');
             assertExists(db, 'anonymous_feedback_modules', moduleId, 'module');
+            const typeKey = requiredString(problemType, 'typeKey');
+            assertUniqueAnonymousKey(db, 'anonymous_feedback_problem_types', 'typeKey', moduleId, typeKey, id);
             db.prepare(
               `INSERT INTO anonymous_feedback_problem_types
                (id, moduleId, typeKey, label, requiresText, enabled, sortOrder, createdAt, updatedAt, updatedBy)
@@ -543,7 +563,7 @@ export const updateAnonymousFeedbackConfig: RouteMatch['handler'] = async ({ db,
             ).run(
               id,
               moduleId,
-              requiredString(problemType, 'typeKey'),
+              typeKey,
               requiredString(problemType, 'label'),
               'requiresText' in problemType ? boolToDb(problemType.requiresText) : 0,
               'enabled' in problemType ? boolToDb(problemType.enabled) : 1,
@@ -554,10 +574,19 @@ export const updateAnonymousFeedbackConfig: RouteMatch['handler'] = async ({ db,
             );
             continue;
           }
-          db.prepare('UPDATE anonymous_feedback_problem_types SET label = ?, requiresText = ?, enabled = ?, updatedAt = ?, updatedBy = ? WHERE id = ?').run(
+          const moduleId = typeof problemType.moduleId === 'string' && problemType.moduleId.trim() ? problemType.moduleId.trim() : String(existing.moduleId);
+          const typeKey = typeof problemType.typeKey === 'string' && problemType.typeKey.trim() ? problemType.typeKey.trim() : String(existing.typeKey);
+          assertExists(db, 'anonymous_feedback_modules', moduleId, 'module');
+          assertUniqueAnonymousKey(db, 'anonymous_feedback_problem_types', 'typeKey', moduleId, typeKey, id);
+          db.prepare(
+            'UPDATE anonymous_feedback_problem_types SET moduleId = ?, typeKey = ?, label = ?, requiresText = ?, enabled = ?, sortOrder = ?, updatedAt = ?, updatedBy = ? WHERE id = ?',
+          ).run(
+            moduleId,
+            typeKey,
             sqlValue(optionalString(problemType, 'label', existing.label)),
             'requiresText' in problemType ? boolToDb(problemType.requiresText) : boolToDb(existing.requiresText),
             'enabled' in problemType ? boolToDb(problemType.enabled) : boolToDb(existing.enabled),
+            'sortOrder' in problemType ? Number(problemType.sortOrder) : Number(existing.sortOrder ?? 99),
             time,
             adminActor(body),
             id,
@@ -572,6 +601,8 @@ export const updateAnonymousFeedbackConfig: RouteMatch['handler'] = async ({ db,
           if (!existing) {
             const moduleId = requiredString(action, 'moduleId');
             assertExists(db, 'anonymous_feedback_modules', moduleId, 'module');
+            const actionKey = requiredString(action, 'actionKey');
+            assertUniqueAnonymousKey(db, 'anonymous_feedback_expected_actions', 'actionKey', moduleId, actionKey, id);
             db.prepare(
               `INSERT INTO anonymous_feedback_expected_actions
                (id, moduleId, actionKey, label, requiresText, enabled, sortOrder, createdAt, updatedAt, updatedBy)
@@ -579,7 +610,7 @@ export const updateAnonymousFeedbackConfig: RouteMatch['handler'] = async ({ db,
             ).run(
               id,
               moduleId,
-              requiredString(action, 'actionKey'),
+              actionKey,
               requiredString(action, 'label'),
               'requiresText' in action ? boolToDb(action.requiresText) : 0,
               'enabled' in action ? boolToDb(action.enabled) : 1,
@@ -590,10 +621,19 @@ export const updateAnonymousFeedbackConfig: RouteMatch['handler'] = async ({ db,
             );
             continue;
           }
-          db.prepare('UPDATE anonymous_feedback_expected_actions SET label = ?, requiresText = ?, enabled = ?, updatedAt = ?, updatedBy = ? WHERE id = ?').run(
+          const moduleId = typeof action.moduleId === 'string' && action.moduleId.trim() ? action.moduleId.trim() : String(existing.moduleId);
+          const actionKey = typeof action.actionKey === 'string' && action.actionKey.trim() ? action.actionKey.trim() : String(existing.actionKey);
+          assertExists(db, 'anonymous_feedback_modules', moduleId, 'module');
+          assertUniqueAnonymousKey(db, 'anonymous_feedback_expected_actions', 'actionKey', moduleId, actionKey, id);
+          db.prepare(
+            'UPDATE anonymous_feedback_expected_actions SET moduleId = ?, actionKey = ?, label = ?, requiresText = ?, enabled = ?, sortOrder = ?, updatedAt = ?, updatedBy = ? WHERE id = ?',
+          ).run(
+            moduleId,
+            actionKey,
             sqlValue(optionalString(action, 'label', existing.label)),
             'requiresText' in action ? boolToDb(action.requiresText) : boolToDb(existing.requiresText),
             'enabled' in action ? boolToDb(action.enabled) : boolToDb(existing.enabled),
+            'sortOrder' in action ? Number(action.sortOrder) : Number(existing.sortOrder ?? 99),
             time,
             adminActor(body),
             id,
