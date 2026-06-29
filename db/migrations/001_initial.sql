@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS permission_items (
   ownerType TEXT NOT NULL DEFAULT 'department',
   ownerName TEXT NOT NULL,
   ownerContact TEXT NOT NULL,
-  applyEntryName TEXT NOT NULL,
+  applyEntryName TEXT NOT NULL DEFAULT '',
   applyUrl TEXT NOT NULL,
   reasonTemplate TEXT NOT NULL,
   approverName TEXT NOT NULL,

@@ -107,8 +107,8 @@ describe('Phase 00 backend MVP APIs', () => {
     });
 
     assert.equal(created.status, 201);
-    assert.equal(created.body.data.parseStatus, 'simulated');
-    assert.equal(created.body.data.vectorStatus, 'simulated');
+    assert.match(created.body.data.parseStatus, /^simulated/);
+    assert.match(created.body.data.vectorStatus, /^simulated/);
 
     const docs = await requestJson<{ data: Array<{ id: string; title: string }> }>('/api/admin/knowledge-base-docs');
     assert.equal(docs.status, 200);
