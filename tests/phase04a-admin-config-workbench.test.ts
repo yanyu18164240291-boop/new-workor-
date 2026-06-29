@@ -118,4 +118,15 @@ describe('Phase 04A admin config workbench contract', () => {
     }
     assert.equal(anonymousTab.includes('删除'), false);
   });
+
+  it('renders knowledge metadata management without real parsing or vector integration', () => {
+    const knowledgeTab = readFileSync('src/frontend/pages/AdminConfig/KnowledgeTab.tsx', 'utf8');
+    const uploadModal = readFileSync('src/frontend/components/admin-config/UploadKnowledgeModal.tsx', 'utf8');
+    for (const label of ['知识库管理', '上传知识库资料', '文档名称', '知识分类', '适用岗位', '适用阶段', 'Owner', '解析状态', '向量化状态']) {
+      assert.match(knowledgeTab, new RegExp(label));
+    }
+    for (const label of ['知识库上传窗口', '文件选择', '开始上传', '解析和向量化仍为模拟状态']) {
+      assert.match(uploadModal, new RegExp(label));
+    }
+  });
 });

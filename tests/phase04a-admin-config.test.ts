@@ -372,4 +372,25 @@ describe('Phase 04A writable admin configuration', () => {
     assert.equal(reloaded?.status, 'knowledge_added');
     assert.equal(reloaded?.includedInReview, false);
   });
+
+  it('creates knowledge base metadata with simulated parse and vector states', async () => {
+    const created = await requestJson<{
+      data: { id: string; title: string; sourceUrl: string; parseStatus: string; vectorStatus: string; updatedBy: string };
+    }>('/api/admin/knowledge-base-docs', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'Admin uploaded metadata only',
+        category: '入职知识',
+        applicableRole: '协同办公产品实习生',
+        applicableStage: 'D1',
+        ownerName: 'Knowledge Owner',
+        sourceUrl: 'mock-drive://admin-upload',
+      }),
+    });
+    assert.equal(created.status, 201);
+    assert.equal(created.body.data.title, 'Admin uploaded metadata only');
+    assert.match(created.body.data.parseStatus, /^simulated/);
+    assert.match(created.body.data.vectorStatus, /^simulated/);
+    assert.equal(created.body.data.updatedBy, 'demo-admin');
+  });
 });

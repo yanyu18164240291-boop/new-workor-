@@ -169,6 +169,7 @@ export type KnowledgeDoc = {
   vectorStatus: string;
   hitCount: number;
   updatedBy?: string;
+  updatedAt?: string;
 };
 
 export type D1GuideConfigItem = {
