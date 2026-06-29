@@ -11,6 +11,7 @@ import {
 } from '../../types/adminConfig.ts';
 import { OverviewTab } from './OverviewTab.tsx';
 import { RolePackagesTab } from './RolePackagesTab.tsx';
+import { D1GuideTab } from './D1GuideTab.tsx';
 
 type AdminConfigPageProps = {
   data: DashboardData;
@@ -53,7 +54,8 @@ export function AdminConfigPage({ data, search, toast, reload, navigate }: Admin
     <AdminConfigLayout activeTab={activeTab} filters={filters} onFiltersChange={setFilters} navigate={navigate} reload={reload}>
       {activeTab === 'overview' && <OverviewTab data={data} navigate={navigate} />}
       {activeTab === 'role-packages' && <RolePackagesTab data={data} filters={filters} toast={toast} reload={reload} />}
-      {!['overview', 'role-packages'].includes(activeTab) && <PlaceholderTab activeTab={activeTab} data={data} toast={toast} />}
+      {activeTab === 'd1-guide' && <D1GuideTab data={data} toast={toast} reload={reload} />}
+      {!['overview', 'role-packages', 'd1-guide'].includes(activeTab) && <PlaceholderTab activeTab={activeTab} data={data} toast={toast} />}
     </AdminConfigLayout>
   );
 }

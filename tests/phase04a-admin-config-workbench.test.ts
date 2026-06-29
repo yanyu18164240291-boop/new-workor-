@@ -94,4 +94,12 @@ describe('Phase 04A admin config workbench contract', () => {
     assert.equal(roleTab.includes('删除'), false);
     assert.match(roleTab, /停用/);
   });
+
+  it('renders fixed D1 guide actions without physical delete semantics', () => {
+    const d1Tab = readFileSync('src/frontend/pages/AdminConfig/D1GuideTab.tsx', 'utf8');
+    for (const label of ['D1 引导配置', '加入飞书部门群', '查看员工指南册', '打开岗位权限包', '编辑 / 停用', '/permissions']) {
+      assert.match(d1Tab, new RegExp(label));
+    }
+    assert.equal(d1Tab.includes('删除'), false);
+  });
 });
