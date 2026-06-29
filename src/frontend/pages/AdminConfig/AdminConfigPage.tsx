@@ -15,6 +15,7 @@ import { D1GuideTab } from './D1GuideTab.tsx';
 import { WeeklyFeedbackTab } from './WeeklyFeedbackTab.tsx';
 import { AnonymousConfigTab } from './AnonymousConfigTab.tsx';
 import { KnowledgeTab } from './KnowledgeTab.tsx';
+import { FeedbackPoolTab } from './FeedbackPoolTab.tsx';
 
 type AdminConfigPageProps = {
   data: DashboardData;
@@ -61,7 +62,8 @@ export function AdminConfigPage({ data, search, toast, reload, navigate }: Admin
       {activeTab === 'weekly-feedback' && <WeeklyFeedbackTab data={data} filters={filters} toast={toast} reload={reload} />}
       {activeTab === 'anonymous-config' && <AnonymousConfigTab data={data} filters={filters} toast={toast} reload={reload} />}
       {activeTab === 'knowledge' && <KnowledgeTab data={data} filters={filters} toast={toast} reload={reload} />}
-      {!['overview', 'role-packages', 'd1-guide', 'weekly-feedback', 'anonymous-config', 'knowledge'].includes(activeTab) && (
+      {activeTab === 'feedback-pool' && <FeedbackPoolTab data={data} filters={filters} toast={toast} reload={reload} />}
+      {!['overview', 'role-packages', 'd1-guide', 'weekly-feedback', 'anonymous-config', 'knowledge', 'feedback-pool'].includes(activeTab) && (
         <PlaceholderTab activeTab={activeTab} data={data} toast={toast} />
       )}
     </AdminConfigLayout>

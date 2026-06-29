@@ -129,4 +129,17 @@ describe('Phase 04A admin config workbench contract', () => {
       assert.match(uploadModal, new RegExp(label));
     }
   });
+
+  it('renders anonymous feedback pool processing fields and status mapping', () => {
+    const poolTab = readFileSync('src/frontend/pages/AdminConfig/FeedbackPoolTab.tsx', 'utf8');
+    for (const label of ['待处理', '处理中', '已补充知识库', '已修正权限入口', '暂不处理', '已关闭']) {
+      assert.match(poolTab, new RegExp(label));
+    }
+    for (const value of ['pending', 'in_progress', 'knowledge_added', 'permission_entry_fixed', 'deferred', 'closed']) {
+      assert.match(poolTab, new RegExp(value));
+    }
+    for (const field of ['open / resolved / archived', 'handlerName', 'handledAt', 'resolutionNote', 'includedInReview']) {
+      assert.match(poolTab, new RegExp(field));
+    }
+  });
 });
