@@ -48,6 +48,19 @@ export function saveWeeklyFeedbackQuestion(question: WeeklyFeedbackQuestion) {
   ]);
 }
 
+export function createWeeklyFeedbackQuestion(
+  question: Pick<WeeklyFeedbackQuestion, 'title' | 'inputType' | 'required' | 'maxLength' | 'enabled'> & {
+    description?: string | null;
+    options?: Array<{ label: string; enabled?: boolean; sortOrder?: number }>;
+  },
+) {
+  return api.createWeeklyFeedbackQuestion({
+    ...question,
+    questionKey: `admin_${Date.now()}`,
+    options: question.options ?? [],
+  });
+}
+
 export function saveAnonymousFeedbackConfig(body: Parameters<typeof api.updateAnonymousFeedbackConfig>[0]) {
   return api.updateAnonymousFeedbackConfig(body);
 }

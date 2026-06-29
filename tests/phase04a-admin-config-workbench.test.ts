@@ -102,4 +102,12 @@ describe('Phase 04A admin config workbench contract', () => {
     }
     assert.equal(d1Tab.includes('删除'), false);
   });
+
+  it('renders weekly feedback config fields without physical delete semantics', () => {
+    const weeklyTab = readFileSync('src/frontend/pages/AdminConfig/WeeklyFeedbackTab.tsx', 'utf8');
+    for (const label of ['首周反馈表', '问题标题', '问题说明', '输入类型', '是否必填', '最大字数', '选项列表', '问题启用状态', '编辑 / 复制 / 停用']) {
+      assert.match(weeklyTab, new RegExp(label));
+    }
+    assert.equal(weeklyTab.includes('删除'), false);
+  });
 });

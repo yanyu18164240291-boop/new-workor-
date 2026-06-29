@@ -228,6 +228,31 @@ describe('Phase 04A writable admin configuration', () => {
     assert.match(disabled.body.error, /weekly feedback/i);
   });
 
+  it('keeps weekly feedback choice questions with at least one enabled option', async () => {
+    const admin = await requestJson<{
+      data: { weeklyFeedbackConfig: { questions: Array<{ id: string; inputType: string; options: Array<{ id: string; enabled: boolean }> }> } };
+    }>('/api/admin/config');
+    const choice = admin.body.data.weeklyFeedbackConfig.questions.find((question) => question.inputType !== 'text' && question.options.length > 0);
+    assert.ok(choice);
+
+    const disabledOptions = await requestJson<{ error: string }>('/api/admin/weekly-feedback-config', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        questions: [
+          {
+            id: choice.id,
+            title: 'Choice question still needs one option',
+            enabled: true,
+            options: choice.options.map((option) => ({ id: option.id, label: option.id, enabled: false })),
+          },
+        ],
+      }),
+    });
+
+    assert.equal(disabledOptions.status, 400);
+    assert.match(disabledOptions.body.error, /enabled option/i);
+  });
+
   it('persists editable anonymous feedback classification config and validates references', async () => {
     const invalid = await requestJson<{ error: string }>('/api/admin/anonymous-feedback-config', {
       method: 'PATCH',

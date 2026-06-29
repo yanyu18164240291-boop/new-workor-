@@ -28,6 +28,17 @@ export function getWeeklyFeedbackConfig(db: Database): Record<string, unknown> {
   };
 }
 
+export function getAdminWeeklyFeedbackConfig(db: Database): Record<string, unknown> {
+  const questions = normalizeRows(db.prepare('SELECT * FROM weekly_feedback_questions ORDER BY sortOrder').all() as Array<Record<string, unknown>>);
+  const options = normalizeRows(db.prepare('SELECT * FROM weekly_feedback_options ORDER BY sortOrder').all() as Array<Record<string, unknown>>);
+  return {
+    questions: questions.map((question) => ({
+      ...question,
+      options: options.filter((option) => option.questionId === question.id),
+    })),
+  };
+}
+
 export function getAnonymousFeedbackConfig(db: Database): Record<string, unknown> {
   const modules = normalizeRows(
     db.prepare('SELECT * FROM anonymous_feedback_modules WHERE enabled = 1 ORDER BY sortOrder').all() as Array<Record<string, unknown>>,

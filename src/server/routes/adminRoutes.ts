@@ -9,6 +9,7 @@ import {
   createPermissionItem,
   createRolePermissionItem,
   createKnowledgeBaseDoc,
+  createWeeklyFeedbackQuestion,
   updatePermissionItem,
   updateWeeklyFeedbackConfig,
   updateD1GuideConfig,
@@ -52,6 +53,10 @@ export const adminRoutes: Record<string, RouteMatch[]> = {
     {
       pattern: /^\/api\/admin\/knowledge-base-docs$/,
       handler: createKnowledgeBaseDoc,
+    },
+    {
+      pattern: /^\/api\/admin\/weekly-feedback-config\/questions$/,
+      handler: createWeeklyFeedbackQuestion,
     }
   ],
   PATCH: [

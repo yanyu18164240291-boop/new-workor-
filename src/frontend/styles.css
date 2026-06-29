@@ -815,6 +815,24 @@ button {
   justify-content: space-between;
 }
 
+.admin-option-editor-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 76px 72px;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.admin-inline-check {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: #4b5563;
+  font-size: 12px;
+}
+
 .admin-field-error {
   margin: 0;
   padding: 10px 12px;

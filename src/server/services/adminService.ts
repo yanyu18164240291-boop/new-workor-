@@ -11,7 +11,7 @@ import {
   requiredString,
   sqlValue
 } from '../routeKit.ts';
-import { getAnonymousFeedbackConfig, getD1GuideConfig, getWeeklyFeedbackConfig } from '../repositories/configRepository.ts';
+import { getAdminWeeklyFeedbackConfig, getAnonymousFeedbackConfig, getD1GuideConfig, getWeeklyFeedbackConfig } from '../repositories/configRepository.ts';
 import { withAnonymousFeedbackDetail } from '../repositories/feedbackRepository.ts';
 import { count } from '../repositories/metricsRepository.ts';
 import { getPermission } from '../repositories/permissionRepository.ts';
@@ -30,6 +30,7 @@ export const getAdminConfig: RouteMatch['handler'] = ({ db }) => ({
           permissionItems: normalizeRows(db.prepare('SELECT * FROM permission_items ORDER BY createdAt').all() as Array<Record<string, unknown>>),
           rolePermissionItems: normalizeRows(db.prepare('SELECT * FROM role_permission_items ORDER BY sortOrder').all() as Array<Record<string, unknown>>),
           d1GuideConfig: getD1GuideConfig(db),
+          weeklyFeedbackConfig: getAdminWeeklyFeedbackConfig(db),
           anonymousFeedbackConfig: getAnonymousFeedbackConfig(db),
           anonymousFeedbacks: normalizeRows(db.prepare('SELECT * FROM anonymous_feedbacks ORDER BY submittedAt DESC').all() as Array<Record<string, unknown>>).map((row) =>
             withAnonymousFeedbackDetail(db, row),
@@ -159,6 +160,43 @@ function assertWeeklyConfigStillHasQuestion(db: Parameters<RouteMatch['handler']
     }
   }
   if (![...enabledById.values()].some(Boolean)) throw badRequest('weekly feedback config must keep at least one enabled question');
+}
+
+function assertWeeklyChoiceQuestionsHaveEnabledOption(db: Parameters<RouteMatch['handler']>[0]['db'], questions: Array<Record<string, unknown>>): void {
+  const choiceQuestions = db.prepare("SELECT id FROM weekly_feedback_questions WHERE inputType IN ('single', 'multi')").all() as Array<{ id: string }>;
+  const options = db.prepare('SELECT id, questionId, enabled FROM weekly_feedback_options').all() as Array<{ id: string; questionId: string; enabled: number }>;
+  const enabledByQuestion = new Map<string, Map<string, boolean>>();
+  for (const option of options) {
+    const byOption = enabledByQuestion.get(option.questionId) ?? new Map<string, boolean>();
+    byOption.set(option.id, Boolean(option.enabled));
+    enabledByQuestion.set(option.questionId, byOption);
+  }
+  for (const question of questions) {
+    if (typeof question.id !== 'string' || !Array.isArray(question.options)) continue;
+    const byOption = enabledByQuestion.get(question.id) ?? new Map<string, boolean>();
+    for (const option of question.options as Array<Record<string, unknown>>) {
+      if (typeof option.id === 'string' && 'enabled' in option) {
+        byOption.set(option.id, Boolean(option.enabled));
+      }
+    }
+    enabledByQuestion.set(question.id, byOption);
+  }
+  for (const question of choiceQuestions) {
+    const optionsForQuestion = enabledByQuestion.get(question.id);
+    if (!optionsForQuestion || ![...optionsForQuestion.values()].some(Boolean)) {
+      throw badRequest('weekly feedback choice question must keep at least one enabled option');
+    }
+  }
+}
+
+function assertWeeklyInputType(value: unknown): 'single' | 'multi' | 'text' {
+  if (value === 'single' || value === 'multi' || value === 'text') return value;
+  throw badRequest('inputType is invalid');
+}
+
+function assertWeeklyOptionBelongsToQuestion(db: Parameters<RouteMatch['handler']>[0]['db'], optionId: string, questionId: string): void {
+  const row = db.prepare('SELECT questionId FROM weekly_feedback_options WHERE id = ?').get(optionId) as { questionId: string } | undefined;
+  if (!row || row.questionId !== questionId) throw badRequest('weekly feedback option must belong to current question');
 }
 
 export const createRole: RouteMatch['handler'] = async ({ db, request }) => {
@@ -307,6 +345,57 @@ export const createKnowledgeBaseDoc: RouteMatch['handler'] = async ({ db, reques
         return { status: 201, data: row };
       };
 
+export const createWeeklyFeedbackQuestion: RouteMatch['handler'] = async ({ db, request }) => {
+        const body = await readBody(request);
+        const inputType = assertWeeklyInputType(body.inputType);
+        const options = Array.isArray(body.options) ? (body.options as Array<Record<string, unknown>>) : [];
+        if (inputType !== 'text' && !options.some((option) => !('enabled' in option) || Boolean(option.enabled))) {
+          throw badRequest('weekly feedback choice question must keep at least one enabled option');
+        }
+        const time = nowIso();
+        const questionId = typeof body.id === 'string' && body.id.trim() ? body.id.trim() : createdId('weekly-question');
+        const sortOrder = Number(body.sortOrder ?? ((db.prepare('SELECT COALESCE(MAX(sortOrder), 0) + 1 AS nextSort FROM weekly_feedback_questions').get() as { nextSort: number }).nextSort));
+        db.prepare(
+          `INSERT INTO weekly_feedback_questions
+           (id, questionKey, title, description, inputType, required, maxLength, enabled, sortOrder, createdAt, updatedAt, updatedBy)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ).run(
+          questionId,
+          typeof body.questionKey === 'string' && body.questionKey.trim() ? body.questionKey.trim() : questionId,
+          requiredString(body, 'title'),
+          sqlValue(optionalNullableString(body, 'description', null)),
+          inputType,
+          'required' in body ? boolToDb(body.required) : 0,
+          inputType === 'text' ? Number(body.maxLength ?? 500) : null,
+          'enabled' in body ? boolToDb(body.enabled) : 1,
+          sortOrder,
+          time,
+          time,
+          adminActor(body),
+        );
+        if (inputType !== 'text') {
+          options.forEach((option, index) => {
+            const optionId = typeof option.id === 'string' && option.id.trim() ? option.id.trim() : createdId('weekly-option');
+            db.prepare(
+              `INSERT INTO weekly_feedback_options
+               (id, questionId, optionKey, label, enabled, sortOrder, createdAt, updatedAt, updatedBy)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            ).run(
+              optionId,
+              questionId,
+              typeof option.optionKey === 'string' && option.optionKey.trim() ? option.optionKey.trim() : optionId,
+              requiredString(option, 'label'),
+              'enabled' in option ? boolToDb(option.enabled) : 1,
+              Number(option.sortOrder ?? index + 1),
+              time,
+              time,
+              adminActor(body),
+            );
+          });
+        }
+        return { status: 201, data: getAdminWeeklyFeedbackConfig(db) };
+      };
+
 export const updatePermissionItem: RouteMatch['handler'] = async ({ db, request }, match) => {
         const id = decodeURIComponent(match[1]);
         const body = await readBody(request);
@@ -346,12 +435,14 @@ export const updateWeeklyFeedbackConfig: RouteMatch['handler'] = async ({ db, re
         const questions = Array.isArray(body.questions) ? (body.questions as Array<Record<string, unknown>>) : [];
         const time = nowIso();
         assertWeeklyConfigStillHasQuestion(db, questions);
+        assertWeeklyChoiceQuestionsHaveEnabledOption(db, questions);
         for (const question of questions) {
           const id = requiredString(question, 'id');
           assertExists(db, 'weekly_feedback_questions', id, 'questionId');
-          if (typeof question.title === 'string' && question.title.trim()) {
+          if ('title' in question) {
+            const title = requiredString(question, 'title');
             db.prepare('UPDATE weekly_feedback_questions SET title = ?, description = ?, required = ?, maxLength = ?, enabled = ?, updatedAt = ?, updatedBy = ? WHERE id = ?').run(
-              question.title.trim(),
+              title,
               'description' in question ? optionalNullableString(question, 'description', null) : sqlValue((db.prepare('SELECT description FROM weekly_feedback_questions WHERE id = ?').get(id) as { description?: string | null }).description),
               'required' in question ? boolToDb(question.required) : sqlValue((db.prepare('SELECT required FROM weekly_feedback_questions WHERE id = ?').get(id) as { required: number }).required),
               'maxLength' in question ? (question.maxLength === null ? null : Number(question.maxLength)) : sqlValue((db.prepare('SELECT maxLength FROM weekly_feedback_questions WHERE id = ?').get(id) as { maxLength?: number | null }).maxLength),
@@ -366,8 +457,9 @@ export const updateWeeklyFeedbackConfig: RouteMatch['handler'] = async ({ db, re
               const optionId = requiredString(option, 'id');
               assertExists(db, 'weekly_feedback_options', optionId, 'optionId');
               if (typeof option.label === 'string' && option.label.trim()) {
+                assertWeeklyOptionBelongsToQuestion(db, optionId, id);
                 db.prepare('UPDATE weekly_feedback_options SET label = ?, enabled = ?, updatedAt = ?, updatedBy = ? WHERE id = ? AND questionId = ?').run(
-                  option.label.trim(),
+                  requiredString(option, 'label'),
                   'enabled' in option ? boolToDb(option.enabled) : sqlValue((db.prepare('SELECT enabled FROM weekly_feedback_options WHERE id = ?').get(optionId) as { enabled: number }).enabled),
                   time,
                   adminActor(body),

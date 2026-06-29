@@ -80,6 +80,7 @@ export type AdminConfig = {
   permissionItems: PermissionItem[];
   rolePermissionItems: RolePermissionItem[];
   d1GuideConfig?: D1GuideConfig;
+  weeklyFeedbackConfig?: WeeklyFeedbackConfig;
   anonymousFeedbackConfig?: AnonymousFeedbackConfig;
   anonymousFeedbacks: AnonymousFeedback[];
 };
@@ -401,6 +402,16 @@ export const api = {
   getWeeklyFeedbackConfig: () => apiGet<WeeklyFeedbackConfig>('/api/weekly-feedback-config'),
   getWeeklyFeedbackAnalysis: () => apiGet<WeeklyFeedbackAnalysis>('/api/admin/weekly-feedback-analysis'),
   getAnonymousFeedbackConfig: () => apiGet<AnonymousFeedbackConfig>('/api/anonymous-feedback-config'),
+  createWeeklyFeedbackQuestion: (body: {
+    questionKey?: string;
+    title: string;
+    description?: string | null;
+    inputType: 'single' | 'multi' | 'text';
+    required?: boolean;
+    maxLength?: number | null;
+    enabled?: boolean;
+    options?: Array<{ optionKey?: string; label: string; enabled?: boolean; sortOrder?: number }>;
+  }) => apiSend<WeeklyFeedbackConfig>('/api/admin/weekly-feedback-config/questions', 'POST', body),
   updateWeeklyFeedbackConfig: (
     questions: Array<{
       id: string;
