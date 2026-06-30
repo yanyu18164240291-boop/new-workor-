@@ -2,13 +2,17 @@ import type { RouteMatch } from '../routeKit.ts';
 import {
   listAdminAnonymousFeedbacks,
   getAdminConfig,
+  getAdminD1GuideConfigEndpoint,
   listKnowledgeBaseDocs,
   getWeeklyFeedbackAnalysis,
   createRole,
+  createPosition,
   updateRole,
   createPermissionItem,
   createRolePermissionItem,
   createKnowledgeBaseDoc,
+  triggerMockKnowledgeParse,
+  updateKnowledgeBaseDocStatus,
   createWeeklyFeedbackQuestion,
   updatePermissionItem,
   updateWeeklyFeedbackConfig,
@@ -29,6 +33,10 @@ export const adminRoutes: Record<string, RouteMatch[]> = {
       handler: getAdminConfig,
     },
     {
+      pattern: /^\/api\/admin\/d1-guide-config$/,
+      handler: getAdminD1GuideConfigEndpoint,
+    },
+    {
       pattern: /^\/api\/admin\/knowledge-base-docs$/,
       handler: listKnowledgeBaseDocs,
     },
@@ -43,6 +51,10 @@ export const adminRoutes: Record<string, RouteMatch[]> = {
       handler: createRole,
     },
     {
+      pattern: /^\/api\/admin-config\/positions$/,
+      handler: createPosition,
+    },
+    {
       pattern: /^\/api\/admin\/permission-items$/,
       handler: createPermissionItem,
     },
@@ -53,6 +65,10 @@ export const adminRoutes: Record<string, RouteMatch[]> = {
     {
       pattern: /^\/api\/admin\/knowledge-base-docs$/,
       handler: createKnowledgeBaseDoc,
+    },
+    {
+      pattern: /^\/api\/admin-config\/knowledge\/([^/]+)\/trigger-mock-parse$/,
+      handler: triggerMockKnowledgeParse,
     },
     {
       pattern: /^\/api\/admin\/weekly-feedback-config\/questions$/,
@@ -67,6 +83,10 @@ export const adminRoutes: Record<string, RouteMatch[]> = {
     {
       pattern: /^\/api\/admin\/permission-items\/([^/]+)$/,
       handler: updatePermissionItem,
+    },
+    {
+      pattern: /^\/api\/admin-config\/knowledge\/([^/]+)\/status$/,
+      handler: updateKnowledgeBaseDocStatus,
     },
     {
       pattern: /^\/api\/admin\/d1-guide-config$/,

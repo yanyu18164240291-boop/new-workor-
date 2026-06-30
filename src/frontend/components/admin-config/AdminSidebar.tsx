@@ -2,7 +2,6 @@ import {
   Archive,
   BookOpen,
   BriefcaseBusiness,
-  ChevronLeft,
   ClipboardList,
   MessageCircle,
   ShieldCheck,
@@ -51,10 +50,6 @@ export function AdminSidebar({ activeTab, navigate }: AdminSidebarProps) {
       </nav>
 
       <div className="admin-workbench-sidebar-footer">
-        <button type="button">
-          <ChevronLeft size={16} />
-          收起菜单
-        </button>
         <small>
           © 2026 Haidilao
           <br />

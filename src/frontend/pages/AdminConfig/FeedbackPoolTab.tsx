@@ -1,13 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 
 import { DataTable, type DataTableColumn } from '../../components/admin-config/DataTable.tsx';
 import { FieldError } from '../../components/admin-config/FieldError.tsx';
 import { RightDrawer } from '../../components/admin-config/RightDrawer.tsx';
 import { StatusTag } from '../../components/admin-config/StatusTag.tsx';
-import { formatApiErrorMessage, type AnonymousFeedback } from '../../api.ts';
+import { formatApiErrorMessage, type AnonymousFeedback, type KnowledgeDoc } from '../../api.ts';
 import type { DashboardData } from '../../dashboardData.ts';
-import { processAnonymousFeedback } from '../../services/adminConfigApi.ts';
+import { listKnowledgeDocsForFeedbackAction, processAnonymousFeedback } from '../../services/adminConfigApi.ts';
 import { currentAdminUser, type AdminConfigFilters } from '../../types/adminConfig.ts';
 
 type FeedbackPoolTabProps = {
@@ -18,6 +18,10 @@ type FeedbackPoolTabProps = {
 };
 
 type CanonicalFeedbackStatus = 'pending' | 'in_progress' | 'knowledge_added' | 'permission_entry_fixed' | 'deferred' | 'closed';
+type FeedbackDraft = AnonymousFeedback & {
+  relatedKnowledgeDocId?: string;
+  relatedRoleId?: string;
+};
 
 const statusOptions: Array<{ value: CanonicalFeedbackStatus; label: string; tone: 'warning' | 'blue' | 'success' | 'ai' | 'neutral' }> = [
   { value: 'pending', label: '待处理', tone: 'warning' },
@@ -27,8 +31,6 @@ const statusOptions: Array<{ value: CanonicalFeedbackStatus; label: string; tone
   { value: 'deferred', label: '暂不处理', tone: 'neutral' },
   { value: 'closed', label: '已关闭', tone: 'neutral' },
 ];
-
-const compatibilityStatusCopy = 'open / resolved / archived';
 
 function normalizeFeedbackStatus(status: string): CanonicalFeedbackStatus {
   if (status === 'open') return 'pending';
@@ -61,10 +63,25 @@ function feedbackExpectedAction(feedback: AnonymousFeedback) {
 
 export function FeedbackPoolTab({ data, filters, toast, reload }: FeedbackPoolTabProps) {
   const feedbacks = getFeedbacks(data);
+  const roles = data.admin?.roles ?? [];
   const [activeStatus, setActiveStatus] = useState<'all' | CanonicalFeedbackStatus>('all');
-  const [draft, setDraft] = useState<AnonymousFeedback | null>(null);
+  const [draft, setDraft] = useState<FeedbackDraft | null>(null);
+  const [knowledgeDocs, setKnowledgeDocs] = useState<KnowledgeDoc[]>(data.knowledgeDocs ?? []);
   const [fieldError, setFieldError] = useState('');
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setKnowledgeDocs(data.knowledgeDocs ?? []);
+  }, [data.knowledgeDocs]);
+
+  useEffect(() => {
+    if (!draft || normalizeFeedbackStatus(draft.status) !== 'knowledge_added' || knowledgeDocs.length > 0) return;
+    void listKnowledgeDocsForFeedbackAction()
+      .then((docs) => setKnowledgeDocs(docs))
+      .catch(() => {
+        // The drawer still shows a field-level validation message when no doc is selectable.
+      });
+  }, [draft, knowledgeDocs.length]);
 
   const filteredFeedbacks = useMemo(() => {
     const keyword = filters.keyword.trim().toLowerCase();
@@ -93,15 +110,50 @@ export function FeedbackPoolTab({ data, filters, toast, reload }: FeedbackPoolTa
     });
   }, [activeStatus, feedbacks, filters.keyword, filters.status]);
 
-  function patchDraft(patch: Partial<AnonymousFeedback>) {
+  function patchDraft(patch: Partial<FeedbackDraft>) {
     setDraft((current) => (current ? { ...current, ...patch } : current));
   }
 
-  function validateDraft(nextDraft: AnonymousFeedback): string {
+  function validateDraft(nextDraft: FeedbackDraft): string {
     if (!nextDraft.ownerName?.trim()) return '处理 Owner 不能为空';
+    if (normalizeFeedbackStatus(nextDraft.status) === 'knowledge_added' && !nextDraft.relatedKnowledgeDocId) {
+      return '请选择关联知识库资料';
+    }
+    if (normalizeFeedbackStatus(nextDraft.status) === 'permission_entry_fixed' && !nextDraft.relatedRoleId) {
+      return '请选择关联岗位权限包';
+    }
     if (!nextDraft.result?.trim()) return '处理结论 result 不能为空';
     if (!nextDraft.resolutionNote?.trim()) return '处理说明 resolutionNote 不能为空';
     return '';
+  }
+
+  function isMissingRequiredRelation(nextDraft: FeedbackDraft | null): boolean {
+    if (!nextDraft) return false;
+    const status = normalizeFeedbackStatus(nextDraft.status);
+    return (status === 'knowledge_added' && !nextDraft.relatedKnowledgeDocId) || (status === 'permission_entry_fixed' && !nextDraft.relatedRoleId);
+  }
+
+  function buildResolutionNote(nextDraft: FeedbackDraft): string {
+    let note = nextDraft.resolutionNote ?? '';
+    const status = normalizeFeedbackStatus(nextDraft.status);
+    if (status === 'knowledge_added' && nextDraft.relatedKnowledgeDocId) {
+      const doc = knowledgeDocs.find((item) => item.id === nextDraft.relatedKnowledgeDocId);
+      if (doc && !note.includes(doc.id)) note = `关联知识库资料：${doc.title}（${doc.id}）\n${note}`;
+    }
+    if (status === 'permission_entry_fixed' && nextDraft.relatedRoleId) {
+      const role = roles.find((item) => item.id === nextDraft.relatedRoleId);
+      if (role && !note.includes(role.id)) note = `关联岗位权限包：${role.name}（${role.id}）\n${note}`;
+    }
+    return note;
+  }
+
+  function handleStatusChange(status: string) {
+    patchDraft({
+      status,
+      relatedKnowledgeDocId: status === 'knowledge_added' ? draft?.relatedKnowledgeDocId ?? '' : undefined,
+      relatedRoleId: status === 'permission_entry_fixed' ? draft?.relatedRoleId ?? '' : undefined,
+    });
+    setFieldError('');
   }
 
   async function saveDraft() {
@@ -118,7 +170,7 @@ export function FeedbackPoolTab({ data, filters, toast, reload }: FeedbackPoolTa
         ownerName: draft.ownerName ?? '',
         status: normalizeFeedbackStatus(draft.status),
         result: draft.result ?? '',
-        resolutionNote: draft.resolutionNote ?? '',
+        resolutionNote: buildResolutionNote(draft),
         includedInReview: draft.includedInReview,
       });
       toast('已保存匿名反馈处理结果');
@@ -138,7 +190,15 @@ export function FeedbackPoolTab({ data, filters, toast, reload }: FeedbackPoolTa
     { key: 'feedbackNo', title: '反馈编号', render: (feedback) => <strong>{feedback.feedbackNo}</strong> },
     { key: 'type', title: '反馈类型', render: (feedback) => feedbackProblemType(feedback) },
     { key: 'module', title: '关联模块', render: (feedback) => feedbackModule(feedback) },
-    { key: 'description', title: '问题描述', render: (feedback) => feedback.description },
+    {
+      key: 'description',
+      title: '问题描述',
+      render: (feedback) => (
+        <span className="admin-description-cell" title={feedback.description}>
+          {feedback.description}
+        </span>
+      ),
+    },
     { key: 'ownerName', title: '处理 Owner', render: (feedback) => feedback.ownerName ?? '-' },
     { key: 'status', title: '处理状态', render: (feedback) => <StatusTag tone={statusMeta(feedback.status).tone}>{statusMeta(feedback.status).label}</StatusTag> },
     { key: 'included', title: '进入复盘', render: (feedback) => (feedback.includedInReview ? '是' : '否') },
@@ -159,16 +219,15 @@ export function FeedbackPoolTab({ data, filters, toast, reload }: FeedbackPoolTa
   return (
     <div className="admin-workbench-panel">
       <div className="admin-page-title">
-        <span>Page 08</span>
         <h1>匿名反馈池</h1>
         <p>产品运营、内容 Owner、权限 Owner 在此处理匿名反馈；管理者端不展示匿名反馈原文。</p>
       </div>
 
-      <div className="admin-metric-grid admin-metric-grid-three">
+      <div className="admin-metric-grid admin-metric-grid-three admin-compact-summary-grid">
         <div className="admin-card">
           <h2>待处理匿名反馈数</h2>
           <strong className="admin-large-number">{pendingCount}</strong>
-          <p>兼容历史状态：{compatibilityStatusCopy}</p>
+          <p>历史遗留数据已自动映射至新状态</p>
         </div>
         <div className="admin-card">
           <h2>进入复盘指标</h2>
@@ -215,7 +274,12 @@ export function FeedbackPoolTab({ data, filters, toast, reload }: FeedbackPoolTa
             <button className="admin-secondary-action" type="button" onClick={() => setDraft(null)}>
               取消
             </button>
-            <button className="admin-primary-action" type="button" disabled={saving} onClick={() => void saveDraft()}>
+            <button
+              className="admin-primary-action"
+              type="button"
+              disabled={saving || isMissingRequiredRelation(draft)}
+              onClick={() => void saveDraft()}
+            >
               保存处理结果
             </button>
           </>
@@ -254,7 +318,7 @@ export function FeedbackPoolTab({ data, filters, toast, reload }: FeedbackPoolTa
             </label>
             <label>
               处理状态
-              <select value={normalizeFeedbackStatus(draft.status)} onChange={(event) => patchDraft({ status: event.target.value })}>
+              <select value={normalizeFeedbackStatus(draft.status)} onChange={(event) => handleStatusChange(event.target.value)}>
                 {statusOptions.map((status) => (
                   <option key={status.value} value={status.value}>
                     {status.label}
@@ -262,6 +326,44 @@ export function FeedbackPoolTab({ data, filters, toast, reload }: FeedbackPoolTa
                 ))}
               </select>
             </label>
+            {normalizeFeedbackStatus(draft.status) === 'knowledge_added' && (
+              <label>
+                关联知识库资料 <b>*</b>
+                <select
+                  value={draft.relatedKnowledgeDocId ?? ''}
+                  onChange={(event) => {
+                    patchDraft({ relatedKnowledgeDocId: event.target.value });
+                    setFieldError('');
+                  }}
+                >
+                  <option value="">请选择知识库资料</option>
+                  {knowledgeDocs.map((doc) => (
+                    <option key={doc.id} value={doc.id}>
+                      {doc.title}（{doc.id}）
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {normalizeFeedbackStatus(draft.status) === 'permission_entry_fixed' && (
+              <label>
+                关联岗位权限包 <b>*</b>
+                <select
+                  value={draft.relatedRoleId ?? ''}
+                  onChange={(event) => {
+                    patchDraft({ relatedRoleId: event.target.value });
+                    setFieldError('');
+                  }}
+                >
+                  <option value="">请选择关联岗位权限包</option>
+                  {roles.map((role) => (
+                    <option key={role.id} value={role.id}>
+                      {role.name}（{role.id}）
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label>
               处理结论 result <b>*</b>
               <textarea value={draft.result ?? ''} onChange={(event) => patchDraft({ result: event.target.value })} />

@@ -12,13 +12,18 @@ import { seedDatabase } from '../src/server/seed.ts';
 let baseUrl = '';
 let closeServer: () => Promise<void>;
 let tempDir = '';
+const nativeFetch = globalThis.fetch.bind(globalThis);
 
 async function requestJson<T>(
   route: string,
   init?: RequestInit,
 ): Promise<{ status: number; body: T }> {
-  const response = await fetch(`${baseUrl}${route}`, {
-    headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) },
+  const response = await nativeFetch(`${baseUrl}${route}`, {
+    headers: {
+      'content-type': 'application/json',
+      ...(route.startsWith('/api/admin/') ? { 'x-haina-role': 'admin', 'x-haina-actor': 'demo-admin' } : {}),
+      ...(init?.headers ?? {}),
+    },
     ...init,
   });
   return {
@@ -88,7 +93,7 @@ describe('Phase 00 backend MVP APIs', () => {
     assert.equal(config.body.data.joinGroup.sendToEmployeeName, '刘长省');
     assert.match(config.body.data.employeeGuide.documentUrl, /^mock-feishu:\/\/doc\//);
     assert.equal(config.body.data.permissionPackage.routePath, '/permissions');
-    assert.equal(config.body.data.permissionPackage.label, '申请岗位权限');
+    assert.equal(config.body.data.permissionPackage.label, '开通岗位权限包');
   });
 
   it('persists knowledge base metadata while keeping parsing and vectorization simulated', async () => {
@@ -99,6 +104,7 @@ describe('Phase 00 backend MVP APIs', () => {
       body: JSON.stringify({
         title: '后台上传演示资料',
         category: '入职流程',
+        applicableRoleId: 'role-product-intern',
         applicableRole: '协同办公产品实习生',
         applicableStage: 'D1-D7',
         sourceUrl: 'mock-drive://metadata-test',
@@ -107,8 +113,8 @@ describe('Phase 00 backend MVP APIs', () => {
     });
 
     assert.equal(created.status, 201);
-    assert.match(created.body.data.parseStatus, /^simulated/);
-    assert.match(created.body.data.vectorStatus, /^simulated/);
+    assert.equal(created.body.data.parseStatus, 'pending');
+    assert.equal(created.body.data.vectorStatus, 'pending');
 
     const docs = await requestJson<{ data: Array<{ id: string; title: string }> }>('/api/admin/knowledge-base-docs');
     assert.equal(docs.status, 200);

@@ -1,8 +1,10 @@
 export type Role = {
   id: string;
   name: string;
+  departmentId?: string;
   department: string;
   description: string;
+  enabled?: boolean;
   updatedBy?: string;
 };
 
@@ -22,6 +24,7 @@ export type PermissionItem = {
   commonWaitingReasons: string[];
   enabled: boolean;
   updatedBy?: string;
+  updatedAt?: string;
 };
 
 export type RolePermissionItem = {
@@ -160,10 +163,14 @@ export type KnowledgeDoc = {
   id: string;
   title: string;
   category: string;
+  applicableRoleId: string;
   applicableRole: string;
   applicableStage: string;
   ownerName: string;
   sourceUrl?: string;
+  fileSize?: number;
+  fileHash?: string;
+  filePath?: string;
   status: string;
   parseStatus: string;
   vectorStatus: string;
@@ -253,6 +260,8 @@ export type ApiErrorCode =
   | 'BAD_REQUEST'
   | 'VALIDATION_ERROR'
   | 'NOT_FOUND'
+  | 'FORBIDDEN'
+  | 'CONFLICT'
   | 'INVALID_JSON'
   | 'INTERNAL_ERROR'
   | 'NETWORK_ERROR'
@@ -303,8 +312,14 @@ async function readApiPayload<T>(response: Response, path: string, method: strin
 
 async function requestApi<T>(path: string, init?: RequestInit): Promise<T> {
   const method = init?.method ?? 'GET';
+  const headers = {
+    ...(path.startsWith('/api/admin/') || path.startsWith('/api/admin-config/')
+      ? { 'x-haina-role': 'admin', 'x-haina-actor': 'demo-admin' }
+      : {}),
+    ...(init?.headers ?? {}),
+  };
   try {
-    const response = await fetch(path, init);
+    const response = await fetch(path, { ...init, headers });
     const payload = await readApiPayload<T>(response, path, method);
     if (!response.ok || payload.error) {
       throw new ApiClientError(payload.error ?? `Request failed: ${path}`, {
@@ -340,18 +355,31 @@ export const api = {
   getPermissionProgress: (newcomerId: string) => apiGet<PermissionProgress[]>(`/api/newcomers/${newcomerId}/permission-progress`),
   getFollowUpTasks: (newcomerId: string) => apiGet<FollowUpTask[]>(`/api/newcomers/${newcomerId}/follow-up-tasks`),
   getD1GuideConfig: () => apiGet<D1GuideConfig>('/api/d1-guide-config'),
+  getAdminD1GuideConfig: () => apiGet<D1GuideConfig>('/api/admin/d1-guide-config'),
   getAdminConfig: () => apiGet<AdminConfig>('/api/admin/config'),
   getAnonymousFeedbacks: () => apiGet<AnonymousFeedback[]>('/api/admin/anonymous-feedbacks'),
   getKnowledgeDocs: () => apiGet<KnowledgeDoc[]>('/api/admin/knowledge-base-docs'),
   createKnowledgeDoc: (body: {
     title: string;
     category: string;
+    applicableRoleId: string;
     applicableRole: string;
     applicableStage: string;
     sourceUrl?: string;
+    fileSize?: number;
+    fileHash?: string;
+    filePath?: string;
     ownerName: string;
+    updatedBy?: string;
   }) => apiSend<KnowledgeDoc>('/api/admin/knowledge-base-docs', 'POST', body),
-  updateRole: (id: string, body: { name?: string; department?: string; description?: string }) =>
+  triggerMockKnowledgeParse: (id: string) => apiSend<KnowledgeDoc>(`/api/admin-config/knowledge/${id}/trigger-mock-parse`, 'POST', {}),
+  updateKnowledgeDocStatus: (id: string, status: 'disabled' | 'enabled' | 'offline') =>
+    apiSend<KnowledgeDoc>(`/api/admin-config/knowledge/${id}/status`, 'PATCH', { status }),
+  createRole: (body: { name: string; departmentId?: string; department: string; description: string; updatedBy?: string }) =>
+    apiSend<Role>('/api/admin/roles', 'POST', body),
+  createPosition: (body: { name: string; departmentId: string; department: string; description: string; updatedBy?: string }) =>
+    apiSend<Role>('/api/admin-config/positions', 'POST', body),
+  updateRole: (id: string, body: { name?: string; department?: string; description?: string; updatedBy?: string }) =>
     apiSend<Role>(`/api/admin/roles/${id}`, 'PATCH', body),
   createPermissionItem: (body: {
     name: string;
@@ -366,8 +394,9 @@ export const api = {
     approverName: string;
     commonWaitingReasons: string[];
     enabled?: boolean;
+    updatedBy?: string;
   }) => apiSend<PermissionItem>('/api/admin/permission-items', 'POST', body),
-  createRolePermissionItem: (body: { roleId: string; permissionItemId: string; sortOrder?: number }) =>
+  createRolePermissionItem: (body: { roleId: string; permissionItemId: string; sortOrder?: number; updatedBy?: string }) =>
     apiSend<RolePermissionItem>('/api/admin/role-permission-items', 'POST', body),
   updatePermissionItem: (
     id: string,
@@ -387,17 +416,19 @@ export const api = {
         | 'approverName'
         | 'commonWaitingReasons'
         | 'enabled'
+        | 'updatedAt'
       >
-    >,
+    > & { expectedUpdatedAt?: string },
   ) => apiSend<PermissionItem>(`/api/admin/permission-items/${id}`, 'PATCH', body),
-  updateD1GuideConfig: (items: Array<Partial<D1GuideConfigItem> & { actionKey: string }>) =>
-    apiSend<D1GuideConfig>('/api/admin/d1-guide-config', 'PATCH', { items }),
+  updateD1GuideConfig: (items: Array<Partial<D1GuideConfigItem> & { actionKey: string }>, updatedBy?: string) =>
+    apiSend<D1GuideConfig>('/api/admin/d1-guide-config', 'PATCH', { items, updatedBy }),
   updateAnonymousFeedbackConfig: (body: {
     modules?: Array<{ id: string; label?: string; enabled?: boolean }>;
     problemTypes?: Array<{ id: string; moduleId?: string; typeKey?: string; label?: string; requiresText?: boolean; enabled?: boolean; sortOrder?: number }>;
     expectedActions?: Array<{ id: string; moduleId?: string; actionKey?: string; label?: string; requiresText?: boolean; enabled?: boolean; sortOrder?: number }>;
+    updatedBy?: string;
   }) => apiSend<AnonymousFeedbackConfig>('/api/admin/anonymous-feedback-config', 'PATCH', body),
-  updateAnonymousFeedback: (id: string, body: { status?: string; ownerName?: string; result?: string; handlerName?: string; resolutionNote?: string; includedInReview?: boolean }) =>
+  updateAnonymousFeedback: (id: string, body: { status?: string; ownerName?: string; result?: string; handlerName?: string; resolutionNote?: string; includedInReview?: boolean; updatedBy?: string }) =>
     apiSend<AnonymousFeedback>(`/api/admin/anonymous-feedbacks/${id}`, 'PATCH', body),
   getReviewMetrics: () => apiGet<ReviewMetrics>('/api/review/metrics'),
   getWeeklyFeedbackConfig: () => apiGet<WeeklyFeedbackConfig>('/api/weekly-feedback-config'),
@@ -412,6 +443,7 @@ export const api = {
     maxLength?: number | null;
     enabled?: boolean;
     options?: Array<{ optionKey?: string; label: string; enabled?: boolean; sortOrder?: number }>;
+    updatedBy?: string;
   }) => apiSend<WeeklyFeedbackConfig>('/api/admin/weekly-feedback-config/questions', 'POST', body),
   updateWeeklyFeedbackConfig: (
     questions: Array<{
@@ -421,10 +453,11 @@ export const api = {
       required?: boolean;
       maxLength?: number | null;
       enabled?: boolean;
-      options?: Array<{ id: string; label: string; enabled?: boolean }>;
+      options?: Array<{ id?: string; optionKey?: string; label: string; enabled?: boolean; sortOrder?: number }>;
     }>,
+    updatedBy?: string,
   ) =>
-    apiSend<WeeklyFeedbackConfig>('/api/admin/weekly-feedback-config', 'PATCH', { questions }),
+    apiSend<WeeklyFeedbackConfig>('/api/admin/weekly-feedback-config', 'PATCH', { questions, updatedBy }),
   getWeeklyFeedback: (newcomerId: string) => apiGet<WeeklyFeedback>(`/api/newcomers/${newcomerId}/weekly-feedback`),
   getManagerFeedback: (weeklyFeedbackId: string) => apiGet<WeeklyFeedback>(`/api/manager/feedback/${weeklyFeedbackId}`),
   syncPermissionApplications: (newcomerId: string, selectedPermissionItemIds: string[], scopePermissionItemIds: string[]) =>

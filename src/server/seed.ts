@@ -33,12 +33,18 @@ function insert(db: Database, table: string, row: Record<string, unknown>): void
   db.prepare(`INSERT INTO ${table} (${keys.join(', ')}) VALUES (${placeholders})`).run(...keys.map((key) => row[key] as SQLInputValue));
 }
 
+function insertIfMissing(db: Database, table: string, keyColumn: string, row: Record<string, unknown>): void {
+  const existing = db.prepare(`SELECT ${keyColumn} FROM ${table} WHERE ${keyColumn} = ?`).get(row[keyColumn] as SQLInputValue);
+  if (existing) return;
+  insert(db, table, row);
+}
+
 function addHours(iso: string, hours: number): string {
   return new Date(new Date(iso).getTime() + hours * 60 * 60 * 1000).toISOString();
 }
 
-export function seedD1GuideConfig(db: Database): void {
-  insert(db, 'd1_guide_configs', {
+const d1GuideDefaults = [
+  {
     actionKey: 'join_group',
     title: '加入飞书部门群',
     description: '进入新人群，导师会在群内同步安排。',
@@ -55,9 +61,8 @@ export function seedD1GuideConfig(db: Database): void {
     sortOrder: 1,
     createdAt: seedTime,
     updatedAt: seedTime,
-  });
-
-  insert(db, 'd1_guide_configs', {
+  },
+  {
     actionKey: 'employee_guide',
     title: '查看员工指南册',
     description: '办公规范、门禁、餐饮、常见问题。',
@@ -74,12 +79,11 @@ export function seedD1GuideConfig(db: Database): void {
     sortOrder: 2,
     createdAt: seedTime,
     updatedAt: seedTime,
-  });
-
-  insert(db, 'd1_guide_configs', {
+  },
+  {
     actionKey: 'permission_package',
-    title: '申请岗位权限',
-    description: '优先完成 OA、邮箱、AI 工具。',
+    title: '开通岗位权限包',
+    description: '查看并申请岗位必开权限与可选权限。',
     targetGroupName: null,
     applyUrl: null,
     sendToEmployeeName: null,
@@ -87,13 +91,62 @@ export function seedD1GuideConfig(db: Database): void {
     documentTitle: null,
     documentUrl: null,
     routePath: '/permissions',
-    label: '申请岗位权限',
+    label: '开通岗位权限包',
     ownerName: '协同办公权限 Owner',
     enabled: 1,
     sortOrder: 3,
     createdAt: seedTime,
     updatedAt: seedTime,
-  });
+  },
+] as const;
+
+function isCorruptedSeedText(value: unknown): boolean {
+  if (typeof value !== 'string') return true;
+  const trimmed = value.trim();
+  return trimmed === '' || /^\?+$/.test(trimmed) || trimmed.toLowerCase() === 'smoke check';
+}
+
+function needsD1FieldRepair(actionKey: string, key: string, existing: Record<string, unknown>): boolean {
+  if (actionKey === 'permission_package' && ['title', 'label'].includes(key)) {
+    const value = typeof existing[key] === 'string' ? existing[key].trim() : '';
+    if (value === '打开岗位权限包' || value === '申请岗位权限') return true;
+  }
+  if (['title', 'description', 'label', 'ownerName'].includes(key)) return isCorruptedSeedText(existing[key]);
+  if (key === 'sortOrder') return Number(existing.sortOrder) !== Number(d1GuideDefaults.find((item) => item.actionKey === actionKey)?.sortOrder);
+  if (actionKey === 'join_group') {
+    return ['targetGroupName', 'applyUrl', 'sendToEmployeeName', 'sendToEmployeeContact'].includes(key) && isCorruptedSeedText(existing[key]);
+  }
+  if (actionKey === 'employee_guide') {
+    return ['documentTitle', 'documentUrl'].includes(key) && isCorruptedSeedText(existing[key]);
+  }
+  if (actionKey === 'permission_package' && key === 'routePath') return existing.routePath !== '/permissions';
+  return false;
+}
+
+export function seedD1GuideConfig(db: Database): void {
+  for (const item of d1GuideDefaults) {
+    const existing = db.prepare('SELECT * FROM d1_guide_configs WHERE actionKey = ?').get(item.actionKey) as Record<string, unknown> | undefined;
+    if (!existing) {
+      insert(db, 'd1_guide_configs', item);
+      continue;
+    }
+
+    const patch: Record<string, unknown> = {};
+    for (const key of Object.keys(item)) {
+      if (['actionKey', 'createdAt', 'enabled'].includes(key)) continue;
+      if (needsD1FieldRepair(item.actionKey, key, existing)) {
+        patch[key] = item[key as keyof typeof item];
+      }
+    }
+    if (Object.keys(patch).length === 0) continue;
+    patch.updatedAt = seedTime;
+    patch.updatedBy = 'demo-admin';
+    const keys = Object.keys(patch);
+    db.prepare(`UPDATE d1_guide_configs SET ${keys.map((key) => `${key} = ?`).join(', ')} WHERE actionKey = ?`).run(
+      ...keys.map((key) => patch[key] as SQLInputValue),
+      item.actionKey,
+    );
+  }
 }
 
 export function seedJoinFeishuOrgTasks(db: Database): void {
@@ -169,9 +222,6 @@ export function seedSubmittedPermissionFollowUps(db: Database): void {
 }
 
 export function seedWeeklyFeedbackConfig(db: Database): void {
-  const existing = db.prepare('SELECT COUNT(*) AS total FROM weekly_feedback_questions').get() as { total: number };
-  if (existing.total > 0) return;
-
   const questions = [
     {
       id: 'wfq-overall',
@@ -236,7 +286,7 @@ export function seedWeeklyFeedbackConfig(db: Database): void {
   ];
 
   for (const question of questions) {
-    insert(db, 'weekly_feedback_questions', {
+    insertIfMissing(db, 'weekly_feedback_questions', 'id', {
       id: question.id,
       questionKey: question.questionKey,
       title: question.title,
@@ -250,7 +300,7 @@ export function seedWeeklyFeedbackConfig(db: Database): void {
       updatedAt: seedTime,
     });
     question.options.forEach((option, index) => {
-      insert(db, 'weekly_feedback_options', {
+      insertIfMissing(db, 'weekly_feedback_options', 'id', {
         id: option[0],
         questionId: question.id,
         optionKey: option[1],
@@ -261,6 +311,12 @@ export function seedWeeklyFeedbackConfig(db: Database): void {
         updatedAt: seedTime,
       });
     });
+  }
+
+  const enabled = db.prepare('SELECT COUNT(*) AS total FROM weekly_feedback_questions WHERE enabled = 1').get() as { total: number };
+  if (enabled.total === 0) {
+    db.prepare("UPDATE weekly_feedback_questions SET enabled = 1, updatedAt = ? WHERE id IN ('wfq-overall', 'wfq-blockers', 'wfq-support', 'wfq-message')").run(seedTime);
+    db.prepare("UPDATE weekly_feedback_options SET enabled = 1, updatedAt = ? WHERE questionId IN ('wfq-overall', 'wfq-blockers', 'wfq-support')").run(seedTime);
   }
 }
 
@@ -636,9 +692,9 @@ export function seedDatabase(db: Database): void {
   });
 
   const docs = [
-    ['kb-001', 'D1 到达引导清单', '入职流程', '协同办公产品实习生', 'D1', 'mock-drive://d1-guide', 'HRBP', 'enabled', 'parsed', 'simulated'],
-    ['kb-002', '协同办公产品常用系统说明', '系统权限', '协同办公产品实习生', 'D1-D3', 'mock-drive://systems', '产品运营', 'enabled', 'parsed', 'simulated'],
-    ['kb-003', '首周反馈填写说明', '反馈机制', '协同办公产品实习生', 'W1', 'mock-drive://weekly-feedback', '组织发展', 'enabled', 'parsed', 'simulated'],
+    ['kb-001', 'D1 到达引导清单', '入职流程', '协同办公产品实习生', 'D1', 'mock-drive://d1-guide', 'HRBP', 'enabled', 'parsed', 'ready'],
+    ['kb-002', '协同办公产品常用系统说明', '系统权限', '协同办公产品实习生', 'D1-D3', 'mock-drive://systems', '产品运营', 'enabled', 'parsed', 'ready'],
+    ['kb-003', '首周反馈填写说明', '反馈机制', '协同办公产品实习生', 'W1', 'mock-drive://weekly-feedback', '组织发展', 'enabled', 'parsed', 'ready'],
   ];
 
   docs.forEach((doc, index) => {
@@ -646,9 +702,13 @@ export function seedDatabase(db: Database): void {
       id: doc[0],
       title: doc[1],
       category: doc[2],
+      applicableRoleId: 'role-product-intern',
       applicableRole: doc[3],
       applicableStage: doc[4],
       sourceUrl: doc[5],
+      fileSize: 0,
+      fileHash: `mock-md5-${doc[0]}`,
+      filePath: `mock-file://${doc[0]}.pdf`,
       ownerName: doc[6],
       status: doc[7],
       parseStatus: doc[8],

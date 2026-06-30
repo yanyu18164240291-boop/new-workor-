@@ -13,7 +13,9 @@ describe('frontend architecture boundaries', () => {
 
   it('keeps role pages outside the application shell', () => {
     assert.equal(existsSync('src/frontend/pages/newcomerPages.tsx'), true);
-    assert.equal(existsSync('src/frontend/pages/adminPages.tsx'), true);
+    assert.equal(existsSync('src/frontend/pages/adminPages.tsx'), false);
+    assert.equal(existsSync('src/frontend/pages/AdminConfig/AdminConfigPage.tsx'), true);
+    assert.equal(existsSync('src/frontend/pages/ReviewPage.tsx'), true);
     assert.equal(existsSync('src/frontend/pages/managerPages.tsx'), true);
     assert.equal(existsSync('src/frontend/AppContent.tsx'), true);
     assert.equal(existsSync('src/frontend/appState.ts'), true);
@@ -27,7 +29,7 @@ describe('frontend architecture boundaries', () => {
       'FollowUpPage',
       'WeeklyFeedbackPage',
       'AnonymousFeedbackPage',
-      'AdminPage',
+      'AdminConfigPage',
       'ReviewPage',
       'ManagerPage',
       'ManagerDetailPage',
@@ -35,6 +37,38 @@ describe('frontend architecture boundaries', () => {
     ]) {
       assert.equal(app.includes(`function ${component}`), false, `${component} should live outside App.tsx`);
     }
+
+    const appContent = readFileSync('src/frontend/AppContent.tsx', 'utf8');
+    assert.equal(appContent.includes('adminPages'), false);
+    assert.equal(appContent.includes('AdminPage'), false);
+    assert.match(appContent, /AdminConfigPage/);
+    assert.match(appContent, /ReviewPage/);
+  });
+
+  it('loads admin-only data only for the admin config route', () => {
+    const app = readFileSync('src/frontend/App.tsx', 'utf8');
+    const appState = readFileSync('src/frontend/appState.ts', 'utf8');
+    assert.match(app, /useDashboardData\(route\.pageNo\)/);
+    assert.match(appState, /loadDashboardDataForPage\(pageNo\)/);
+
+    const extractFunction = (name: string) => {
+      const start = appState.indexOf(`async function ${name}`);
+      assert.notEqual(start, -1, `${name} should exist`);
+      const next = appState.indexOf('\nasync function ', start + 1);
+      return appState.slice(start, next === -1 ? undefined : next);
+    };
+    const newcomerLoader = extractFunction('loadNewcomerSurfaceData');
+    const adminLoader = extractFunction('loadAdminConfigSurfaceData');
+    const reviewLoader = extractFunction('loadReviewSurfaceData');
+    const managerLoader = extractFunction('loadManagerSurfaceData');
+
+    assert.match(adminLoader, /api\.getAdminConfig\(\)/);
+    assert.match(adminLoader, /api\.getAnonymousFeedbacks\(\)/);
+    assert.equal(newcomerLoader.includes('getAdminConfig'), false);
+    assert.equal(newcomerLoader.includes('getAnonymousFeedbacks'), false);
+    assert.equal(managerLoader.includes('getAdminConfig'), false);
+    assert.equal(managerLoader.includes('getAnonymousFeedbacks'), false);
+    assert.equal(reviewLoader.includes('getAnonymousFeedbacks'), false);
   });
 
   it('keeps frontend HTTP access behind the API client', () => {

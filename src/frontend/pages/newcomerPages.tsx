@@ -29,6 +29,49 @@ function formatHomeTime(value?: string) {
   return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
+function RolePreviewSelect({
+  data,
+  onRoleChange,
+  variant = 'card',
+}: {
+  data: DashboardData;
+  onRoleChange?: (roleId: string) => Promise<void>;
+  variant?: 'card' | 'inline';
+}) {
+  const [switching, setSwitching] = useState(false);
+  const roles = data.roles ?? [];
+  const selectedRoleId = data.selectedRoleId ?? data.package?.role.id ?? data.newcomer?.roleId ?? '';
+  const selectedRoleName = data.package?.role.name ?? roles.find((role) => role.id === selectedRoleId)?.name ?? '协同办公产品实习生';
+
+  async function handleChange(roleId: string) {
+    if (!roleId || roleId === selectedRoleId || !onRoleChange) return;
+    try {
+      setSwitching(true);
+      await onRoleChange(roleId);
+    } finally {
+      setSwitching(false);
+    }
+  }
+
+  return (
+    <div className={`role-preview-select role-preview-select-${variant}`}>
+      <span>当前位置</span>
+      {roles.length > 0 ? (
+        <select value={selectedRoleId} disabled={switching} onChange={(event) => void handleChange(event.target.value)}>
+          {roles.map((role) => (
+            <option key={role.id} value={role.id}>
+              {role.name}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <strong>{selectedRoleName}</strong>
+      )}
+      {switching && <small>正在切换</small>}
+    </div>
+  );
+}
+
 export function HomePage({ data, navigate }: { data: DashboardData; navigate: (path: string) => void }) {
   const stats = buildHomeProgressStats({
     permissions: [...(data.package?.requiredPermissions ?? []), ...(data.package?.optionalPermissions ?? [])],
@@ -100,7 +143,17 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
   );
 }
 
-export function D1Page({ data, navigate, toast }: { data: DashboardData; navigate: (path: string) => void; toast: (message: string) => void }) {
+export function D1Page({
+  data,
+  navigate,
+  toast,
+  onRoleChange,
+}: {
+  data: DashboardData;
+  navigate: (path: string) => void;
+  toast: (message: string) => void;
+  onRoleChange?: (roleId: string) => Promise<void>;
+}) {
   const guide = data.d1GuideConfig;
   const actions = [
     guide?.joinGroup
@@ -138,7 +191,9 @@ export function D1Page({ data, navigate, toast }: { data: DashboardData; navigat
     <>
       <SectionCard title="D1 到达引导包">
         <p>先完成 3 个关键动作：进部门群、查看员工指南册、查看岗位权限包。</p>
-        <Card className="notice-card inner">当前位置：协同办公产品实习生</Card>
+        <Card className="notice-card inner">
+          <RolePreviewSelect data={data} onRoleChange={onRoleChange} />
+        </Card>
       </SectionCard>
       <SectionCard title="今日关键路径" action={<span className="time-hint">预计 20-30 分钟</span>}>
         <StepList showArrow hideStatus steps={actions.map((item) => ({ no: item.no, title: item.title, desc: item.desc, status: item.status, onClick: item.onClick }))} />
@@ -154,10 +209,12 @@ export function PermissionPage({
   data,
   navigate,
   openModal,
+  onRoleChange,
 }: {
   data: DashboardData;
   navigate: (path: string) => void;
   openModal: (type: 'required' | 'optional') => void;
+  onRoleChange?: (roleId: string) => Promise<void>;
 }) {
   const required = data.package?.requiredPermissions ?? [];
   const optional = data.package?.optionalPermissions ?? [];
@@ -167,8 +224,9 @@ export function PermissionPage({
       <Card className="permission-package-card">
         <IconTile icon="shield" tone="warning" />
         <div>
-          <h2>{data.package?.role.department ?? '协同办公'}产品实习生权限包</h2>
+          <h2>{data.package?.role.name ?? '协同办公产品实习生'}权限包</h2>
           <p>适用于入职第一周 · D1-D7</p>
+          <RolePreviewSelect data={data} onRoleChange={onRoleChange} variant="inline" />
         </div>
         <StatusChip tone="blue">岗位默认推荐</StatusChip>
       </Card>
@@ -432,7 +490,14 @@ export function AnonymousFeedbackPage({ data, reload, toast }: { data: Dashboard
   const [done, setDone] = useState(false);
   const flow = getAnonymousFeedbackFlow();
   const sections = Object.fromEntries(flow.sections.map((section) => [section.key, section]));
-  const modules = data.anonymousConfig?.modules ?? [];
+  const modules = (data.anonymousConfig?.modules ?? [])
+    .filter((module) => module.enabled)
+    .map((module) => ({
+      ...module,
+      problemTypes: module.problemTypes.filter((item) => item.enabled).sort((a, b) => a.sortOrder - b.sortOrder),
+      expectedActions: module.expectedActions.filter((item) => item.enabled).sort((a, b) => a.sortOrder - b.sortOrder),
+    }))
+    .filter((module) => module.problemTypes.length > 0 && module.expectedActions.length > 0);
   const [description, setDescription] = useState('');
   const [moduleKey, setModuleKey] = useState('');
   const [problemTypeKey, setProblemTypeKey] = useState('');

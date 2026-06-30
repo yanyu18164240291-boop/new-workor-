@@ -3,12 +3,15 @@ PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS roles (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
+  departmentId TEXT NOT NULL DEFAULT 'dept-collaboration-office',
   department TEXT NOT NULL,
   description TEXT NOT NULL,
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL,
   updatedBy TEXT NOT NULL DEFAULT 'demo-admin'
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_roles_name ON roles(name);
 
 CREATE TABLE IF NOT EXISTS permission_items (
   id TEXT PRIMARY KEY,
@@ -278,9 +281,13 @@ CREATE TABLE IF NOT EXISTS knowledge_base_docs (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
   category TEXT NOT NULL,
+  applicableRoleId TEXT NOT NULL DEFAULT 'role-product-intern' REFERENCES roles(id) ON DELETE RESTRICT,
   applicableRole TEXT NOT NULL,
   applicableStage TEXT NOT NULL,
   sourceUrl TEXT NOT NULL,
+  fileSize INTEGER NOT NULL DEFAULT 0,
+  fileHash TEXT NOT NULL DEFAULT 'mock-md5-pending',
+  filePath TEXT NOT NULL DEFAULT 'mock-file://selected-admin-doc.pdf',
   ownerName TEXT NOT NULL,
   status TEXT NOT NULL,
   parseStatus TEXT NOT NULL,

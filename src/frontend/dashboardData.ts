@@ -9,6 +9,7 @@ import type {
   PermissionPackage,
   PermissionProgress,
   ReviewMetrics,
+  Role,
   WeeklyFeedback,
   WeeklyFeedbackAnalysis,
   WeeklyFeedbackConfig,
@@ -16,6 +17,8 @@ import type {
 
 export type DashboardData = {
   newcomer?: Newcomer;
+  roles?: Role[];
+  selectedRoleId?: string;
   package?: PermissionPackage;
   progress?: PermissionProgress[];
   followUps?: FollowUpTask[];

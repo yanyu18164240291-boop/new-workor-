@@ -24,7 +24,7 @@ import { getBottomNavItems, getShellKind, matchRoute } from './routes.ts';
 export function App() {
   const { pathname, search, navigate } = usePathname();
   const { route, params } = useMemo(() => matchRoute(pathname), [pathname]);
-  const { data, status, error, reload } = useDashboardData();
+  const { data, status, error, reload, selectPreviewRole } = useDashboardData(route.pageNo);
   const [toastMessage, setToastMessage] = useState('');
   const [modal, setModal] = useState<'required' | 'optional' | 'owner' | null>(null);
 
@@ -48,6 +48,7 @@ export function App() {
         navigate={navigate}
         toast={toast}
         reload={reload}
+        selectPreviewRole={selectPreviewRole}
         openApplyModal={setModal}
         openOwnerModal={() => setModal('owner')}
       />

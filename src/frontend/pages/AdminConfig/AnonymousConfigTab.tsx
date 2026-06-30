@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 
 import { DataTable, type DataTableColumn } from '../../components/admin-config/DataTable.tsx';
@@ -37,13 +37,23 @@ function validateEdit(editing: EditState): string {
     return '';
   }
   if (editing.kind === 'problemType') {
+    if (!editing.draft.moduleId.trim()) return '请选择归属模块';
     if (!editing.draft.label.trim()) return '问题类型不能为空';
     if (!editing.draft.typeKey.trim()) return 'typeKey 不能为空';
     return '';
   }
+  if (!editing.draft.moduleId.trim()) return '请选择归属模块';
   if (!editing.draft.label.trim()) return '处理方式不能为空';
   if (!editing.draft.actionKey.trim()) return 'actionKey 不能为空';
   return '';
+}
+
+function createDraftId(prefix: string): string {
+  return `${prefix}-${Date.now()}`;
+}
+
+function getNextSort(items: Array<{ sortOrder: number }>): number {
+  return Math.max(0, ...items.map((item) => Number(item.sortOrder) || 0)) + 1;
 }
 
 export function AnonymousConfigTab({ data, filters, toast, reload }: AnonymousConfigTabProps) {
@@ -52,6 +62,7 @@ export function AnonymousConfigTab({ data, filters, toast, reload }: AnonymousCo
   const [editing, setEditing] = useState<EditState | null>(null);
   const [fieldError, setFieldError] = useState('');
   const [saving, setSaving] = useState(false);
+  const detailRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!selectedModuleId && modules[0]) setSelectedModuleId(modules[0].id);
@@ -79,6 +90,52 @@ export function AnonymousConfigTab({ data, filters, toast, reload }: AnonymousCo
   function openEdit(next: EditState) {
     setEditing(next);
     setFieldError('');
+  }
+
+  function viewModule(module: AnonymousFeedbackModule) {
+    setSelectedModuleId(module.id);
+    toast(`正在查看「${module.label}」配置`);
+    window.setTimeout(() => detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+  }
+
+  function openCreateProblemType() {
+    if (!selectedModule) {
+      toast('请先选择关联模块');
+      return;
+    }
+    const time = Date.now();
+    openEdit({
+      kind: 'problemType',
+      draft: {
+        id: createDraftId('afpt-admin'),
+        moduleId: selectedModule.id,
+        typeKey: `admin_type_${time}`,
+        label: '',
+        requiresText: false,
+        enabled: true,
+        sortOrder: getNextSort(selectedModule.problemTypes),
+      },
+    });
+  }
+
+  function openCreateExpectedAction() {
+    if (!selectedModule) {
+      toast('请先选择关联模块');
+      return;
+    }
+    const time = Date.now();
+    openEdit({
+      kind: 'expectedAction',
+      draft: {
+        id: createDraftId('afea-admin'),
+        moduleId: selectedModule.id,
+        actionKey: `admin_action_${time}`,
+        label: '',
+        requiresText: false,
+        enabled: true,
+        sortOrder: getNextSort(selectedModule.expectedActions),
+      },
+    });
   }
 
   async function saveEditing() {
@@ -161,7 +218,7 @@ export function AnonymousConfigTab({ data, filters, toast, reload }: AnonymousCo
       title: '操作',
       render: (module) => (
         <div className="admin-table-actions">
-          <button type="button" onClick={() => setSelectedModuleId(module.id)}>
+          <button type="button" onClick={() => viewModule(module)}>
             查看
           </button>
           <button type="button" onClick={() => openEdit({ kind: 'module', draft: { ...module } })}>
@@ -216,13 +273,12 @@ export function AnonymousConfigTab({ data, filters, toast, reload }: AnonymousCo
   return (
     <div className="admin-workbench-panel">
       <div className="admin-page-title">
-        <span>Page 08</span>
         <h1>匿名反馈配置</h1>
         <p>维护新人匿名反馈的三级联动：关联模块、问题类型、希望如何处理。</p>
       </div>
 
       <div className="admin-split-grid">
-        <section className="admin-card">
+        <section className="admin-card" ref={detailRef}>
           <div className="admin-section-heading">
             <div>
               <h2>反馈模块列表</h2>
@@ -235,7 +291,7 @@ export function AnonymousConfigTab({ data, filters, toast, reload }: AnonymousCo
           <DataTable columns={moduleColumns} rows={filteredModules} getRowKey={(module) => module.id} emptyText="暂无反馈模块" />
         </section>
 
-        <section className="admin-card">
+        <section className="admin-card admin-module-detail-card">
           <div className="admin-section-heading">
             <div>
               <h2>当前模块基础信息</h2>
@@ -243,6 +299,16 @@ export function AnonymousConfigTab({ data, filters, toast, reload }: AnonymousCo
             </div>
             {selectedModule && <StatusTag tone={selectedModule.enabled ? 'success' : 'neutral'}>{selectedModule.enabled ? '启用' : '停用'}</StatusTag>}
           </div>
+          <label className="admin-inline-select">
+            当前关联模块
+            <select value={selectedModule?.id ?? ''} onChange={(event) => setSelectedModuleId(event.target.value)}>
+              {modules.map((module) => (
+                <option key={module.id} value={module.id}>
+                  {module.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <dl className="admin-definition-list">
             <dt>模块名称</dt>
             <dd>{selectedModule?.label ?? '-'}</dd>
@@ -256,14 +322,26 @@ export function AnonymousConfigTab({ data, filters, toast, reload }: AnonymousCo
 
       <section className="admin-card">
         <div className="admin-section-heading">
-          <h2>问题类型列表</h2>
+          <div>
+            <h2>问题类型列表</h2>
+            <p className="admin-muted-line">当前关联模块：{selectedModule?.label ?? '-'}</p>
+          </div>
+          <button className="admin-primary-action" type="button" disabled={!selectedModule} onClick={openCreateProblemType}>
+            + 新增问题类型
+          </button>
         </div>
         <DataTable columns={problemColumns} rows={selectedModule?.problemTypes ?? []} getRowKey={(item) => item.id} emptyText="暂无问题类型" />
       </section>
 
       <section className="admin-card">
         <div className="admin-section-heading">
-          <h2>希望如何处理列表</h2>
+          <div>
+            <h2>希望如何处理列表</h2>
+            <p className="admin-muted-line">当前关联模块：{selectedModule?.label ?? '-'}</p>
+          </div>
+          <button className="admin-primary-action" type="button" disabled={!selectedModule} onClick={openCreateExpectedAction}>
+            + 新增处理方式
+          </button>
         </div>
         <DataTable columns={actionColumns} rows={selectedModule?.expectedActions ?? []} getRowKey={(item) => item.id} emptyText="暂无处理方式" />
       </section>
@@ -305,6 +383,10 @@ export function AnonymousConfigTab({ data, filters, toast, reload }: AnonymousCo
             {editing.kind === 'problemType' && (
               <>
                 <label>
+                  归属模块
+                  <input value={modules.find((module) => module.id === editing.draft.moduleId)?.label ?? editing.draft.moduleId} readOnly />
+                </label>
+                <label>
                   问题类型 <b>*</b>
                   <input value={editing.draft.label} onChange={(event) => patchEditing({ label: event.target.value })} />
                 </label>
@@ -328,6 +410,10 @@ export function AnonymousConfigTab({ data, filters, toast, reload }: AnonymousCo
             )}
             {editing.kind === 'expectedAction' && (
               <>
+                <label>
+                  归属模块
+                  <input value={modules.find((module) => module.id === editing.draft.moduleId)?.label ?? editing.draft.moduleId} readOnly />
+                </label>
                 <label>
                   希望如何处理 <b>*</b>
                   <input value={editing.draft.label} onChange={(event) => patchEditing({ label: event.target.value })} />

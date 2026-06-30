@@ -1,6 +1,8 @@
 import type { RouteMatch } from '../routeKit.ts';
 import { isPermissionType, parseAnonymousFeedbackStatus } from '../contracts.ts';
-import { badRequest } from '../errors.ts';
+import { badRequest, conflict } from '../errors.ts';
+import { isAllowedPageRoutePath, isValidExternalUrl } from '../../shared/pageRoutesContract.ts';
+import { canEnableKnowledgeDoc, isKnowledgeCategory } from '../../shared/knowledgeContract.ts';
 import {
   boolToDb,
   createdId,
@@ -12,15 +14,21 @@ import {
   sqlValue
 } from '../routeKit.ts';
 import {
+  getAdminD1GuideConfig,
   getAdminAnonymousFeedbackConfig,
   getAdminWeeklyFeedbackConfig,
-  getAnonymousFeedbackConfig,
-  getD1GuideConfig,
-  getWeeklyFeedbackConfig,
 } from '../repositories/configRepository.ts';
 import { withAnonymousFeedbackDetail } from '../repositories/feedbackRepository.ts';
+import {
+  createKnowledgeDoc,
+  getKnowledgeDoc,
+  listKnowledgeDocs,
+  markKnowledgeDocParsed,
+  updateKnowledgeDocStatus,
+} from '../repositories/knowledgeRepository.ts';
 import { count } from '../repositories/metricsRepository.ts';
 import { getPermission } from '../repositories/permissionRepository.ts';
+import { createPosition as insertPosition, findPositionByName } from '../repositories/positionRepository.ts';
 
 const demoAdmin = 'demo-admin';
 
@@ -35,7 +43,7 @@ export const getAdminConfig: RouteMatch['handler'] = ({ db }) => ({
           roles: normalizeRows(db.prepare('SELECT * FROM roles ORDER BY createdAt').all() as Array<Record<string, unknown>>),
           permissionItems: normalizeRows(db.prepare('SELECT * FROM permission_items ORDER BY createdAt').all() as Array<Record<string, unknown>>),
           rolePermissionItems: normalizeRows(db.prepare('SELECT * FROM role_permission_items ORDER BY sortOrder').all() as Array<Record<string, unknown>>),
-          d1GuideConfig: getD1GuideConfig(db),
+          d1GuideConfig: getAdminD1GuideConfig(db),
           weeklyFeedbackConfig: getAdminWeeklyFeedbackConfig(db),
           anonymousFeedbackConfig: getAdminAnonymousFeedbackConfig(db),
           anonymousFeedbacks: normalizeRows(db.prepare('SELECT * FROM anonymous_feedbacks ORDER BY submittedAt DESC').all() as Array<Record<string, unknown>>).map((row) =>
@@ -44,8 +52,12 @@ export const getAdminConfig: RouteMatch['handler'] = ({ db }) => ({
         },
       });
 
+export const getAdminD1GuideConfigEndpoint: RouteMatch['handler'] = ({ db }) => ({
+        data: getAdminD1GuideConfig(db),
+      });
+
 export const listKnowledgeBaseDocs: RouteMatch['handler'] = ({ db }) => ({
-        data: normalizeRows(db.prepare('SELECT * FROM knowledge_base_docs ORDER BY updatedAt DESC').all() as Array<Record<string, unknown>>),
+        data: listKnowledgeDocs(db),
       });
 
 export const getWeeklyFeedbackAnalysis: RouteMatch['handler'] = ({ db }) => {
@@ -114,8 +126,8 @@ function parseCommonWaitingReasons(value: unknown, fallback: unknown): string {
   return JSON.stringify(Array.isArray(fallback) ? fallback : []);
 }
 
-function adminActor(body: Record<string, unknown>): string {
-  return typeof body.updatedBy === 'string' && body.updatedBy.trim() ? body.updatedBy.trim() : demoAdmin;
+function adminActor(_body: Record<string, unknown>): string {
+  return demoAdmin;
 }
 
 function assertAdminUrl(value: string, key: string, allowedSchemes: string[]): void {
@@ -140,19 +152,55 @@ function assertPermissionType(value: unknown, fallback: unknown): 'required' | '
   return type;
 }
 
+function assertExpectedUpdatedAt(body: Record<string, unknown>, existing: Record<string, unknown>, entityLabel: string): void {
+  const expected = typeof body.expectedUpdatedAt === 'string' ? body.expectedUpdatedAt.trim() : '';
+  if (!expected) throw badRequest(`${entityLabel} expectedUpdatedAt is required`);
+  const current = typeof existing.updatedAt === 'string' ? existing.updatedAt : '';
+  if (!current || expected !== current) {
+    throw conflict(`${entityLabel} update is stale; reload before saving`);
+  }
+}
+
+function assertRequiredPermissionCanStayEnabled(
+  db: Parameters<RouteMatch['handler']>[0]['db'],
+  permissionItemId: string,
+  permissionType: 'required' | 'optional',
+  enabled: boolean,
+): void {
+  if (enabled || permissionType !== 'required') return;
+  const binding = db.prepare('SELECT id FROM role_permission_items WHERE permissionItemId = ? LIMIT 1').get(permissionItemId);
+  if (binding) throw badRequest('required permission cannot be disabled while bound to a role package');
+  throw badRequest('required permission cannot be disabled');
+}
+
 function assertD1GuideItem(actionKey: string, item: Record<string, unknown>): void {
+  const enabled = !('enabled' in item) || Boolean(item.enabled);
+  if (enabled && actionKey === 'join_group') {
+    requiredString(item, 'targetGroupName');
+    requiredString(item, 'applyUrl');
+    requiredString(item, 'sendToEmployeeName');
+    requiredString(item, 'sendToEmployeeContact');
+  }
+  if (enabled && actionKey === 'employee_guide') {
+    requiredString(item, 'documentTitle');
+    requiredString(item, 'documentUrl');
+  }
+  if (enabled && actionKey === 'permission_package') {
+    requiredString(item, 'routePath');
+  }
   if (actionKey === 'join_group') {
-    if (typeof item.applyUrl === 'string' && item.applyUrl.trim() && !item.applyUrl.trim().startsWith('mock-feishu://chat/')) {
-      throw badRequest('join_group applyUrl must remain a simulated Feishu chat URL');
+    if (typeof item.applyUrl === 'string' && item.applyUrl.trim() && !isValidExternalUrl(item.applyUrl, ['mock-feishu:', 'http:', 'https:'])) {
+      throw badRequest('join_group applyUrl is invalid');
     }
   }
   if (actionKey === 'employee_guide') {
-    if (typeof item.documentUrl === 'string' && item.documentUrl.trim() && !item.documentUrl.trim().startsWith('mock-feishu://doc/')) {
-      throw badRequest('employee_guide documentUrl must remain a simulated Feishu doc URL');
+    if (typeof item.documentUrl === 'string' && item.documentUrl.trim() && !isValidExternalUrl(item.documentUrl, ['mock-feishu:', 'http:', 'https:'])) {
+      throw badRequest('employee_guide documentUrl is invalid');
     }
   }
   if (actionKey === 'permission_package') {
     const routePath = typeof item.routePath === 'string' ? item.routePath.trim() : '';
+    if (routePath && !isAllowedPageRoutePath(routePath)) throw badRequest('permission_package routePath must match a known page route');
     if (routePath && routePath !== '/permissions') throw badRequest('permission_package routePath must stay /permissions');
   }
 }
@@ -180,11 +228,14 @@ function assertWeeklyChoiceQuestionsHaveEnabledOption(db: Parameters<RouteMatch[
   for (const question of questions) {
     if (typeof question.id !== 'string' || !Array.isArray(question.options)) continue;
     const byOption = enabledByQuestion.get(question.id) ?? new Map<string, boolean>();
-    for (const option of question.options as Array<Record<string, unknown>>) {
-      if (typeof option.id === 'string' && 'enabled' in option) {
+    (question.options as Array<Record<string, unknown>>).forEach((option, index) => {
+      const optionId = typeof option.id === 'string' && option.id.trim() ? option.id : `new-weekly-option-${index}`;
+      if (typeof option.label === 'string' && option.label.trim()) {
+        byOption.set(optionId, 'enabled' in option ? Boolean(option.enabled) : true);
+      } else if (typeof option.id === 'string' && 'enabled' in option) {
         byOption.set(option.id, Boolean(option.enabled));
       }
-    }
+    });
     enabledByQuestion.set(question.id, byOption);
   }
   for (const question of choiceQuestions) {
@@ -219,19 +270,23 @@ function assertUniqueAnonymousKey(
 
 export const createRole: RouteMatch['handler'] = async ({ db, request }) => {
         const body = await readBody(request);
+        const name = requiredString(body, 'name');
+        if (findPositionByName(db, name)) throw badRequest('role name already exists');
         const time = nowIso();
         const row = {
           id: typeof body.id === 'string' ? body.id : createdId('role'),
-          name: requiredString(body, 'name'),
+          name,
+          departmentId: typeof body.departmentId === 'string' && body.departmentId.trim() ? body.departmentId.trim() : 'dept-collaboration-office',
           department: requiredString(body, 'department'),
           description: requiredString(body, 'description'),
           createdAt: time,
           updatedAt: time,
           updatedBy: adminActor(body),
         };
-        db.prepare('INSERT INTO roles (id, name, department, description, createdAt, updatedAt, updatedBy) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
+        db.prepare('INSERT INTO roles (id, name, departmentId, department, description, createdAt, updatedAt, updatedBy) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(
           row.id,
           row.name,
+          row.departmentId,
           row.department,
           row.description,
           row.createdAt,
@@ -241,14 +296,36 @@ export const createRole: RouteMatch['handler'] = async ({ db, request }) => {
         return { status: 201, data: row };
       };
 
+export const createPosition: RouteMatch['handler'] = async ({ db, request }) => {
+        const body = await readBody(request);
+        const name = requiredString(body, 'name');
+        if (findPositionByName(db, name)) throw badRequest('position name already exists');
+        const departmentId = requiredString(body, 'departmentId');
+        const department = requiredString(body, 'department');
+        const description = requiredString(body, 'description');
+        return {
+          status: 201,
+          data: insertPosition(db, {
+            name,
+            departmentId,
+            department,
+            description,
+            updatedBy: adminActor(body),
+          }),
+        };
+      };
+
 export const updateRole: RouteMatch['handler'] = async ({ db, request }, match) => {
         const id = decodeURIComponent(match[1]);
         const body = await readBody(request);
         const existing = normalizeRow(db.prepare('SELECT * FROM roles WHERE id = ?').get(id) as Record<string, unknown> | undefined);
         if (!existing) return { status: 404, error: 'Role not found' };
+        const name = optionalString(body, 'name', existing.name);
+        const duplicate = findPositionByName(db, name);
+        if (duplicate && duplicate.id !== id) throw badRequest('role name already exists');
         const time = nowIso();
         db.prepare('UPDATE roles SET name = ?, department = ?, description = ?, updatedAt = ?, updatedBy = ? WHERE id = ?').run(
-          sqlValue(optionalString(body, 'name', existing.name)),
+          sqlValue(name),
           sqlValue(optionalString(body, 'department', existing.department)),
           sqlValue(optionalString(body, 'description', existing.description)),
           time,
@@ -281,6 +358,7 @@ export const createPermissionItem: RouteMatch['handler'] = async ({ db, request 
           updatedBy: adminActor(body),
         };
         assertAdminUrl(row.applyUrl, 'applyUrl', ['mock-feishu://approval/']);
+        assertRequiredPermissionCanStayEnabled(db, row.id, row.permissionType, Boolean(row.enabled));
         db.prepare(
           `INSERT INTO permission_items
            (id, name, category, permissionType, sensitive, ownerType, ownerName, ownerContact, applyEntryName, applyUrl, reasonTemplate, approverName, commonWaitingReasons, enabled, createdAt, updatedAt, updatedBy)
@@ -337,30 +415,52 @@ export const createRolePermissionItem: RouteMatch['handler'] = async ({ db, requ
 
 export const createKnowledgeBaseDoc: RouteMatch['handler'] = async ({ db, request }) => {
         const body = await readBody(request);
-        const time = nowIso();
-        const row = {
+        const category = requiredString(body, 'category');
+        if (!isKnowledgeCategory(category)) throw badRequest('category is invalid');
+        const applicableRoleId = requiredString(body, 'applicableRoleId');
+        const role = normalizeRow(db.prepare('SELECT * FROM roles WHERE id = ?').get(applicableRoleId) as Record<string, unknown> | undefined);
+        if (!role) throw badRequest('applicableRoleId is invalid');
+        const sourceUrl = typeof body.sourceUrl === 'string' ? body.sourceUrl : 'mock-drive://manual-entry';
+        assertAdminUrl(sourceUrl, 'sourceUrl', ['mock-drive://']);
+        const filePath = typeof body.filePath === 'string' && body.filePath.trim() ? body.filePath.trim() : 'mock-file://selected-admin-doc.pdf';
+        if (!filePath.startsWith('mock-file://')) throw badRequest('filePath is invalid');
+        const row = createKnowledgeDoc(db, {
           id: typeof body.id === 'string' ? body.id : createdId('kb'),
           title: requiredString(body, 'title'),
-          category: requiredString(body, 'category'),
-          applicableRole: requiredString(body, 'applicableRole'),
+          category,
+          applicableRoleId,
+          applicableRole:
+            typeof body.applicableRole === 'string' && body.applicableRole.trim() ? body.applicableRole.trim() : String(role.name ?? ''),
           applicableStage: requiredString(body, 'applicableStage'),
-          sourceUrl: typeof body.sourceUrl === 'string' ? body.sourceUrl : 'mock-drive://manual-entry',
+          sourceUrl,
+          fileSize: Number(body.fileSize ?? 0),
+          fileHash: typeof body.fileHash === 'string' && body.fileHash.trim() ? body.fileHash.trim() : 'mock-md5-pending',
+          filePath,
           ownerName: requiredString(body, 'ownerName'),
-          status: 'enabled',
-          parseStatus: 'simulated_pending',
-          vectorStatus: 'simulated_pending',
-          hitCount: 0,
-          updatedAt: time,
-          createdAt: time,
           updatedBy: adminActor(body),
-        };
-        assertAdminUrl(row.sourceUrl, 'sourceUrl', ['mock-drive://']);
-        db.prepare(
-          `INSERT INTO knowledge_base_docs
-           (id, title, category, applicableRole, applicableStage, sourceUrl, ownerName, status, parseStatus, vectorStatus, hitCount, updatedAt, createdAt, updatedBy)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        ).run(...Object.values(row));
+        });
         return { status: 201, data: row };
+      };
+
+export const triggerMockKnowledgeParse: RouteMatch['handler'] = async ({ db, request }, match) => {
+        const id = decodeURIComponent(match[1]);
+        const body = await readBody(request);
+        const existing = getKnowledgeDoc(db, id);
+        if (!existing) return { status: 404, error: 'Knowledge doc not found' };
+        return { data: markKnowledgeDocParsed(db, id, adminActor(body)) };
+      };
+
+export const updateKnowledgeBaseDocStatus: RouteMatch['handler'] = async ({ db, request }, match) => {
+        const id = decodeURIComponent(match[1]);
+        const body = await readBody(request);
+        const existing = getKnowledgeDoc(db, id);
+        if (!existing) return { status: 404, error: 'Knowledge doc not found' };
+        const status = requiredString(body, 'status');
+        if (!['disabled', 'enabled', 'offline'].includes(status)) throw badRequest('status is invalid');
+        if (status === 'enabled' && !canEnableKnowledgeDoc(String(existing.parseStatus), String(existing.vectorStatus))) {
+          throw badRequest('knowledge doc must be parsed and vector ready before enabling');
+        }
+        return { data: updateKnowledgeDocStatus(db, id, status, adminActor(body)) };
       };
 
 export const createWeeklyFeedbackQuestion: RouteMatch['handler'] = async ({ db, request }) => {
@@ -419,10 +519,13 @@ export const updatePermissionItem: RouteMatch['handler'] = async ({ db, request 
         const body = await readBody(request);
         const existing = getPermission(db, id);
         if (!existing) return { status: 404, error: 'Permission item not found' };
+        assertExpectedUpdatedAt(body, existing, 'permission item');
         const time = nowIso();
         const permissionType = assertPermissionType(body.permissionType, existing.permissionType);
         const applyUrl = typeof body.applyUrl === 'string' ? body.applyUrl.trim() : String(existing.applyUrl ?? '');
+        const enabled = 'enabled' in body ? Boolean(body.enabled) : Boolean(existing.enabled);
         assertAdminUrl(applyUrl, 'applyUrl', ['mock-feishu://approval/']);
+        assertRequiredPermissionCanStayEnabled(db, id, permissionType, enabled);
         db.prepare(
           `UPDATE permission_items
            SET name = ?, category = ?, permissionType = ?, sensitive = ?, ownerType = ?, ownerName = ?, ownerContact = ?, applyEntryName = ?, applyUrl = ?, reasonTemplate = ?, approverName = ?, commonWaitingReasons = ?, enabled = ?, updatedAt = ?, updatedBy = ?
@@ -440,7 +543,7 @@ export const updatePermissionItem: RouteMatch['handler'] = async ({ db, request 
           sqlValue(typeof body.reasonTemplate === 'string' ? body.reasonTemplate : existing.reasonTemplate),
           sqlValue(typeof body.approverName === 'string' ? body.approverName : existing.approverName),
           parseCommonWaitingReasons(body.commonWaitingReasons, existing.commonWaitingReasons),
-          'enabled' in body ? boolToDb(body.enabled) : boolToDb(existing.enabled),
+          boolToDb(enabled),
           time,
           adminActor(body),
           id,
@@ -472,23 +575,43 @@ export const updateWeeklyFeedbackConfig: RouteMatch['handler'] = async ({ db, re
           }
           if (Array.isArray(question.options)) {
             for (const option of question.options as Array<Record<string, unknown>>) {
-              const optionId = requiredString(option, 'id');
-              assertExists(db, 'weekly_feedback_options', optionId, 'optionId');
               if (typeof option.label === 'string' && option.label.trim()) {
-                assertWeeklyOptionBelongsToQuestion(db, optionId, id);
-                db.prepare('UPDATE weekly_feedback_options SET label = ?, enabled = ?, updatedAt = ?, updatedBy = ? WHERE id = ? AND questionId = ?').run(
-                  requiredString(option, 'label'),
-                  'enabled' in option ? boolToDb(option.enabled) : sqlValue((db.prepare('SELECT enabled FROM weekly_feedback_options WHERE id = ?').get(optionId) as { enabled: number }).enabled),
-                  time,
-                  adminActor(body),
-                  optionId,
-                  id,
-                );
+                const optionId = typeof option.id === 'string' && option.id.trim() ? option.id.trim() : '';
+                if (optionId) {
+                  assertExists(db, 'weekly_feedback_options', optionId, 'optionId');
+                  assertWeeklyOptionBelongsToQuestion(db, optionId, id);
+                  db.prepare('UPDATE weekly_feedback_options SET label = ?, enabled = ?, sortOrder = ?, updatedAt = ?, updatedBy = ? WHERE id = ? AND questionId = ?').run(
+                    requiredString(option, 'label'),
+                    'enabled' in option ? boolToDb(option.enabled) : sqlValue((db.prepare('SELECT enabled FROM weekly_feedback_options WHERE id = ?').get(optionId) as { enabled: number }).enabled),
+                    'sortOrder' in option ? Number(option.sortOrder) : sqlValue((db.prepare('SELECT sortOrder FROM weekly_feedback_options WHERE id = ?').get(optionId) as { sortOrder: number }).sortOrder),
+                    time,
+                    adminActor(body),
+                    optionId,
+                    id,
+                  );
+                } else {
+                  const newOptionId = createdId('weekly-option');
+                  db.prepare(
+                    `INSERT INTO weekly_feedback_options
+                     (id, questionId, optionKey, label, enabled, sortOrder, createdAt, updatedAt, updatedBy)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                  ).run(
+                    newOptionId,
+                    id,
+                    typeof option.optionKey === 'string' && option.optionKey.trim() ? option.optionKey.trim() : newOptionId,
+                    requiredString(option, 'label'),
+                    'enabled' in option ? boolToDb(option.enabled) : 1,
+                    'sortOrder' in option ? Number(option.sortOrder) : 99,
+                    time,
+                    time,
+                    adminActor(body),
+                  );
+                }
               }
             }
           }
         }
-        return { data: getWeeklyFeedbackConfig(db) };
+        return { data: getAdminWeeklyFeedbackConfig(db) };
       };
 
 export const updateD1GuideConfig: RouteMatch['handler'] = async ({ db, request }) => {
@@ -499,7 +622,7 @@ export const updateD1GuideConfig: RouteMatch['handler'] = async ({ db, request }
           const actionKey = requiredString(item, 'actionKey');
           const existing = normalizeRow(db.prepare('SELECT * FROM d1_guide_configs WHERE actionKey = ?').get(actionKey) as Record<string, unknown> | undefined);
           if (!existing) return { status: 404, error: 'D1 guide config not found' };
-          assertD1GuideItem(actionKey, item);
+          assertD1GuideItem(actionKey, { ...existing, ...item });
           db.prepare(
             `UPDATE d1_guide_configs
              SET title = ?, description = ?, targetGroupName = ?, applyUrl = ?, sendToEmployeeName = ?, sendToEmployeeContact = ?,
@@ -523,7 +646,7 @@ export const updateD1GuideConfig: RouteMatch['handler'] = async ({ db, request }
             actionKey,
           );
         }
-        return { data: getD1GuideConfig(db) };
+        return { data: getAdminD1GuideConfig(db) };
       };
 
 export const updateAnonymousFeedbackConfig: RouteMatch['handler'] = async ({ db, request }) => {
@@ -640,7 +763,7 @@ export const updateAnonymousFeedbackConfig: RouteMatch['handler'] = async ({ db,
           );
         }
 
-        return { data: getAnonymousFeedbackConfig(db) };
+        return { data: getAdminAnonymousFeedbackConfig(db) };
       };
 
 export const updateAnonymousFeedback: RouteMatch['handler'] = async ({ db, request }, match) => {

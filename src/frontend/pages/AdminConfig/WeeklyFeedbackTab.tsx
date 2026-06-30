@@ -33,8 +33,6 @@ type WeeklyQuestionDraft = Omit<Partial<WeeklyFeedbackQuestion>, 'options'> & {
   options: WeeklyOptionDraft[];
 };
 
-const operationHint = '编辑 / 复制 / 停用';
-
 const blankQuestionDraft: WeeklyQuestionDraft = {
   title: '',
   description: '',
@@ -56,6 +54,17 @@ function inputTypeLabel(inputType: string) {
   if (inputType === 'single') return '单选';
   if (inputType === 'multi') return '多选';
   return '文本';
+}
+
+function formatOptionSummary(question: WeeklyFeedbackQuestion): string {
+  if (question.inputType === 'text') return '-';
+  const enabledOptions = question.options
+    .filter((option) => option.enabled)
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((option) => option.label);
+  if (enabledOptions.length === 0) return '暂无启用选项';
+  const summary = enabledOptions.slice(0, 4).join('、');
+  return enabledOptions.length > 4 ? `${summary} 等 ${enabledOptions.length} 项` : summary;
 }
 
 function normalizeQuestion(question: WeeklyFeedbackQuestion): WeeklyQuestionDraft {
@@ -108,11 +117,11 @@ function createPayload(draft: WeeklyQuestionDraft) {
         ? []
         : draft.options
             .filter((option) => option.label.trim())
-            .map((option, index) => ({ label: option.label.trim(), enabled: option.enabled, sortOrder: index + 1 })),
+            .map((option, index) => ({ label: option.label.trim(), enabled: option.enabled, sortOrder: option.sortOrder ?? index + 1 })),
   };
 }
 
-function updatePayload(draft: WeeklyQuestionDraft): WeeklyFeedbackQuestion {
+function updatePayload(draft: WeeklyQuestionDraft): Parameters<typeof saveWeeklyFeedbackQuestion>[0] {
   return {
     id: draft.id ?? '',
     questionKey: draft.questionKey ?? draft.id ?? 'admin_weekly_question',
@@ -128,9 +137,9 @@ function updatePayload(draft: WeeklyQuestionDraft): WeeklyFeedbackQuestion {
       draft.inputType === 'text'
         ? []
         : draft.options
-            .filter((option) => option.id && option.label.trim())
+            .filter((option) => option.label.trim())
             .map((option, index) => ({
-              id: option.id as string,
+              id: option.id,
               questionId: option.questionId ?? draft.id ?? '',
               optionKey: option.optionKey ?? option.id ?? `option_${index + 1}`,
               label: option.label.trim(),
@@ -250,7 +259,7 @@ export function WeeklyFeedbackTab({ data, filters, toast, reload }: WeeklyFeedba
     { key: 'inputType', title: '输入类型', render: (question) => inputTypeLabel(question.inputType) },
     { key: 'required', title: '是否必填', render: (question) => (question.required ? '必填' : '选填') },
     { key: 'maxLength', title: '最大字数', render: (question) => (question.inputType === 'text' ? question.maxLength ?? 500 : '-') },
-    { key: 'options', title: '选项列表', render: (question) => (question.inputType === 'text' ? '-' : `${question.options.filter((option) => option.enabled).length} / ${question.options.length}`) },
+    { key: 'options', title: '选项列表', render: (question) => formatOptionSummary(question) },
     { key: 'status', title: '问题启用状态', render: (question) => <StatusTag tone={question.enabled ? 'success' : 'neutral'}>{question.enabled ? '启用' : '停用'}</StatusTag> },
     { key: 'updatedBy', title: 'updatedBy', render: (question) => question.updatedBy ?? 'demo-admin' },
     {
@@ -275,12 +284,11 @@ export function WeeklyFeedbackTab({ data, filters, toast, reload }: WeeklyFeedba
   return (
     <div className="admin-workbench-panel">
       <div className="admin-page-title">
-        <span>Page 08</span>
         <h1>首周反馈表</h1>
         <p>配置新人实名首周反馈表，反馈写给管理者，与匿名反馈分开维护。</p>
       </div>
 
-      <div className="admin-metric-grid admin-metric-grid-three">
+      <div className="admin-metric-grid admin-metric-grid-three admin-compact-summary-grid">
         <div className="admin-card">
           <h2>启用问题</h2>
           <strong className="admin-large-number">{enabledCount}</strong>
@@ -302,7 +310,6 @@ export function WeeklyFeedbackTab({ data, filters, toast, reload }: WeeklyFeedba
         <div className="admin-section-heading">
           <div>
             <h2>问题配置列表</h2>
-            <p className="admin-muted-line">表格操作：{operationHint}</p>
           </div>
           <div className="admin-toolbar-actions">
             <button className="admin-primary-action" type="button" onClick={openCreate}>
@@ -369,22 +376,34 @@ export function WeeklyFeedbackTab({ data, filters, toast, reload }: WeeklyFeedba
           {draft.inputType !== 'text' && (
             <fieldset>
               <legend>选项列表</legend>
-              {draft.options.map((option, index) => (
-                <div className="admin-option-editor-row" key={`${option.id ?? 'new'}-${index}`}>
-                  <input value={option.label} onChange={(event) => patchOption(index, { label: event.target.value })} />
-                  <label className="admin-inline-check">
-                    <input type="checkbox" checked={option.enabled} onChange={(event) => patchOption(index, { enabled: event.target.checked })} />
-                    启用
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={option.sortOrder}
-                    onChange={(event) => patchOption(index, { sortOrder: Number(event.target.value) })}
-                    aria-label="排序"
-                  />
+              <div className="admin-option-editor-list">
+                <div className="admin-option-editor-head">
+                  <span>选项文案</span>
+                  <span>启用</span>
+                  <span>排序</span>
                 </div>
-              ))}
+                {draft.options.map((option, index) => (
+                  <div className="admin-option-editor-row" key={`${option.id ?? 'new'}-${index}`}>
+                    <label>
+                      <span className="admin-sr-label">选项文案</span>
+                      <input value={option.label} onChange={(event) => patchOption(index, { label: event.target.value })} />
+                    </label>
+                    <label className="admin-inline-check">
+                      <input type="checkbox" checked={option.enabled} onChange={(event) => patchOption(index, { enabled: event.target.checked })} />
+                      启用
+                    </label>
+                    <label>
+                      <span className="admin-sr-label">排序</span>
+                      <input
+                        type="number"
+                        min="1"
+                        value={option.sortOrder}
+                        onChange={(event) => patchOption(index, { sortOrder: Number(event.target.value) })}
+                      />
+                    </label>
+                  </div>
+                ))}
+              </div>
               <button className="admin-secondary-action" type="button" onClick={addOption}>
                 新增选项
               </button>

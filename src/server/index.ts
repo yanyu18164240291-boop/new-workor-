@@ -18,11 +18,7 @@ if (seeded.total === 0) {
   seedDatabase(db);
 }
 
-const d1ConfigSeeded = db.prepare('SELECT COUNT(*) AS total FROM d1_guide_configs').get() as { total: number };
-if (d1ConfigSeeded.total === 0) {
-  seedD1GuideConfig(db);
-}
-
+seedD1GuideConfig(db);
 seedJoinFeishuOrgTasks(db);
 seedSubmittedPermissionFollowUps(db);
 seedWeeklyFeedbackConfig(db);

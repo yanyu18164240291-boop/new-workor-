@@ -13,6 +13,16 @@ export function getD1GuideConfig(db: Database): Record<string, unknown> {
   };
 }
 
+export function getAdminD1GuideConfig(db: Database): Record<string, unknown> {
+  const rows = normalizeRows(db.prepare('SELECT * FROM d1_guide_configs ORDER BY sortOrder').all() as Array<Record<string, unknown>>);
+  const byKey = Object.fromEntries(rows.map((row) => [String(row.actionKey), row]));
+  return {
+    joinGroup: byKey.join_group ?? null,
+    employeeGuide: byKey.employee_guide ?? null,
+    permissionPackage: byKey.permission_package ?? null,
+  };
+}
+
 export function getWeeklyFeedbackConfig(db: Database): Record<string, unknown> {
   const questions = normalizeRows(
     db.prepare('SELECT * FROM weekly_feedback_questions WHERE enabled = 1 ORDER BY sortOrder').all() as Array<Record<string, unknown>>,

@@ -2,6 +2,8 @@ export type ApiErrorCode =
   | 'BAD_REQUEST'
   | 'VALIDATION_ERROR'
   | 'NOT_FOUND'
+  | 'FORBIDDEN'
+  | 'CONFLICT'
   | 'INVALID_JSON'
   | 'INTERNAL_ERROR';
 
@@ -30,6 +32,14 @@ export function notFound(message: string): ApiError {
   return new ApiError(404, 'NOT_FOUND', message);
 }
 
+export function forbidden(message: string): ApiError {
+  return new ApiError(403, 'FORBIDDEN', message);
+}
+
+export function conflict(message: string): ApiError {
+  return new ApiError(409, 'CONFLICT', message);
+}
+
 export function toApiError(error: unknown): ApiError {
   if (error instanceof ApiError) return error;
   if (error instanceof SyntaxError) return badRequest('Invalid JSON body', 'INVALID_JSON');
@@ -42,7 +52,9 @@ export function apiErrorPayload(error: ApiError): ApiErrorPayload {
 }
 
 export function inferErrorCode(status: number | undefined): ApiErrorCode {
+  if (status === 403) return 'FORBIDDEN';
   if (status === 404) return 'NOT_FOUND';
+  if (status === 409) return 'CONFLICT';
   if (status === 400 || status === undefined) return 'BAD_REQUEST';
   return 'INTERNAL_ERROR';
 }

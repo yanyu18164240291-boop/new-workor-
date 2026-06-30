@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
-import { adminConfigTabs, currentAdminUser } from '../src/frontend/types/adminConfig.ts';
+import { canAccessAdminConfig } from '../src/frontend/auth.ts';
+import { validateD1GuideDraft } from '../src/frontend/pages/AdminConfig/d1GuideValidation.ts';
+import { adminConfigTabs, currentAdminUser, defaultAdminConfigFilters, getTodayDateInputValue } from '../src/frontend/types/adminConfig.ts';
 
 describe('Phase 04A admin config workbench contract', () => {
   it('keeps all admin config modules inside /admin-config tabs', () => {
@@ -28,6 +30,21 @@ describe('Phase 04A admin config workbench contract', () => {
     assert.deepEqual(currentAdminUser, { name: 'demo-admin', role: '后台管理员' });
   });
 
+  it('uses the current day as the admin date filter default', () => {
+    assert.equal(getTodayDateInputValue(new Date(2026, 5, 29)), '2026-06-29');
+    assert.notEqual(defaultAdminConfigFilters.date, '2026-06-23');
+  });
+
+  it('guards admin-only pages behind the current admin user contract', () => {
+    assert.equal(canAccessAdminConfig(currentAdminUser), true);
+    assert.equal(canAccessAdminConfig({ name: 'newcomer-yanyu', role: '新人' }), false);
+
+    const appContent = readFileSync('src/frontend/AppContent.tsx', 'utf8');
+    assert.match(appContent, /canAccessAdminConfig/);
+    assert.match(appContent, /case '08'/);
+    assert.match(appContent, /case '09'/);
+  });
+
   it('does not introduce standalone forbidden admin routes', () => {
     const routes = readFileSync('src/frontend/routes.ts', 'utf8');
     for (const forbidden of ['/admin/workbench', '/admin/newcomers', '/admin/review', '/admin/roles-audit', '/admin/permission-routes']) {
@@ -43,7 +60,8 @@ describe('Phase 04A admin config workbench contract', () => {
     assert.match(service, /saveAnonymousFeedbackConfig/);
     assert.match(service, /uploadKnowledgeMetadata/);
     assert.match(service, /processAnonymousFeedback/);
-    assert.match(service, /demo-admin/);
+    assert.match(service, /currentAdminUser\.name/);
+    assert.match(service, /updatedBy: adminActorName/);
   });
 
   it('renders the fixed sidebar and topbar copy from the admin prototype', () => {
@@ -54,13 +72,16 @@ describe('Phase 04A admin config workbench contract', () => {
     assert.match(sidebar, /海纳AI入职Bot/);
     assert.match(sidebar, /后台配置台/);
     assert.match(sidebar, /核心配置/);
-    assert.match(sidebar, /收起菜单/);
+    assert.equal(sidebar.includes('收起菜单'), false);
     assert.match(sidebar, /© 2026 Haidilao/);
     assert.match(sidebar, /v1\.0\.0/);
+    assert.match(styles, /admin-compact-summary-grid/);
+    assert.match(styles, /admin-role-info-card/);
     assert.match(topbar, /搜索岗位、权限、文档、反馈/);
     assert.match(topbar, /全部组织/);
     assert.match(topbar, /全部状态/);
     assert.match(topbar, /2026-06-23/);
+    assert.match(topbar, /type="date"/);
     assert.match(topbar, /demo-admin/);
     assert.match(topbar, /刷新数据/);
     assert.equal(app.includes('AdminPage'), false);
@@ -70,6 +91,9 @@ describe('Phase 04A admin config workbench contract', () => {
 
   it('renders overview metrics, queues, change log, and quick actions', () => {
     const overview = readFileSync('src/frontend/pages/AdminConfig/OverviewTab.tsx', 'utf8');
+    assert.match(overview, /filters\.date/);
+    assert.match(overview, /isOnOrBeforeDate/);
+    assert.doesNotMatch(overview, /vectorStatus !== 'simulated_vectorized'/);
     for (const label of ['岗位数', '权限项数', '知识库资料数', '待处理匿名反馈数', '配置完整度', '待处理事项', '最近变更记录', '快捷操作']) {
       assert.match(overview, new RegExp(label));
     }
@@ -80,6 +104,7 @@ describe('Phase 04A admin config workbench contract', () => {
 
   it('renders role package permission fields without physical delete semantics', () => {
     const roleTab = readFileSync('src/frontend/pages/AdminConfig/RolePackagesTab.tsx', 'utf8');
+    const service = readFileSync('src/frontend/services/adminConfigApi.ts', 'utf8');
     for (const label of [
       '权限名称',
       '所属分类',
@@ -98,29 +123,100 @@ describe('Phase 04A admin config workbench contract', () => {
     }
     assert.equal(roleTab.includes('删除'), false);
     assert.match(roleTab, /停用/);
+    assert.match(roleTab, /绑定已有权限/);
+    assert.match(roleTab, /getPermissionDisableHint/);
+    assert.match(roleTab, /必开权限不能停用/);
+    assert.match(roleTab, /isRequiredPermission\(draft\)/);
+    assert.match(service, /bindExistingPermissionForRole/);
+    assert.match(service, /createRolePermissionItem/);
+    assert.doesNotMatch(roleTab, /rolePermissionIds\.size\s*>\s*0\s*\?/);
   });
 
   it('renders fixed D1 guide actions without physical delete semantics', () => {
     const d1Tab = readFileSync('src/frontend/pages/AdminConfig/D1GuideTab.tsx', 'utf8');
-    for (const label of ['D1 引导配置', '加入飞书部门群', '查看员工指南册', '打开岗位权限包', '编辑 / 停用', '/permissions']) {
+    for (const label of ['D1 引导配置', '加入飞书部门群', '查看员工指南册', '开通岗位权限包', '编辑 / 启用 / 停用', '/permissions']) {
       assert.match(d1Tab, new RegExp(label));
     }
     assert.equal(d1Tab.includes('删除'), false);
+    assert.equal(d1Tab.includes('新增 D1'), false);
+    assert.equal(d1Tab.includes('新增引导'), false);
+    assert.match(d1Tab, /启用/);
+  });
+
+  it('validates D1 guide draft links and routes before submitting', () => {
+    assert.equal(
+      validateD1GuideDraft({
+        actionKey: 'permission_package',
+        title: '开通岗位权限包',
+        description: '开通岗位权限包',
+        label: '开通',
+        ownerName: 'Permission Admin',
+        routePath: '/permissions',
+        enabled: true,
+      }),
+      '',
+    );
+    assert.match(
+      validateD1GuideDraft({
+        actionKey: 'permission_package',
+        title: '开通岗位权限包',
+        description: '开通岗位权限包',
+        label: '开通',
+        ownerName: 'Permission Admin',
+        routePath: '/admin/workbench',
+        enabled: true,
+      }),
+      /路由/,
+    );
+    assert.match(
+      validateD1GuideDraft({
+        actionKey: 'employee_guide',
+        title: '查看员工指南册',
+        description: '查看指南',
+        label: '查看',
+        ownerName: 'Content Admin',
+        documentTitle: '指南册',
+        documentUrl: 'not-a-url',
+        enabled: true,
+      }),
+      /链接/,
+    );
   });
 
   it('renders weekly feedback config fields without physical delete semantics', () => {
     const weeklyTab = readFileSync('src/frontend/pages/AdminConfig/WeeklyFeedbackTab.tsx', 'utf8');
-    for (const label of ['首周反馈表', '问题标题', '问题说明', '输入类型', '是否必填', '最大字数', '选项列表', '问题启用状态', '编辑 / 复制 / 停用']) {
+    for (const label of ['首周反馈表', '问题标题', '问题说明', '输入类型', '是否必填', '最大字数', '选项列表', '选项文案', '排序', '问题启用状态']) {
       assert.match(weeklyTab, new RegExp(label));
     }
     assert.equal(weeklyTab.includes('删除'), false);
+    assert.equal(weeklyTab.includes('表格操作'), false);
+    assert.match(weeklyTab, /formatOptionSummary/);
+    assert.match(weeklyTab, /option\.label/);
   });
 
   it('renders editable anonymous feedback three-level config without physical delete semantics', () => {
     const anonymousTab = readFileSync('src/frontend/pages/AdminConfig/AnonymousConfigTab.tsx', 'utf8');
-    for (const label of ['反馈模块列表', '当前模块', '问题类型', '希望如何处理', 'typeKey', 'actionKey', '是否需要补充文本']) {
+    const newcomerPages = readFileSync('src/frontend/pages/newcomerPages.tsx', 'utf8');
+    for (const label of [
+      '反馈模块列表',
+      '当前关联模块',
+      '当前模块',
+      '问题类型',
+      '希望如何处理',
+      '新增问题类型',
+      '新增处理方式',
+      'typeKey',
+      'actionKey',
+      '是否需要补充文本',
+    ]) {
       assert.match(anonymousTab, new RegExp(label));
     }
+    assert.match(anonymousTab, /selectedModuleId/);
+    assert.match(anonymousTab, /moduleId:\s*selectedModule\.id/);
+    assert.match(anonymousTab, /selectedModule\?\.problemTypes/);
+    assert.match(anonymousTab, /selectedModule\?\.expectedActions/);
+    assert.match(newcomerPages, /selectedModule\?\.problemTypes/);
+    assert.match(newcomerPages, /selectedModule\?\.expectedActions/);
     assert.equal(anonymousTab.includes('删除'), false);
   });
 
@@ -133,18 +229,40 @@ describe('Phase 04A admin config workbench contract', () => {
     for (const label of ['知识库上传窗口', '文件选择', '开始上传', '解析和向量化仍为模拟状态']) {
       assert.match(uploadModal, new RegExp(label));
     }
+    assert.match(uploadModal, /KNOWLEDGE_CATEGORIES/);
+    assert.match(uploadModal, /<select value=\{draft\.category\}/);
+    assert.match(knowledgeTab, /canEnableKnowledgeDoc\(doc\.parseStatus,\s*doc\.vectorStatus\)/);
+    assert.match(knowledgeTab, /文档尚未解析\/向量化完成，无法启用/);
+    assert.match(knowledgeTab, /title=\{getKnowledgeEnableHint\(doc\)\}/);
   });
 
   it('renders anonymous feedback pool processing fields and status mapping', () => {
     const poolTab = readFileSync('src/frontend/pages/AdminConfig/FeedbackPoolTab.tsx', 'utf8');
+    const service = readFileSync('src/frontend/services/adminConfigApi.ts', 'utf8');
     for (const label of ['待处理', '处理中', '已补充知识库', '已修正权限入口', '暂不处理', '已关闭']) {
       assert.match(poolTab, new RegExp(label));
     }
     for (const value of ['pending', 'in_progress', 'knowledge_added', 'permission_entry_fixed', 'deferred', 'closed']) {
       assert.match(poolTab, new RegExp(value));
     }
-    for (const field of ['open / resolved / archived', 'handlerName', 'handledAt', 'resolutionNote', 'includedInReview']) {
+    for (const field of [
+      'handlerName',
+      'handledAt',
+      'resolutionNote',
+      'includedInReview',
+      '关联知识库资料',
+      'relatedKnowledgeDocId',
+      '关联岗位权限包',
+      'relatedRoleId',
+    ]) {
       assert.match(poolTab, new RegExp(field));
     }
+    assert.match(poolTab, /请选择关联岗位权限包/);
+    assert.match(poolTab, /关联岗位权限包：/);
+    assert.match(poolTab, /admin-description-cell/);
+    assert.match(poolTab, /listKnowledgeDocsForFeedbackAction/);
+    assert.match(service, /listKnowledgeDocsForFeedbackAction/);
+    assert.equal(poolTab.includes('open / resolved / archived'), false);
+    assert.equal(poolTab.includes('兼容历史状态'), false);
   });
 });

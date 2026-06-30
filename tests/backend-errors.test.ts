@@ -12,10 +12,17 @@ import { seedDatabase } from '../src/server/seed.ts';
 let baseUrl = '';
 let closeServer: () => Promise<void>;
 let tempDir = '';
+const nativeFetch = globalThis.fetch.bind(globalThis);
 
 async function requestJson(route: string, init?: RequestInit): Promise<{ status: number; body: { error: string; code: string } }> {
-  const response = await fetch(`${baseUrl}${route}`, {
-    headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) },
+  const response = await nativeFetch(`${baseUrl}${route}`, {
+    headers: {
+      'content-type': 'application/json',
+      ...(route.startsWith('/api/admin/') || route.startsWith('/api/admin-config/')
+        ? { 'x-haina-role': 'admin', 'x-haina-actor': 'demo-admin' }
+        : {}),
+      ...(init?.headers ?? {}),
+    },
     ...init,
   });
   return {
@@ -68,5 +75,65 @@ describe('backend error responses', () => {
     assert.equal(response.status, 400);
     assert.equal(response.body.code, 'INVALID_JSON');
     assert.equal(response.body.error, 'Invalid JSON body');
+  });
+
+  it('rejects admin API requests without the demo admin role guard', async () => {
+    const response = await nativeFetch(`${baseUrl}/api/admin/config`);
+    const body = (await response.json()) as { error: string; code: string };
+
+    assert.equal(response.status, 403);
+    assert.equal(body.code, 'FORBIDDEN');
+    assert.match(body.error, /admin/i);
+  });
+
+  it('rejects admin-config API requests without the demo admin role guard', async () => {
+    const response = await nativeFetch(`${baseUrl}/api/admin-config/positions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Unauthorized Position',
+        departmentId: 'dept-unauthorized',
+        department: 'Unauthorized',
+        description: 'Should not be written',
+      }),
+    });
+    const body = (await response.json()) as { error: string; code: string };
+
+    assert.equal(response.status, 403);
+    assert.equal(body.code, 'FORBIDDEN');
+    assert.match(body.error, /admin/i);
+  });
+
+  it('returns JSON 500 errors when SQLite writes fail', async () => {
+    const lockedDir = await mkdtemp(path.join(tmpdir(), 'haina-closed-db-'));
+    const db = createDatabase(path.join(lockedDir, 'closed.db'));
+    runMigrations(db);
+    seedDatabase(db);
+    const server = await createApiServer({ db, port: 0 });
+    db.close();
+
+    try {
+      const response = await nativeFetch(`${server.baseUrl}/api/admin/knowledge-base-docs`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-haina-role': 'admin', 'x-haina-actor': 'demo-admin' },
+        body: JSON.stringify({
+          title: 'Closed database write',
+          category: '入职知识',
+          applicableRoleId: 'role-product-intern',
+          applicableRole: '协同办公产品实习生',
+          applicableStage: 'D1',
+          ownerName: 'Knowledge Owner',
+          sourceUrl: 'mock-drive://closed-db',
+        }),
+      });
+      const body = (await response.json()) as { error: string; code: string };
+
+      assert.equal(response.status, 500);
+      assert.equal(body.code, 'INTERNAL_ERROR');
+      assert.equal(typeof body.error, 'string');
+    } finally {
+      await server.close();
+      await rm(lockedDir, { recursive: true, force: true });
+    }
   });
 });

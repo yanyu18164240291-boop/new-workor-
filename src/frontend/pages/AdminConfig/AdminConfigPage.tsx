@@ -33,7 +33,6 @@ function PlaceholderTab({ activeTab, data, toast }: { activeTab: AdminConfigTabI
   return (
     <div className="admin-workbench-panel">
       <div className="admin-page-title">
-        <span>Page 08</span>
         <h1>{tab?.label ?? '配置总览'}</h1>
         <p>后台配置维护台正在按桌面工作台拆分为低耦合模块，所有保存动作将走 service 层和真实后端。</p>
       </div>
@@ -56,8 +55,8 @@ export function AdminConfigPage({ data, search, toast, reload, navigate }: Admin
 
   return (
     <AdminConfigLayout activeTab={activeTab} filters={filters} onFiltersChange={setFilters} navigate={navigate} reload={reload}>
-      {activeTab === 'overview' && <OverviewTab data={data} navigate={navigate} />}
-      {activeTab === 'role-packages' && <RolePackagesTab data={data} filters={filters} toast={toast} reload={reload} />}
+      {activeTab === 'overview' && <OverviewTab data={data} filters={filters} navigate={navigate} />}
+      {activeTab === 'role-packages' && <RolePackagesTab data={data} filters={filters} search={search} toast={toast} reload={reload} />}
       {activeTab === 'd1-guide' && <D1GuideTab data={data} toast={toast} reload={reload} />}
       {activeTab === 'weekly-feedback' && <WeeklyFeedbackTab data={data} filters={filters} toast={toast} reload={reload} />}
       {activeTab === 'anonymous-config' && <AnonymousConfigTab data={data} filters={filters} toast={toast} reload={reload} />}

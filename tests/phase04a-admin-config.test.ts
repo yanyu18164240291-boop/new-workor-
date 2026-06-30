@@ -12,10 +12,17 @@ import { seedDatabase } from '../src/server/seed.ts';
 let baseUrl = '';
 let closeServer: () => Promise<void>;
 let tempDir = '';
+const nativeFetch = globalThis.fetch.bind(globalThis);
 
 async function requestJson<T>(route: string, init?: RequestInit): Promise<{ status: number; body: T }> {
-  const response = await fetch(`${baseUrl}${route}`, {
-    headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) },
+  const response = await nativeFetch(`${baseUrl}${route}`, {
+    headers: {
+      'content-type': 'application/json',
+      ...(route.startsWith('/api/admin/') || route.startsWith('/api/admin-config/')
+        ? { 'x-haina-role': 'admin', 'x-haina-actor': 'demo-admin' }
+        : {}),
+      ...(init?.headers ?? {}),
+    },
     ...init,
   });
   return {
@@ -50,6 +57,7 @@ describe('Phase 04A writable admin configuration', () => {
 
     const roleColumns = legacyDb.prepare('PRAGMA table_info(roles)').all() as Array<{ name: string }>;
     const feedbackColumns = legacyDb.prepare('PRAGMA table_info(anonymous_feedbacks)').all() as Array<{ name: string }>;
+    assert.ok(roleColumns.some((column) => column.name === 'departmentId'));
     assert.ok(roleColumns.some((column) => column.name === 'updatedBy'));
     assert.ok(feedbackColumns.some((column) => column.name === 'handlerName'));
     assert.ok(feedbackColumns.some((column) => column.name === 'handledAt'));
@@ -72,6 +80,14 @@ describe('Phase 04A writable admin configuration', () => {
     assert.equal(role.body.data.name, 'Admin configured role');
     assert.equal(role.body.data.updatedBy, 'demo-admin');
 
+    const beforePermission = await requestJson<{
+      data: {
+        permissionItems: Array<{ id: string; updatedAt: string }>;
+      };
+    }>('/api/admin/config');
+    const chatgptBefore = beforePermission.body.data.permissionItems.find((item) => item.id === 'perm-chatgpt');
+    assert.ok(chatgptBefore);
+
     const permission = await requestJson<{
       data: {
         id: string;
@@ -91,7 +107,7 @@ describe('Phase 04A writable admin configuration', () => {
       body: JSON.stringify({
         name: 'ChatGPT Admin Access',
         category: 'AI tools',
-        permissionType: 'required',
+        permissionType: 'optional',
         ownerType: 'department',
         ownerName: 'Admin Owner',
         ownerContact: 'admin-owner@example.com',
@@ -101,11 +117,13 @@ describe('Phase 04A writable admin configuration', () => {
         approverName: 'Admin Approver',
         commonWaitingReasons: ['Owner validating scope', 'License queue'],
         enabled: false,
+        expectedUpdatedAt: chatgptBefore.updatedAt,
+        updatedBy: 'malicious-admin',
       }),
     });
     assert.equal(permission.status, 200);
     assert.equal(permission.body.data.name, 'ChatGPT Admin Access');
-    assert.equal(permission.body.data.permissionType, 'required');
+    assert.equal(permission.body.data.permissionType, 'optional');
     assert.equal(permission.body.data.ownerType, 'department');
     assert.equal(permission.body.data.ownerName, 'Admin Owner');
     assert.equal(permission.body.data.applyEntryName, 'ChatGPT Admin Access Form');
@@ -137,10 +155,112 @@ describe('Phase 04A writable admin configuration', () => {
     assert.ok(progress.body.data.some((item) => item.permissionItemId === 'perm-oa'));
   });
 
+  it('rejects disabling a required permission that is bound to a role package', async () => {
+    const admin = await requestJson<{ data: { permissionItems: Array<{ id: string; updatedAt: string }> } }>('/api/admin/config');
+    const oa = admin.body.data.permissionItems.find((item) => item.id === 'perm-oa');
+    assert.ok(oa);
+
+    const disabled = await requestJson<{ error: string }>('/api/admin/permission-items/perm-oa', {
+      method: 'PATCH',
+      body: JSON.stringify({ enabled: false, expectedUpdatedAt: oa.updatedAt }),
+    });
+
+    assert.equal(disabled.status, 400);
+    assert.match(disabled.body.error, /required permission/i);
+  });
+
+  it('rejects stale permission package updates with optimistic locking', async () => {
+    const admin = await requestJson<{ data: { permissionItems: Array<{ id: string }> } }>('/api/admin/config');
+    assert.ok(admin.body.data.permissionItems.some((item) => item.id === 'perm-bpm'));
+
+    const stale = await requestJson<{ error: string; code: string }>('/api/admin/permission-items/perm-bpm', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        name: 'Stale BPM update',
+        expectedUpdatedAt: '2026-01-01T00:00:00.000Z',
+      }),
+    });
+
+    assert.equal(stale.status, 409);
+    assert.equal(stale.body.code, 'CONFLICT');
+    assert.match(stale.body.error, /stale/i);
+  });
+
+  it('creates a new role package role and reloads it from admin config', async () => {
+    const created = await requestJson<{ data: { id: string; name: string; department: string; description: string; updatedBy: string } }>('/api/admin/roles', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: 'Admin New Role',
+        department: 'Admin New Department',
+        description: 'Created from role package workbench.',
+        updatedBy: 'demo-admin',
+      }),
+    });
+    assert.equal(created.status, 201);
+    assert.equal(created.body.data.name, 'Admin New Role');
+    assert.equal(created.body.data.updatedBy, 'demo-admin');
+
+    const admin = await requestJson<{ data: { roles: Array<{ id: string; name: string; department: string }> } }>('/api/admin/config');
+    assert.ok(admin.body.data.roles.some((role) => role.id === created.body.data.id && role.department === 'Admin New Department'));
+  });
+
+  it('creates a position through the admin-config contract and syncs it to role selectors and newcomer role data', async () => {
+    const created = await requestJson<{
+      data: { id: string; name: string; department: string; departmentId: string; description: string; updatedBy: string };
+    }>('/api/admin-config/positions', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: '门店数字化运营实习生',
+        departmentId: 'dept-store-digital',
+        department: '门店数字化部',
+        description: '负责门店数字化工具试点支持',
+        updatedBy: 'malicious-admin',
+      }),
+    });
+
+    assert.equal(created.status, 201);
+    assert.equal(created.body.data.departmentId, 'dept-store-digital');
+    assert.equal(created.body.data.updatedBy, 'demo-admin');
+
+    const admin = await requestJson<{ data: { roles: Array<{ id: string; name: string; departmentId: string }> } }>('/api/admin/config');
+    assert.ok(admin.body.data.roles.some((role) => role.id === created.body.data.id && role.name === '门店数字化运营实习生'));
+
+    const roles = await requestJson<{ data: Array<{ id: string; name: string }> }>('/api/roles');
+    assert.ok(roles.body.data.some((role) => role.id === created.body.data.id));
+
+    const packageResponse = await requestJson<{ data: { role: { id: string; name: string }; requiredPermissions: unknown[]; optionalPermissions: unknown[] } }>(
+      `/api/roles/${created.body.data.id}/permission-package`,
+    );
+    assert.equal(packageResponse.status, 200);
+    assert.equal(packageResponse.body.data.role.name, '门店数字化运营实习生');
+    assert.deepEqual(packageResponse.body.data.requiredPermissions, []);
+    assert.deepEqual(packageResponse.body.data.optionalPermissions, []);
+  });
+
+  it('rejects duplicate position names before writing admin role data', async () => {
+    const duplicate = await requestJson<{ error: string; code: string }>('/api/admin-config/positions', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: 'Admin configured role',
+        departmentId: 'dept-collaboration-office',
+        department: '协同办公部门',
+        description: 'Duplicate should be blocked',
+      }),
+    });
+
+    assert.equal(duplicate.status, 400);
+    assert.equal(duplicate.body.code, 'VALIDATION_ERROR');
+    assert.match(duplicate.body.error, /position name already exists|role name already exists/i);
+  });
+
   it('rejects unsafe admin permission writes before they can break downstream pages', async () => {
+    const admin = await requestJson<{ data: { permissionItems: Array<{ id: string; updatedAt: string }> } }>('/api/admin/config');
+    const oa = admin.body.data.permissionItems.find((item) => item.id === 'perm-oa');
+    assert.ok(oa);
+
     const invalidUrl = await requestJson<{ error: string }>('/api/admin/permission-items/perm-oa', {
       method: 'PATCH',
-      body: JSON.stringify({ applyUrl: 'not-a-url' }),
+      body: JSON.stringify({ applyUrl: 'not-a-url', expectedUpdatedAt: oa.updatedAt }),
     });
     assert.equal(invalidUrl.status, 400);
     assert.match(invalidUrl.body.error, /applyUrl/);
@@ -172,6 +292,28 @@ describe('Phase 04A writable admin configuration', () => {
     });
     assert.equal(invalid.status, 400);
     assert.match(invalid.body.error, /routePath/);
+
+    const emptyLink = await requestJson<{ error: string }>('/api/admin/d1-guide-config', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        items: [
+          {
+            actionKey: 'join_group',
+            title: 'Enabled entry without link',
+            description: 'Should be rejected before it reaches newcomer pages',
+            targetGroupName: 'Configured newcomer group',
+            applyUrl: '',
+            sendToEmployeeName: 'Configured HR',
+            sendToEmployeeContact: 'hr@example.com',
+            label: 'Join group',
+            ownerName: 'HR Admin',
+            enabled: true,
+          },
+        ],
+      }),
+    });
+    assert.equal(emptyLink.status, 400);
+    assert.match(emptyLink.body.error, /applyUrl/);
 
     const saved = await requestJson<{
       data: { joinGroup: { targetGroupName: string; applyUrl: string; updatedBy: string }; permissionPackage: { routePath: string; label: string } };
@@ -215,6 +357,172 @@ describe('Phase 04A writable admin configuration', () => {
     assert.equal(reloaded.body.data.permissionPackage.label, 'Open permissions');
   });
 
+  it('keeps disabled D1 guide items editable in admin while hiding them from newcomer pages', async () => {
+    const disabled = await requestJson<{
+      data: { permissionPackage: { actionKey: string; label: string; enabled: boolean; updatedBy: string } };
+    }>('/api/admin/d1-guide-config', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        updatedBy: 'demo-admin',
+        items: [
+          {
+            actionKey: 'permission_package',
+            title: 'Temporarily disabled package',
+            description: 'Admin can still edit this fixed D1 item',
+            routePath: '/permissions',
+            label: 'Hidden from newcomer',
+            ownerName: 'Permission Admin',
+            enabled: false,
+          },
+        ],
+      }),
+    });
+    assert.equal(disabled.status, 200);
+    assert.equal(disabled.body.data.permissionPackage.actionKey, 'permission_package');
+    assert.equal(disabled.body.data.permissionPackage.enabled, false);
+    assert.equal(disabled.body.data.permissionPackage.updatedBy, 'demo-admin');
+
+    const adminReloaded = await requestJson<{
+      data: { d1GuideConfig: { permissionPackage: { label: string; enabled: boolean } } };
+    }>('/api/admin/config');
+    assert.equal(adminReloaded.body.data.d1GuideConfig.permissionPackage.label, 'Hidden from newcomer');
+    assert.equal(adminReloaded.body.data.d1GuideConfig.permissionPackage.enabled, false);
+
+    const newcomerReloaded = await requestJson<{ data: { permissionPackage: null | { label: string } } }>('/api/d1-guide-config');
+    assert.equal(newcomerReloaded.body.data.permissionPackage, null);
+
+    const restored = await requestJson<{ data: { permissionPackage: { enabled: boolean } } }>('/api/admin/d1-guide-config', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        items: [
+          {
+            actionKey: 'permission_package',
+            title: 'Open configured package',
+            description: 'Configured permission package entry',
+            routePath: '/permissions',
+            label: 'Open permissions',
+            ownerName: 'Permission Admin',
+            enabled: true,
+          },
+        ],
+      }),
+    });
+    assert.equal(restored.status, 200);
+    assert.equal(restored.body.data.permissionPackage.enabled, true);
+  });
+
+  it('keeps all three fixed D1 guide rows in admin when non-route entries are disabled', async () => {
+    const disabled = await requestJson<{
+      data: {
+        joinGroup: { actionKey: string; enabled: boolean };
+        employeeGuide: { actionKey: string; enabled: boolean };
+        permissionPackage: { actionKey: string; enabled: boolean };
+      };
+    }>('/api/admin/d1-guide-config', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        items: [
+          { actionKey: 'join_group', title: 'Join configured group', description: 'Disabled by admin', label: 'Join group', ownerName: 'HR Admin', enabled: false },
+          {
+            actionKey: 'employee_guide',
+            title: 'Read configured guide',
+            description: 'Disabled by admin',
+            label: 'Read guide',
+            ownerName: 'Content Admin',
+            enabled: false,
+          },
+        ],
+      }),
+    });
+    assert.equal(disabled.status, 200);
+    assert.equal(disabled.body.data.joinGroup.enabled, false);
+    assert.equal(disabled.body.data.employeeGuide.enabled, false);
+    assert.equal(disabled.body.data.permissionPackage.actionKey, 'permission_package');
+
+    const adminReloaded = await requestJson<{
+      data: {
+        d1GuideConfig: {
+          joinGroup: { actionKey: string; enabled: boolean };
+          employeeGuide: { actionKey: string; enabled: boolean };
+          permissionPackage: { actionKey: string; enabled: boolean };
+        };
+      };
+    }>('/api/admin/config');
+    assert.equal(adminReloaded.body.data.d1GuideConfig.joinGroup.actionKey, 'join_group');
+    assert.equal(adminReloaded.body.data.d1GuideConfig.joinGroup.enabled, false);
+    assert.equal(adminReloaded.body.data.d1GuideConfig.employeeGuide.actionKey, 'employee_guide');
+    assert.equal(adminReloaded.body.data.d1GuideConfig.employeeGuide.enabled, false);
+    assert.equal(adminReloaded.body.data.d1GuideConfig.permissionPackage.actionKey, 'permission_package');
+
+    const newcomer = await requestJson<{
+      data: {
+        joinGroup: null | { actionKey: string };
+        employeeGuide: null | { actionKey: string };
+        permissionPackage: null | { actionKey: string };
+      };
+    }>('/api/d1-guide-config');
+    assert.equal(newcomer.body.data.joinGroup, null);
+    assert.equal(newcomer.body.data.employeeGuide, null);
+    assert.equal(newcomer.body.data.permissionPackage?.actionKey, 'permission_package');
+  });
+
+  it('serves a dedicated admin D1 guide config endpoint with all fixed rows', async () => {
+    const adminD1 = await requestJson<{
+      data: {
+        joinGroup: { actionKey: string; enabled: boolean };
+        employeeGuide: { actionKey: string; enabled: boolean };
+        permissionPackage: { actionKey: string; title: string; label: string; enabled: boolean };
+      };
+    }>('/api/admin/d1-guide-config');
+    assert.equal(adminD1.status, 200);
+    assert.equal(adminD1.body.data.joinGroup.actionKey, 'join_group');
+    assert.equal(adminD1.body.data.employeeGuide.actionKey, 'employee_guide');
+    assert.equal(adminD1.body.data.permissionPackage.actionKey, 'permission_package');
+    assert.equal(typeof adminD1.body.data.permissionPackage.title, 'string');
+    assert.equal(typeof adminD1.body.data.permissionPackage.label, 'string');
+  });
+
+  it('validates D1 guide route and external link fields before saving', async () => {
+    const unsafeRoute = await requestJson<{ error: string }>('/api/admin/d1-guide-config', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        items: [
+          {
+            actionKey: 'permission_package',
+            title: 'Unsafe route',
+            description: 'Should be rejected',
+            routePath: '/admin/workbench',
+            label: 'Open unsafe route',
+            ownerName: 'Permission Admin',
+            enabled: true,
+          },
+        ],
+      }),
+    });
+    assert.equal(unsafeRoute.status, 400);
+    assert.match(unsafeRoute.body.error, /routePath/);
+
+    const unsafeLink = await requestJson<{ error: string }>('/api/admin/d1-guide-config', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        items: [
+          {
+            actionKey: 'employee_guide',
+            title: 'Unsafe guide link',
+            description: 'Should be rejected',
+            documentTitle: 'Guide',
+            documentUrl: 'not-a-url',
+            label: 'Read guide',
+            ownerName: 'Content Admin',
+            enabled: true,
+          },
+        ],
+      }),
+    });
+    assert.equal(unsafeLink.status, 400);
+    assert.match(unsafeLink.body.error, /documentUrl/);
+  });
+
   it('rejects weekly feedback config that would leave newcomers with no enabled questions', async () => {
     const config = await requestJson<{ data: { questions: Array<{ id: string }> } }>('/api/weekly-feedback-config');
     const disabled = await requestJson<{ error: string }>('/api/admin/weekly-feedback-config', {
@@ -251,6 +559,76 @@ describe('Phase 04A writable admin configuration', () => {
 
     assert.equal(disabledOptions.status, 400);
     assert.match(disabledOptions.body.error, /enabled option/i);
+  });
+
+  it('persists edited weekly feedback option labels and newly added options for newcomer rendering', async () => {
+    const admin = await requestJson<{
+      data: { weeklyFeedbackConfig: { questions: Array<{ id: string; inputType: string; options: Array<{ id: string; label: string; enabled: boolean; sortOrder: number }> }> } };
+    }>('/api/admin/config');
+    const choice = admin.body.data.weeklyFeedbackConfig.questions.find((question) => question.inputType === 'single' && question.options.length > 0);
+    assert.ok(choice);
+    const firstOption = choice.options[0];
+    const newOptionLabel = `后台新增选项 ${Date.now()}`;
+
+    const saved = await requestJson<{
+      data: { questions: Array<{ id: string; options: Array<{ id: string; label: string; enabled: boolean; sortOrder: number }> }> };
+    }>('/api/admin/weekly-feedback-config', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        questions: [
+          {
+            id: choice.id,
+            title: '首周整体感受',
+            enabled: true,
+            options: [
+              { id: firstOption.id, label: '后台改名选项', enabled: true, sortOrder: 1 },
+              { label: newOptionLabel, enabled: true, sortOrder: 9 },
+            ],
+          },
+        ],
+      }),
+    });
+
+    assert.equal(saved.status, 200);
+    const savedQuestion = saved.body.data.questions.find((question) => question.id === choice.id);
+    assert.ok(savedQuestion?.options.some((option) => option.label === '后台改名选项' && option.sortOrder === 1));
+    assert.ok(savedQuestion?.options.some((option) => option.label === newOptionLabel && option.enabled));
+
+    const newcomer = await requestJson<{ data: { questions: Array<{ id: string; options: Array<{ label: string }> }> } }>('/api/weekly-feedback-config');
+    const newcomerQuestion = newcomer.body.data.questions.find((question) => question.id === choice.id);
+    assert.ok(newcomerQuestion?.options.some((option) => option.label === newOptionLabel));
+  });
+
+  it('returns admin weekly feedback config with disabled questions while newcomer config stays enabled-only', async () => {
+    const admin = await requestJson<{
+      data: { weeklyFeedbackConfig: { questions: Array<{ id: string; title: string; enabled: boolean }> } };
+    }>('/api/admin/config');
+    const target = admin.body.data.weeklyFeedbackConfig.questions.find((question) => question.enabled);
+    assert.ok(target);
+
+    const disabled = await requestJson<{
+      data: { questions: Array<{ id: string; title: string; enabled: boolean; updatedBy: string }> };
+    }>('/api/admin/weekly-feedback-config', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        updatedBy: 'demo-admin',
+        questions: [{ id: target.id, title: 'Disabled but editable weekly question', enabled: false }],
+      }),
+    });
+    assert.equal(disabled.status, 200);
+    assert.ok(disabled.body.data.questions.some((question) => question.id === target.id && question.enabled === false && question.updatedBy === 'demo-admin'));
+
+    const newcomer = await requestJson<{ data: { questions: Array<{ id: string }> } }>('/api/weekly-feedback-config');
+    assert.equal(newcomer.body.data.questions.some((question) => question.id === target.id), false);
+
+    const restored = await requestJson<{ data: { questions: Array<{ id: string; enabled: boolean }> } }>('/api/admin/weekly-feedback-config', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        questions: [{ id: target.id, title: target.title, enabled: true }],
+      }),
+    });
+    assert.equal(restored.status, 200);
+    assert.ok(restored.body.data.questions.some((question) => question.id === target.id && question.enabled === true));
   });
 
   it('persists editable anonymous feedback classification config and validates references', async () => {
@@ -295,6 +673,67 @@ describe('Phase 04A writable admin configuration', () => {
     assert.ok(reloaded.body.data.modules.some((item) => item.id === 'afm-permission' && item.label === 'Configured permission feedback'));
   });
 
+  it('persists new anonymous feedback child options under the selected module for newcomer linkage', async () => {
+    const suffix = Date.now();
+    const problemLabel = `后台D1问题类型${suffix}`;
+    const actionLabel = `后台D1处理方式${suffix}`;
+
+    const saved = await requestJson<{
+      data: {
+        modules: Array<{
+          id: string;
+          problemTypes: Array<{ id: string; label: string; typeKey: string }>;
+          expectedActions: Array<{ id: string; label: string; actionKey: string }>;
+        }>;
+      };
+    }>('/api/admin/anonymous-feedback-config', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        problemTypes: [
+          {
+            id: `afpt-admin-d1-${suffix}`,
+            moduleId: 'afm-d1-guide',
+            typeKey: `admin_d1_type_${suffix}`,
+            label: problemLabel,
+            enabled: true,
+            sortOrder: 88,
+          },
+        ],
+        expectedActions: [
+          {
+            id: `afea-admin-d1-${suffix}`,
+            moduleId: 'afm-d1-guide',
+            actionKey: `admin_d1_action_${suffix}`,
+            label: actionLabel,
+            enabled: true,
+            sortOrder: 88,
+          },
+        ],
+      }),
+    });
+
+    assert.equal(saved.status, 200);
+    const d1 = saved.body.data.modules.find((module) => module.id === 'afm-d1-guide');
+    const permission = saved.body.data.modules.find((module) => module.id === 'afm-permission');
+    assert.ok(d1?.problemTypes.some((item) => item.label === problemLabel));
+    assert.ok(d1?.expectedActions.some((item) => item.label === actionLabel));
+    assert.equal(permission?.problemTypes.some((item) => item.label === problemLabel), false);
+    assert.equal(permission?.expectedActions.some((item) => item.label === actionLabel), false);
+
+    const newcomer = await requestJson<{
+      data: {
+        modules: Array<{
+          id: string;
+          problemTypes: Array<{ label: string }>;
+          expectedActions: Array<{ label: string }>;
+        }>;
+      };
+    }>('/api/anonymous-feedback-config');
+    const newcomerD1 = newcomer.body.data.modules.find((module) => module.id === 'afm-d1-guide');
+    assert.ok(newcomerD1?.problemTypes.some((item) => item.label === problemLabel));
+    assert.ok(newcomerD1?.expectedActions.some((item) => item.label === actionLabel));
+  });
+
   it('rejects duplicate anonymous feedback typeKey and actionKey in the same module', async () => {
     const duplicateType = await requestJson<{ error: string }>('/api/admin/anonymous-feedback-config', {
       method: 'PATCH',
@@ -329,6 +768,41 @@ describe('Phase 04A writable admin configuration', () => {
     });
     assert.equal(duplicateAction.status, 400);
     assert.match(duplicateAction.body.error, /actionKey/);
+  });
+
+  it('returns admin anonymous config with disabled modules while newcomer config stays enabled-only', async () => {
+    const disabled = await requestJson<{
+      data: { modules: Array<{ id: string; label: string; enabled: boolean; updatedBy: string }> };
+    }>('/api/admin/anonymous-feedback-config', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        updatedBy: 'demo-admin',
+        modules: [{ id: 'afm-permission', label: 'Disabled but editable permission feedback', enabled: false }],
+      }),
+    });
+    assert.equal(disabled.status, 200);
+    assert.ok(
+      disabled.body.data.modules.some(
+        (module) => module.id === 'afm-permission' && module.enabled === false && module.updatedBy === 'demo-admin',
+      ),
+    );
+
+    const adminReloaded = await requestJson<{ data: { anonymousFeedbackConfig: { modules: Array<{ id: string; enabled: boolean }> } } }>(
+      '/api/admin/config',
+    );
+    assert.ok(adminReloaded.body.data.anonymousFeedbackConfig.modules.some((module) => module.id === 'afm-permission' && module.enabled === false));
+
+    const newcomer = await requestJson<{ data: { modules: Array<{ id: string }> } }>('/api/anonymous-feedback-config');
+    assert.equal(newcomer.body.data.modules.some((module) => module.id === 'afm-permission'), false);
+
+    const restored = await requestJson<{ data: { modules: Array<{ id: string; enabled: boolean }> } }>('/api/admin/anonymous-feedback-config', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        modules: [{ id: 'afm-permission', label: 'Configured permission feedback', enabled: true }],
+      }),
+    });
+    assert.equal(restored.status, 200);
+    assert.ok(restored.body.data.modules.some((module) => module.id === 'afm-permission' && module.enabled === true));
   });
 
   it('updates anonymous feedback pool status, conclusion, and review inclusion', async () => {
@@ -375,22 +849,112 @@ describe('Phase 04A writable admin configuration', () => {
 
   it('creates knowledge base metadata with simulated parse and vector states', async () => {
     const created = await requestJson<{
-      data: { id: string; title: string; sourceUrl: string; parseStatus: string; vectorStatus: string; updatedBy: string };
+      data: {
+        id: string;
+        title: string;
+        sourceUrl: string;
+        applicableRoleId: string;
+        fileSize: number;
+        fileHash: string;
+        filePath: string;
+        status: string;
+        parseStatus: string;
+        vectorStatus: string;
+        updatedBy: string;
+      };
     }>('/api/admin/knowledge-base-docs', {
       method: 'POST',
       body: JSON.stringify({
         title: 'Admin uploaded metadata only',
         category: '入职知识',
+        applicableRoleId: 'role-product-intern',
         applicableRole: '协同办公产品实习生',
         applicableStage: 'D1',
         ownerName: 'Knowledge Owner',
         sourceUrl: 'mock-drive://admin-upload',
+        status: 'enabled',
+        parseStatus: 'parsed',
+        vectorStatus: 'ready',
       }),
     });
     assert.equal(created.status, 201);
     assert.equal(created.body.data.title, 'Admin uploaded metadata only');
-    assert.match(created.body.data.parseStatus, /^simulated/);
-    assert.match(created.body.data.vectorStatus, /^simulated/);
+    assert.equal(created.body.data.applicableRoleId, 'role-product-intern');
+    assert.equal(created.body.data.fileSize, 0);
+    assert.equal(created.body.data.fileHash, 'mock-md5-pending');
+    assert.equal(created.body.data.filePath, 'mock-file://selected-admin-doc.pdf');
+    assert.equal(created.body.data.status, 'disabled');
+    assert.equal(created.body.data.parseStatus, 'pending');
+    assert.equal(created.body.data.vectorStatus, 'pending');
     assert.equal(created.body.data.updatedBy, 'demo-admin');
+  });
+
+  it('guards knowledge metadata categories, role references, and mock parse state transitions', async () => {
+    const badCategory = await requestJson<{ error: string }>('/api/admin/knowledge-base-docs', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'Bad category',
+        category: '入职知识错别字',
+        applicableRoleId: 'role-product-intern',
+        applicableRole: '协同办公产品实习生',
+        applicableStage: 'D1',
+        ownerName: 'Knowledge Owner',
+        sourceUrl: 'mock-drive://bad-category',
+      }),
+    });
+    assert.equal(badCategory.status, 400);
+    assert.match(badCategory.body.error, /category/);
+
+    const badRole = await requestJson<{ error: string }>('/api/admin/knowledge-base-docs', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'Bad role',
+        category: '入职知识',
+        applicableRoleId: 'role-missing',
+        applicableRole: '不存在岗位',
+        applicableStage: 'D1',
+        ownerName: 'Knowledge Owner',
+        sourceUrl: 'mock-drive://bad-role',
+      }),
+    });
+    assert.equal(badRole.status, 400);
+    assert.match(badRole.body.error, /applicableRoleId/);
+
+    const created = await requestJson<{ data: { id: string; status: string; parseStatus: string; vectorStatus: string } }>('/api/admin/knowledge-base-docs', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'State machine metadata',
+        category: '系统权限',
+        applicableRoleId: 'role-product-intern',
+        applicableRole: '协同办公产品实习生',
+        applicableStage: 'D1',
+        ownerName: 'Knowledge Owner',
+        sourceUrl: 'mock-drive://state-machine',
+      }),
+    });
+    assert.equal(created.body.data.status, 'disabled');
+
+    const blocked = await requestJson<{ error: string }>(`/api/admin-config/knowledge/${created.body.data.id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: 'enabled' }),
+    });
+    assert.equal(blocked.status, 400);
+    assert.match(blocked.body.error, /parsed/);
+
+    const parsed = await requestJson<{ data: { id: string; status: string; parseStatus: string; vectorStatus: string } }>(
+      `/api/admin-config/knowledge/${created.body.data.id}/trigger-mock-parse`,
+      { method: 'POST', body: JSON.stringify({}) },
+    );
+    assert.equal(parsed.status, 200);
+    assert.equal(parsed.body.data.status, 'disabled');
+    assert.equal(parsed.body.data.parseStatus, 'parsed');
+    assert.equal(parsed.body.data.vectorStatus, 'ready');
+
+    const enabled = await requestJson<{ data: { id: string; status: string } }>(`/api/admin-config/knowledge/${created.body.data.id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: 'enabled' }),
+    });
+    assert.equal(enabled.status, 200);
+    assert.equal(enabled.body.data.status, 'enabled');
   });
 });

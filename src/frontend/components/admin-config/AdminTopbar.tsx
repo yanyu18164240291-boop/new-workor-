@@ -47,7 +47,7 @@ export function AdminTopbar({ filters, onFiltersChange, reload }: AdminTopbarPro
         </label>
         <label>
           <CalendarDays size={15} />
-          <input value="2026-06-23" readOnly aria-label="日期：2026-06-23" />
+          <input type="date" value={filters.date} onChange={(event) => updateFilter('date', event.target.value)} aria-label="日期：2026-06-23" />
         </label>
       </div>
 

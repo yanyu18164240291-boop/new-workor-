@@ -7,6 +7,7 @@ import { StatusTag } from '../../components/admin-config/StatusTag.tsx';
 import { formatApiErrorMessage, type D1GuideConfigItem } from '../../api.ts';
 import type { DashboardData } from '../../dashboardData.ts';
 import { saveD1GuideItem } from '../../services/adminConfigApi.ts';
+import { validateD1GuideDraft } from './d1GuideValidation.ts';
 
 type D1GuideTabProps = {
   data: DashboardData;
@@ -14,7 +15,7 @@ type D1GuideTabProps = {
   reload: () => Promise<void>;
 };
 
-const operationHint = '编辑 / 停用';
+const operationHint = '编辑 / 启用 / 停用';
 
 const d1ActionMeta = {
   join_group: {
@@ -26,36 +27,26 @@ const d1ActionMeta = {
     fixedTitle: '查看员工指南册',
   },
   permission_package: {
-    actionName: '打开岗位权限包',
-    fixedTitle: '打开岗位权限包',
+    actionName: '开通岗位权限包',
+    fixedTitle: '开通岗位权限包',
   },
 } as const;
 
 function toD1Items(data: DashboardData): D1GuideConfigItem[] {
-  const config = data.d1GuideConfig ?? data.admin?.d1GuideConfig;
+  const config = data.admin?.d1GuideConfig ?? data.d1GuideConfig;
   return [config?.joinGroup, config?.employeeGuide, config?.permissionPackage].filter(Boolean) as D1GuideConfigItem[];
-}
-
-function validateDraft(draft: D1GuideConfigItem): string {
-  if (!draft.title.trim()) return '标题不能为空';
-  if (!draft.description.trim()) return '描述不能为空';
-  if (!draft.label.trim()) return '展示按钮文案不能为空';
-  if (!draft.ownerName.trim()) return 'Owner 不能为空';
-  if (draft.actionKey === 'join_group' && draft.applyUrl && !draft.applyUrl.startsWith('mock-feishu://chat/')) {
-    return '模拟进群链接必须为 mock-feishu://chat/...';
-  }
-  if (draft.actionKey === 'employee_guide' && draft.documentUrl && !draft.documentUrl.startsWith('mock-feishu://doc/')) {
-    return '指南册链接必须为 mock-feishu://doc/...';
-  }
-  if (draft.actionKey === 'permission_package' && draft.routePath !== '/permissions') {
-    return '岗位权限包站内路由固定为 /permissions';
-  }
-  return '';
 }
 
 export function D1GuideTab({ data, toast, reload }: D1GuideTabProps) {
   const items = toD1Items(data);
   const enabledCount = items.filter((item) => item.enabled).length;
+  const latestUpdate =
+    items
+      .map((item) => (item as D1GuideConfigItem & { updatedAt?: string }).updatedAt)
+      .filter((value): value is string => Boolean(value))
+      .sort((left, right) => right.localeCompare(left))[0]
+      ?.replace('T', ' ')
+      .slice(0, 16) ?? '-';
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [draft, setDraft] = useState<D1GuideConfigItem | null>(null);
   const [fieldError, setFieldError] = useState('');
@@ -73,7 +64,7 @@ export function D1GuideTab({ data, toast, reload }: D1GuideTabProps) {
 
   async function saveDraft(nextDraft = draft) {
     if (!nextDraft) return;
-    const validation = validateDraft(nextDraft);
+    const validation = validateD1GuideDraft(nextDraft);
     if (validation) {
       setFieldError(validation);
       return;
@@ -92,8 +83,28 @@ export function D1GuideTab({ data, toast, reload }: D1GuideTabProps) {
     }
   }
 
-  async function disableItem(item: D1GuideConfigItem) {
-    await saveDraft({ ...item, enabled: false });
+  async function toggleItem(item: D1GuideConfigItem) {
+    const next = { ...item, enabled: !item.enabled };
+    const validation = validateD1GuideDraft(next);
+    if (validation) {
+      setDraft(next);
+      setFieldError(validation);
+      setDrawerOpen(true);
+      return;
+    }
+    setSaving(true);
+    setFieldError('');
+    try {
+      await saveD1GuideItem(next);
+      toast(next.enabled ? '已启用 D1 引导配置' : '已停用 D1 引导配置');
+      await reload();
+    } catch (error) {
+      setDraft(next);
+      setFieldError(formatApiErrorMessage(error, '保存失败，请检查字段'));
+      setDrawerOpen(true);
+    } finally {
+      setSaving(false);
+    }
   }
 
   const columns: Array<DataTableColumn<D1GuideConfigItem>> = [
@@ -116,8 +127,8 @@ export function D1GuideTab({ data, toast, reload }: D1GuideTabProps) {
           <button type="button" onClick={() => openEdit(item)}>
             编辑
           </button>
-          <button type="button" disabled={!item.enabled || saving} onClick={() => void disableItem(item)}>
-            停用
+          <button type="button" disabled={saving} onClick={() => void toggleItem(item)}>
+            {item.enabled ? '停用' : '启用'}
           </button>
         </div>
       ),
@@ -127,12 +138,11 @@ export function D1GuideTab({ data, toast, reload }: D1GuideTabProps) {
   return (
     <div className="admin-workbench-panel">
       <div className="admin-page-title">
-        <span>Page 08</span>
         <h1>D1 引导配置</h1>
         <p>配置新人入职第一天的三类固定入口，D1 引导项固定 3 项，只支持{operationHint}。</p>
       </div>
 
-      <div className="admin-metric-grid admin-metric-grid-three">
+      <div className="admin-metric-grid admin-metric-grid-three admin-compact-summary-grid">
         <div className="admin-card">
           <h2>D1 启用入口数</h2>
           <strong className="admin-large-number">{enabledCount} / 3</strong>
@@ -140,7 +150,7 @@ export function D1GuideTab({ data, toast, reload }: D1GuideTabProps) {
         </div>
         <div className="admin-card">
           <h2>最近更新时间</h2>
-          <strong className="admin-large-number">2026-06-23 10:12</strong>
+          <strong className="admin-large-number">{latestUpdate}</strong>
           <p>由 demo-admin 更新</p>
         </div>
         <div className="admin-card">

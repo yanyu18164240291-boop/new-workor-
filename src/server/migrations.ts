@@ -29,12 +29,18 @@ function ensureAuditColumns(db: Database): void {
   for (const table of updatedByTables) {
     addColumnIfMissing(db, table, 'updatedBy', "TEXT NOT NULL DEFAULT 'demo-admin'");
   }
+  addColumnIfMissing(db, 'roles', 'departmentId', "TEXT NOT NULL DEFAULT 'dept-collaboration-office'");
+  db.exec("UPDATE roles SET departmentId = 'dept-collaboration-office' WHERE departmentId = '' OR departmentId IS NULL;");
   addColumnIfMissing(db, 'permission_items', 'ownerType', "TEXT NOT NULL DEFAULT 'department'");
   addColumnIfMissing(db, 'permission_items', 'applyEntryName', "TEXT NOT NULL DEFAULT ''");
   db.exec("UPDATE permission_items SET applyEntryName = name WHERE applyEntryName = '' OR applyEntryName IS NULL;");
   addColumnIfMissing(db, 'anonymous_feedbacks', 'handlerName', 'TEXT');
   addColumnIfMissing(db, 'anonymous_feedbacks', 'handledAt', 'TEXT');
   addColumnIfMissing(db, 'anonymous_feedbacks', 'resolutionNote', 'TEXT');
+  addColumnIfMissing(db, 'knowledge_base_docs', 'applicableRoleId', "TEXT NOT NULL DEFAULT 'role-product-intern'");
+  addColumnIfMissing(db, 'knowledge_base_docs', 'fileSize', 'INTEGER NOT NULL DEFAULT 0');
+  addColumnIfMissing(db, 'knowledge_base_docs', 'fileHash', "TEXT NOT NULL DEFAULT 'mock-md5-pending'");
+  addColumnIfMissing(db, 'knowledge_base_docs', 'filePath', "TEXT NOT NULL DEFAULT 'mock-file://selected-admin-doc.pdf'");
 }
 
 function addColumnIfMissing(db: Database, table: string, column: string, definition: string): void {

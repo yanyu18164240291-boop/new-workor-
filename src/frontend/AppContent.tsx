@@ -1,6 +1,9 @@
+import type { ReactNode } from 'react';
+
+import { canAccessAdminConfig } from './auth.ts';
 import type { DashboardData } from './dashboardData.ts';
 import { AdminConfigPage } from './pages/AdminConfig/AdminConfigPage.tsx';
-import { ReviewPage } from './pages/adminPages.tsx';
+import { ReviewPage } from './pages/ReviewPage.tsx';
 import { ManagerDetailPage, ManagerFeedbackPage, ManagerPage } from './pages/managerPages.tsx';
 import {
   AnonymousFeedbackPage,
@@ -11,6 +14,7 @@ import {
   PermissionPage,
   WeeklyFeedbackPage,
 } from './pages/newcomerPages.tsx';
+import { currentAdminUser } from './types/adminConfig.ts';
 
 export function AppContent({
   pageNo,
@@ -20,6 +24,7 @@ export function AppContent({
   navigate,
   toast,
   reload,
+  selectPreviewRole,
   openApplyModal,
   openOwnerModal,
 }: {
@@ -30,16 +35,32 @@ export function AppContent({
   navigate: (path: string) => void;
   toast: (message: string) => void;
   reload: () => Promise<void>;
+  selectPreviewRole: (roleId: string) => Promise<void>;
   openApplyModal: (type: 'required' | 'optional') => void;
   openOwnerModal: () => void;
 }) {
+  function renderAdminGuard(children: ReactNode) {
+    if (canAccessAdminConfig(currentAdminUser)) return children;
+    return (
+      <div className="admin-workbench-panel">
+        <section className="admin-card admin-access-denied">
+          <h1>无权访问后台配置</h1>
+          <p>当前账号不具备后台管理员角色，已阻止进入 Page 08 后台配置维护台。</p>
+          <button className="admin-primary-action" type="button" onClick={() => navigate('/')}>
+            返回新人首页
+          </button>
+        </section>
+      </div>
+    );
+  }
+
   switch (pageNo) {
     case '01':
       return <HomePage data={data} navigate={navigate} />;
     case '02':
-      return <D1Page data={data} navigate={navigate} toast={toast} />;
+      return <D1Page data={data} navigate={navigate} toast={toast} onRoleChange={selectPreviewRole} />;
     case '03':
-      return <PermissionPage data={data} navigate={navigate} openModal={openApplyModal} />;
+      return <PermissionPage data={data} navigate={navigate} openModal={openApplyModal} onRoleChange={selectPreviewRole} />;
     case '04':
       return <PermissionDetailPage data={data} params={params} navigate={navigate} toast={toast} reload={reload} />;
     case '05':
@@ -49,9 +70,9 @@ export function AppContent({
     case '07':
       return <AnonymousFeedbackPage data={data} reload={reload} toast={toast} />;
     case '08':
-      return <AdminConfigPage data={data} search={search} toast={toast} reload={reload} navigate={navigate} />;
+      return renderAdminGuard(<AdminConfigPage data={data} search={search} toast={toast} reload={reload} navigate={navigate} />);
     case '09':
-      return <ReviewPage data={data} navigate={navigate} toast={toast} />;
+      return renderAdminGuard(<ReviewPage data={data} navigate={navigate} toast={toast} />);
     case '10':
       return <ManagerPage data={data} navigate={navigate} toast={toast} />;
     case '11':

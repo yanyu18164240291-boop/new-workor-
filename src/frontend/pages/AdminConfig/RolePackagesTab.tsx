@@ -5,14 +5,21 @@ import { DataTable, type DataTableColumn } from '../../components/admin-config/D
 import { FieldError } from '../../components/admin-config/FieldError.tsx';
 import { RightDrawer } from '../../components/admin-config/RightDrawer.tsx';
 import { StatusTag } from '../../components/admin-config/StatusTag.tsx';
-import { formatApiErrorMessage, type PermissionItem } from '../../api.ts';
+import { formatApiErrorMessage, type PermissionItem, type Role } from '../../api.ts';
 import type { DashboardData } from '../../dashboardData.ts';
-import { createPermissionForRole, saveRolePackagePermission } from '../../services/adminConfigApi.ts';
+import {
+  bindExistingPermissionForRole,
+  createPermissionForRole,
+  createRoleForPackage,
+  saveRoleForPackage,
+  saveRolePackagePermission,
+} from '../../services/adminConfigApi.ts';
 import type { AdminConfigFilters } from '../../types/adminConfig.ts';
 
 type RolePackagesTabProps = {
   data: DashboardData;
   filters: AdminConfigFilters;
+  search?: string;
   toast: (message: string) => void;
   reload: () => Promise<void>;
 };
@@ -23,6 +30,7 @@ type PermissionDraft = Omit<PermissionItem, 'id' | 'sensitive'> & {
 };
 
 type PermissionScope = 'all' | 'required' | 'optional' | 'disabled';
+type RoleDraft = Pick<Role, 'name' | 'department' | 'description'> & { id?: string };
 
 const blankPermissionDraft: PermissionDraft = {
   name: '',
@@ -37,6 +45,12 @@ const blankPermissionDraft: PermissionDraft = {
   approverName: '',
   commonWaitingReasons: [''],
   enabled: true,
+};
+
+const blankRoleDraft: RoleDraft = {
+  name: '',
+  department: '协同办公部门',
+  description: '',
 };
 
 function waitingReasonsText(item: PermissionDraft): string {
@@ -66,6 +80,26 @@ function validatePermissionDraft(draft: PermissionDraft): string {
   if (!['mock-feishu://', 'http://', 'https://'].some((scheme) => draft.applyUrl.trim().startsWith(scheme))) {
     return '申请入口 URL 仅支持 mock-feishu://、http://、https://';
   }
+  if (draft.permissionType === 'required' && !draft.enabled) {
+    return '必开权限必须保持启用，如需暂停请先调整为可选权限。';
+  }
+  return '';
+}
+
+function validateRoleDraft(draft: RoleDraft): string {
+  if (!draft.name.trim()) return '岗位名称不能为空';
+  if (!draft.department.trim()) return '所属部门不能为空';
+  if (!draft.description.trim()) return '岗位描述不能为空';
+  return '';
+}
+
+function isRequiredPermission(permission: Pick<PermissionDraft, 'permissionType'>): boolean {
+  return permission.permissionType === 'required';
+}
+
+function getPermissionDisableHint(permission: Pick<PermissionItem, 'permissionType' | 'enabled'>): string {
+  if (isRequiredPermission(permission)) return '必开权限不能停用，请先调整为可选权限。';
+  if (!permission.enabled) return '权限项已停用';
   return '';
 }
 
@@ -84,7 +118,7 @@ function normalizeDraft(permission: PermissionItem): PermissionDraft {
   };
 }
 
-export function RolePackagesTab({ data, filters, toast, reload }: RolePackagesTabProps) {
+export function RolePackagesTab({ data, filters, search = '', toast, reload }: RolePackagesTabProps) {
   const roles = data.admin?.roles ?? [];
   const rolePermissionItems = data.admin?.rolePermissionItems ?? [];
   const permissions = data.admin?.permissionItems ?? [];
@@ -92,16 +126,27 @@ export function RolePackagesTab({ data, filters, toast, reload }: RolePackagesTa
   const [scope, setScope] = useState<PermissionScope>('all');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [draft, setDraft] = useState<PermissionDraft>(blankPermissionDraft);
+  const [bindDrawerOpen, setBindDrawerOpen] = useState(false);
+  const [bindPermissionId, setBindPermissionId] = useState('');
+  const [roleDrawerOpen, setRoleDrawerOpen] = useState(false);
+  const [roleDraft, setRoleDraft] = useState<RoleDraft>(blankRoleDraft);
   const [fieldError, setFieldError] = useState('');
+  const [bindFieldError, setBindFieldError] = useState('');
+  const [roleFieldError, setRoleFieldError] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!selectedRoleId && roles[0]) setSelectedRoleId(roles[0].id);
   }, [roles, selectedRoleId]);
 
+  useEffect(() => {
+    if (new URLSearchParams(search).get('action') === 'new-role') openCreateRole();
+  }, [search]);
+
   const selectedRole = roles.find((role) => role.id === selectedRoleId) ?? roles[0];
   const rolePermissionIds = new Set(rolePermissionItems.filter((item) => item.roleId === selectedRole?.id).map((item) => item.permissionItemId));
-  const rolePermissions = rolePermissionIds.size > 0 ? permissions.filter((item) => rolePermissionIds.has(item.id)) : permissions;
+  const rolePermissions = permissions.filter((item) => rolePermissionIds.has(item.id));
+  const bindablePermissions = permissions.filter((item) => !rolePermissionIds.has(item.id));
   const requiredCount = rolePermissions.filter((item) => item.permissionType === 'required' && item.enabled).length;
   const optionalCount = rolePermissions.filter((item) => item.permissionType === 'optional' && item.enabled).length;
   const enabledCount = rolePermissions.filter((item) => item.enabled).length;
@@ -142,8 +187,62 @@ export function RolePackagesTab({ data, filters, toast, reload }: RolePackagesTa
     setDrawerOpen(true);
   }
 
+  function openBindExisting() {
+    setBindPermissionId(bindablePermissions[0]?.id ?? '');
+    setBindFieldError('');
+    setBindDrawerOpen(true);
+  }
+
+  function openCreateRole() {
+    setRoleDraft(blankRoleDraft);
+    setRoleFieldError('');
+    setRoleDrawerOpen(true);
+  }
+
+  function openEditRole() {
+    if (!selectedRole) return;
+    setRoleDraft({
+      id: selectedRole.id,
+      name: selectedRole.name,
+      department: selectedRole.department,
+      description: selectedRole.description,
+    });
+    setRoleFieldError('');
+    setRoleDrawerOpen(true);
+  }
+
   function patchDraft(patch: Partial<PermissionDraft>) {
     setDraft((current) => ({ ...current, ...patch }));
+  }
+
+  function patchRoleDraft(patch: Partial<RoleDraft>) {
+    setRoleDraft((current) => ({ ...current, ...patch }));
+  }
+
+  async function saveRoleDraft() {
+    const validation = validateRoleDraft(roleDraft);
+    if (validation) {
+      setRoleFieldError(validation);
+      return;
+    }
+    setSaving(true);
+    setRoleFieldError('');
+    try {
+      const payload = {
+        name: roleDraft.name.trim(),
+        department: roleDraft.department.trim(),
+        description: roleDraft.description.trim(),
+      };
+      const saved = roleDraft.id ? await saveRoleForPackage(roleDraft.id, payload) : await createRoleForPackage(payload);
+      setSelectedRoleId(saved.id);
+      toast(roleDraft.id ? '已保存岗位信息，并同步到新人端岗位权限包' : '已新增岗位，并同步到后台配置数据库');
+      setRoleDrawerOpen(false);
+      await reload();
+    } catch (error) {
+      setRoleFieldError(formatApiErrorMessage(error, '保存失败，请检查岗位字段'));
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function saveDraft() {
@@ -176,10 +275,39 @@ export function RolePackagesTab({ data, filters, toast, reload }: RolePackagesTa
     }
   }
 
+  async function saveExistingBinding() {
+    if (!selectedRole?.id) {
+      setBindFieldError('请先选择岗位');
+      return;
+    }
+    if (!bindPermissionId) {
+      setBindFieldError('请选择要绑定到当前岗位的权限项');
+      return;
+    }
+    setSaving(true);
+    setBindFieldError('');
+    try {
+      await bindExistingPermissionForRole(selectedRole.id, bindPermissionId);
+      const boundPermission = permissions.find((item) => item.id === bindPermissionId);
+      toast(`已将 ${boundPermission?.name ?? '权限项'} 绑定到 ${selectedRole.name}`);
+      setBindDrawerOpen(false);
+      await reload();
+    } catch (error) {
+      setBindFieldError(formatApiErrorMessage(error, '绑定失败，请检查岗位权限关系'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function disablePermission(permission: PermissionItem) {
+    const disableHint = getPermissionDisableHint(permission);
+    if (disableHint) {
+      toast(disableHint);
+      return;
+    }
     setSaving(true);
     try {
-      await saveRolePackagePermission(permission.id, { enabled: false });
+      await saveRolePackagePermission(permission.id, { enabled: false, updatedAt: permission.updatedAt });
       toast('已停用权限项，历史进度仍会保留');
       await reload();
     } catch (error) {
@@ -211,7 +339,7 @@ export function RolePackagesTab({ data, filters, toast, reload }: RolePackagesTa
           <button type="button" onClick={() => openEdit(item)}>
             编辑
           </button>
-          <button type="button" disabled={!item.enabled || saving} onClick={() => void disablePermission(item)}>
+          <button type="button" disabled={!item.enabled || saving || isRequiredPermission(item)} title={getPermissionDisableHint(item)} onClick={() => void disablePermission(item)}>
             停用
           </button>
         </div>
@@ -222,34 +350,38 @@ export function RolePackagesTab({ data, filters, toast, reload }: RolePackagesTa
   return (
     <div className="admin-workbench-panel">
       <div className="admin-page-title">
-        <span>Page 08</span>
         <h1>岗位权限包管理</h1>
         <p>配置指定岗位需要的必开权限和可选权限，保存后同步影响新人权限引导。</p>
       </div>
 
-      <div className="admin-role-summary-grid">
-        <section className="admin-card">
+      <div className="admin-role-summary-grid admin-role-summary-grid-compact">
+        <section className="admin-card admin-role-info-card">
           <div className="admin-section-heading">
             <h2>当前岗位信息</h2>
-            <select value={selectedRole?.id ?? ''} onChange={(event) => setSelectedRoleId(event.target.value)}>
-              {roles.map((role) => (
-                <option key={role.id} value={role.id}>
-                  {role.name}
-                </option>
-              ))}
-            </select>
+            <div className="admin-toolbar-actions">
+              <select value={selectedRole?.id ?? ''} onChange={(event) => setSelectedRoleId(event.target.value)}>
+                {roles.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.name}
+                  </option>
+                ))}
+              </select>
+              <button className="admin-secondary-action" type="button" disabled={!selectedRole} onClick={openEditRole}>
+                编辑岗位
+              </button>
+            </div>
           </div>
           <dl className="admin-definition-list">
             <dt>当前岗位</dt>
             <dd>{selectedRole?.name ?? '-'}</dd>
-            <dt>所属部门</dt>
-            <dd>{selectedRole?.department ?? '-'}</dd>
             <dt>岗位描述</dt>
             <dd>{selectedRole?.description ?? '-'}</dd>
+            <dt>所属部门</dt>
+            <dd>{selectedRole?.department ?? '-'}</dd>
           </dl>
         </section>
 
-        <section className="admin-card">
+        <section className="admin-card admin-compact-summary-card">
           <h2>权限包完整度</h2>
           <div className="admin-completeness-ring">{completeness}%</div>
           <div className="admin-package-counts">
@@ -277,6 +409,14 @@ export function RolePackagesTab({ data, filters, toast, reload }: RolePackagesTa
             </button>
           </div>
           <div className="admin-toolbar-actions">
+            <button className="admin-secondary-action" type="button" disabled={!selectedRole || bindablePermissions.length === 0} onClick={openBindExisting}>
+              <Plus size={16} />
+              绑定已有权限
+            </button>
+            <button className="admin-secondary-action" type="button" onClick={openCreateRole}>
+              <Plus size={16} />
+              新增岗位
+            </button>
             <button className="admin-primary-action" type="button" onClick={openCreate}>
               <Plus size={16} />
               新增权限项
@@ -286,8 +426,43 @@ export function RolePackagesTab({ data, filters, toast, reload }: RolePackagesTa
             </button>
           </div>
         </div>
-        <DataTable columns={columns} rows={filteredPermissions} getRowKey={(item) => item.id} emptyText="暂无权限项" />
+        <DataTable columns={columns} rows={filteredPermissions} getRowKey={(item) => item.id} emptyText="当前岗位暂无权限项，请绑定已有权限或新增权限项" />
       </section>
+
+      <RightDrawer
+        title="绑定已有权限"
+        open={bindDrawerOpen}
+        onClose={() => setBindDrawerOpen(false)}
+        footer={
+          <>
+            <button className="admin-secondary-action" type="button" onClick={() => setBindDrawerOpen(false)}>
+              取消
+            </button>
+            <button className="admin-primary-action" type="button" disabled={saving || !bindPermissionId} onClick={() => void saveExistingBinding()}>
+              保存绑定关系
+            </button>
+          </>
+        }
+      >
+        <div className="admin-drawer-form">
+          <FieldError message={bindFieldError} />
+          <p className="admin-form-note">将已有权限项绑定到当前岗位，只新增岗位权限关系，不复制权限项，也不影响历史进度。</p>
+          <label>
+            当前岗位
+            <input readOnly value={selectedRole?.name ?? '-'} />
+          </label>
+          <label>
+            选择权限项 <b>*</b>
+            <select value={bindPermissionId} onChange={(event) => setBindPermissionId(event.target.value)}>
+              {bindablePermissions.map((permission) => (
+                <option key={permission.id} value={permission.id}>
+                  {permission.name} / {permission.permissionType === 'required' ? '必开' : '可选'} / {permission.enabled ? '启用' : '停用'}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </RightDrawer>
 
       <RightDrawer
         title={draft.id ? '编辑权限项' : '新增权限项'}
@@ -319,7 +494,7 @@ export function RolePackagesTab({ data, filters, toast, reload }: RolePackagesTa
               权限类型 <b>*</b>
             </legend>
             <label>
-              <input type="radio" checked={draft.permissionType === 'required'} onChange={() => patchDraft({ permissionType: 'required' })} />
+              <input type="radio" checked={draft.permissionType === 'required'} onChange={() => patchDraft({ permissionType: 'required', enabled: true })} />
               必开
             </label>
             <label>
@@ -365,7 +540,46 @@ export function RolePackagesTab({ data, filters, toast, reload }: RolePackagesTa
           </label>
           <label className="admin-switch-row">
             启用状态
-            <input type="checkbox" checked={draft.enabled} onChange={(event) => patchDraft({ enabled: event.target.checked })} />
+            <input
+              type="checkbox"
+              checked={draft.enabled}
+              disabled={isRequiredPermission(draft)}
+              title={isRequiredPermission(draft) ? '必开权限不能停用，请先调整为可选权限。' : undefined}
+              onChange={(event) => patchDraft({ enabled: event.target.checked })}
+            />
+          </label>
+          {isRequiredPermission(draft) && <p className="admin-help-text">必开权限不能停用，请先调整为可选权限。</p>}
+        </div>
+      </RightDrawer>
+
+      <RightDrawer
+        title={roleDraft.id ? '编辑岗位信息' : '新增岗位'}
+        open={roleDrawerOpen}
+        onClose={() => setRoleDrawerOpen(false)}
+        footer={
+          <>
+            <button className="admin-secondary-action" type="button" onClick={() => setRoleDrawerOpen(false)}>
+              取消
+            </button>
+            <button className="admin-primary-action" type="button" disabled={saving} onClick={() => void saveRoleDraft()}>
+              {roleDraft.id ? '保存岗位信息' : '保存岗位'}
+            </button>
+          </>
+        }
+      >
+        <div className="admin-drawer-form">
+          <FieldError message={roleFieldError} />
+          <label>
+            岗位名称 <b>*</b>
+            <input value={roleDraft.name} onChange={(event) => patchRoleDraft({ name: event.target.value })} />
+          </label>
+          <label>
+            所属部门 <b>*</b>
+            <input value={roleDraft.department} onChange={(event) => patchRoleDraft({ department: event.target.value })} />
+          </label>
+          <label>
+            岗位描述 <b>*</b>
+            <textarea value={roleDraft.description} onChange={(event) => patchRoleDraft({ description: event.target.value })} />
           </label>
         </div>
       </RightDrawer>

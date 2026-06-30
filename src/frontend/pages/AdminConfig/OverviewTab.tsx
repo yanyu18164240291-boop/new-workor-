@@ -3,9 +3,11 @@ import { BookOpen, BriefcaseBusiness, ClipboardList, MessageCircle, Plus, Shield
 import { MetricCard } from '../../components/admin-config/MetricCard.tsx';
 import { StatusTag } from '../../components/admin-config/StatusTag.tsx';
 import type { DashboardData } from '../../dashboardData.ts';
+import type { AdminConfigFilters } from '../../types/adminConfig.ts';
 
 type OverviewTabProps = {
   data: DashboardData;
+  filters: AdminConfigFilters;
   navigate: (path: string) => void;
 };
 
@@ -26,7 +28,17 @@ function formatCompleteness(done: number, total: number) {
   return `${Math.round((done / total) * 100)}%`;
 }
 
-function getRecentChanges(data: DashboardData): ChangeRecord[] {
+function isOnOrBeforeDate(updatedAt: string | undefined, selectedDate: string) {
+  if (!selectedDate || !/^\d{4}-\d{2}-\d{2}$/.test(selectedDate)) return true;
+  if (!updatedAt) return true;
+  return updatedAt.slice(0, 10) <= selectedDate;
+}
+
+function isSimulatedPendingStatus(status: string | undefined) {
+  return typeof status === 'string' && status.includes('pending');
+}
+
+function getRecentChanges(data: DashboardData, selectedDate: string): ChangeRecord[] {
   const permissions =
     data.admin?.permissionItems.map((item) => ({
       configType: '岗位权限包',
@@ -53,20 +65,22 @@ function getRecentChanges(data: DashboardData): ChangeRecord[] {
     })) ?? [];
 
   return [...permissions, ...knowledge, ...feedback]
+    .filter((item) => isOnOrBeforeDate(item.updatedAt, selectedDate))
     .sort((left, right) => String(right.updatedAt ?? '').localeCompare(String(left.updatedAt ?? '')))
     .slice(0, 5);
 }
 
-export function OverviewTab({ data, navigate }: OverviewTabProps) {
+export function OverviewTab({ data, filters, navigate }: OverviewTabProps) {
   const roles = data.admin?.roles ?? [];
   const permissions = data.admin?.permissionItems ?? [];
   const knowledgeDocs = data.knowledgeDocs ?? [];
   const anonymousFeedbacks = data.anonymous ?? [];
-  const d1Items = [data.d1GuideConfig?.joinGroup, data.d1GuideConfig?.employeeGuide, data.d1GuideConfig?.permissionPackage].filter(Boolean);
+  const d1Config = data.admin?.d1GuideConfig ?? data.d1GuideConfig;
+  const d1Items = [d1Config?.joinGroup, d1Config?.employeeGuide, d1Config?.permissionPackage].filter(Boolean);
   const weeklyQuestions = data.weeklyConfig?.questions ?? [];
   const anonymousModules = data.anonymousConfig?.modules ?? [];
   const pendingAnonymous = anonymousFeedbacks.filter((item) => ['pending', 'open', 'in_progress'].includes(item.status)).length;
-  const recentChanges = getRecentChanges(data);
+  const recentChanges = getRecentChanges(data, filters.date);
 
   const completenessRows = [
     { label: '岗位权限包', done: countEnabled(permissions), total: Math.max(permissions.length, 1), path: '/admin-config?tab=role-packages' },
@@ -79,14 +93,19 @@ export function OverviewTab({ data, navigate }: OverviewTabProps) {
   const pendingItems = [
     { type: '匿名反馈', desc: `${pendingAnonymous} 条匿名反馈待处理`, tone: 'danger' as const, path: '/admin-config?tab=feedback-pool' },
     { type: '权限配置', desc: `${permissions.filter((item) => !item.enabled).length} 个权限项已停用或待确认`, tone: 'warning' as const, path: '/admin-config?tab=role-packages' },
-    { type: '知识库', desc: `${knowledgeDocs.filter((item) => item.vectorStatus !== 'simulated_vectorized').length} 份资料处于模拟解析/向量化状态`, tone: 'success' as const, path: '/admin-config?tab=knowledge' },
+    {
+      type: '知识库',
+      desc: `${knowledgeDocs.filter((item) => isSimulatedPendingStatus(item.parseStatus) || isSimulatedPendingStatus(item.vectorStatus)).length} 份资料处于模拟解析/向量化状态`,
+      tone: 'success' as const,
+      path: '/admin-config?tab=knowledge',
+    },
     { type: '首周反馈', desc: `${weeklyQuestions.filter((item) => !item.enabled).length} 个问题处于停用状态`, tone: 'blue' as const, path: '/admin-config?tab=weekly-feedback' },
     { type: 'D1 引导', desc: `${3 - d1Items.filter((item) => item?.enabled !== false).length} 个入口未启用`, tone: 'ai' as const, path: '/admin-config?tab=d1-guide' },
   ];
 
   const quickActions = [
     { label: '新增权限项', icon: Plus, path: '/admin-config?tab=role-packages' },
-    { label: '新增岗位', icon: BriefcaseBusiness, path: '/admin-config?tab=role-packages' },
+    { label: '新增岗位', icon: BriefcaseBusiness, path: '/admin-config?tab=role-packages&action=new-role' },
     { label: '设置 D1 引导', icon: ShieldCheck, path: '/admin-config?tab=d1-guide' },
     { label: '新增反馈问题', icon: ClipboardList, path: '/admin-config?tab=weekly-feedback' },
     { label: '上传知识库资料', icon: UploadCloud, path: '/admin-config?tab=knowledge' },
@@ -96,7 +115,6 @@ export function OverviewTab({ data, navigate }: OverviewTabProps) {
   return (
     <div className="admin-workbench-panel">
       <div className="admin-page-title">
-        <span>Page 08</span>
         <h1>后台配置维护台</h1>
         <p>运营配置中心，所有保存写入真实后端数据库。</p>
       </div>
@@ -163,6 +181,11 @@ export function OverviewTab({ data, navigate }: OverviewTabProps) {
                   <td>{item.summary}</td>
                 </tr>
               ))}
+              {recentChanges.length === 0 && (
+                <tr>
+                  <td colSpan={5}>当前日期筛选下暂无变更记录</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </section>

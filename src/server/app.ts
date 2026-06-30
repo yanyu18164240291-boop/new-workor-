@@ -6,10 +6,10 @@ import { apiErrorPayload, inferErrorCode, notFound, toApiError } from './errors.
 
 function writeJson(response: http.ServerResponse, status: number, payload: unknown): void {
   response.writeHead(status, {
-    'content-type': 'application/json; charset=utf-8',
-    'access-control-allow-origin': '*',
-    'access-control-allow-methods': 'GET,POST,PATCH,OPTIONS',
-    'access-control-allow-headers': 'content-type',
+      'content-type': 'application/json; charset=utf-8',
+      'access-control-allow-origin': '*',
+      'access-control-allow-methods': 'GET,POST,PATCH,OPTIONS',
+      'access-control-allow-headers': 'content-type,x-haina-role,x-haina-actor',
   });
   response.end(JSON.stringify(payload));
 }
@@ -20,7 +20,7 @@ export async function createApiServer(options: { db: Database; port?: number }):
     if (request.method === 'OPTIONS') {
       response.writeHead(204, {
         'access-control-allow-methods': 'GET,POST,PATCH,OPTIONS',
-        'access-control-allow-headers': 'content-type',
+        'access-control-allow-headers': 'content-type,x-haina-role,x-haina-actor',
       });
       response.end();
       return;

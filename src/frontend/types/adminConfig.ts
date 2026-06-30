@@ -44,9 +44,16 @@ export function resolveAdminConfigTab(search: string): AdminConfigTabId {
   return 'overview';
 }
 
+export function getTodayDateInputValue(now = new Date()): string {
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export const defaultAdminConfigFilters: AdminConfigFilters = {
   keyword: '',
   organization: '全部组织',
   status: '全部状态',
-  date: '2026-06-23',
+  date: getTodayDateInputValue(),
 };
