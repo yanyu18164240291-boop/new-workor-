@@ -185,6 +185,7 @@ describe('Phase 04A admin config workbench contract', () => {
 
   it('renders weekly feedback config fields without physical delete semantics', () => {
     const weeklyTab = readFileSync('src/frontend/pages/AdminConfig/WeeklyFeedbackTab.tsx', 'utf8');
+    const dataTable = readFileSync('src/frontend/components/admin-config/DataTable.tsx', 'utf8');
     for (const label of ['首周反馈表', '问题标题', '问题说明', '输入类型', '是否必填', '最大字数', '选项列表', '选项文案', '排序', '问题启用状态']) {
       assert.match(weeklyTab, new RegExp(label));
     }
@@ -197,6 +198,8 @@ describe('Phase 04A admin config workbench contract', () => {
     assert.match(weeklyTab, /GripVertical/);
     assert.match(weeklyTab, /draggable=/);
     assert.match(weeklyTab, /reorderWeeklyFeedbackQuestions/);
+    assert.match(weeklyTab, /getRowProps/);
+    assert.match(dataTable, /getRowProps/);
   });
 
   it('renders editable anonymous feedback three-level config without physical delete semantics', () => {

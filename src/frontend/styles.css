@@ -564,6 +564,18 @@ button {
   border-bottom: 0;
 }
 
+.admin-draggable-row {
+  transition: background 0.15s ease;
+}
+
+.admin-draggable-row:hover {
+  background: #f8fbff;
+}
+
+.admin-draggable-row.is-dragging {
+  opacity: 0.62;
+}
+
 .admin-description-cell {
   display: -webkit-box;
   max-width: 320px;
