@@ -21,6 +21,13 @@ import {
   mapPermissionUiStatus,
   toggleApplySelection,
 } from '../permissionSelection.ts';
+import {
+  buildWeeklyFeedbackAnswers,
+  createInitialWeeklySelections,
+  findMissingWeeklyRequiredQuestion,
+  reconcileWeeklySelections,
+  reconcileWeeklyTextValues,
+} from '../weeklyFeedbackFormModel.ts';
 
 function formatHomeTime(value?: string) {
   if (!value) return '';
@@ -401,26 +408,12 @@ export function FollowUpPage({ navigate, toast, openOwner }: { navigate: (path: 
 export function WeeklyFeedbackPage({ data, reload, toast }: { data: DashboardData; reload: () => Promise<void>; toast: (message: string) => void }) {
   const [submitted, setSubmitted] = useState(false);
   const questions = data.weeklyConfig?.questions ?? [];
-  const [selectedByQuestion, setSelectedByQuestion] = useState<Record<string, string[]>>(() =>
-    Object.fromEntries(
-      questions
-        .filter((question) => question.inputType === 'single' && question.options[0])
-        .map((question) => [question.id, [question.options[0].id]]),
-    ),
-  );
-  const [message, setMessage] = useState('这一周整体适应还可以，团队同学都很友好。目前主要还是部分权限没有完全开通。');
+  const [selectedByQuestion, setSelectedByQuestion] = useState<Record<string, string[]>>(() => createInitialWeeklySelections(questions));
+  const [textByQuestion, setTextByQuestion] = useState<Record<string, string>>(() => reconcileWeeklyTextValues(questions, {}));
 
   useEffect(() => {
-    setSelectedByQuestion((current) => {
-      const next: Record<string, string[]> = {};
-      for (const question of questions) {
-        if (question.inputType === 'text') continue;
-        const validOptionIds = new Set(question.options.map((option) => option.id));
-        const selected = (current[question.id] ?? []).filter((id) => validOptionIds.has(id));
-        next[question.id] = selected.length > 0 ? selected : question.inputType === 'single' && question.options[0] ? [question.options[0].id] : [];
-      }
-      return next;
-    });
+    setSelectedByQuestion((current) => reconcileWeeklySelections(questions, current));
+    setTextByQuestion((current) => reconcileWeeklyTextValues(questions, current));
   }, [data.weeklyConfig]);
 
   function toggleOption(question: WeeklyFeedbackQuestion, optionId: string) {
@@ -435,18 +428,14 @@ export function WeeklyFeedbackPage({ data, reload, toast }: { data: DashboardDat
 
   async function submit() {
     if (!data.newcomer) return;
-    const missing = questions.find((question) => question.required && question.inputType !== 'text' && (selectedByQuestion[question.id] ?? []).length === 0);
+    const missing = findMissingWeeklyRequiredQuestion(questions, selectedByQuestion, textByQuestion);
     if (missing) {
-      toast(`请先选择：${missing.title}`);
+      toast(`${missing.inputType === 'text' ? '请先填写' : '请先选择'}：${missing.title}`);
       return;
     }
     await api.submitWeeklyFeedback({
       newcomerId: data.newcomer.id,
-      answers: questions.map((question) =>
-        question.inputType === 'text'
-          ? { questionId: question.id, textValue: message }
-          : { questionId: question.id, selectedOptionIds: selectedByQuestion[question.id] ?? [] },
-      ),
+      answers: buildWeeklyFeedbackAnswers(questions, selectedByQuestion, textByQuestion),
     });
     setSubmitted(true);
     toast('已提交首周反馈');
@@ -460,7 +449,11 @@ export function WeeklyFeedbackPage({ data, reload, toast }: { data: DashboardDat
       {questions.map((question) => (
         <SectionCard title={question.title} key={question.id}>
           {question.inputType === 'text' ? (
-            <textarea value={message} maxLength={question.maxLength ?? 500} onChange={(event) => setMessage(event.target.value)} />
+            <textarea
+              value={textByQuestion[question.id] ?? ''}
+              maxLength={question.maxLength ?? 500}
+              onChange={(event) => setTextByQuestion((current) => ({ ...current, [question.id]: event.target.value }))}
+            />
           ) : (
             <div className="tag-row tag-grid tag-grid-two">
               {question.options.map((option) => {
