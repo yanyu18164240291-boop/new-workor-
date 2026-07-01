@@ -17,6 +17,7 @@ import type {
 
 export type DashboardData = {
   newcomer?: Newcomer;
+  newcomers?: Newcomer[];
   roles?: Role[];
   selectedRoleId?: string;
   package?: PermissionPackage;

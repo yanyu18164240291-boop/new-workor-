@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { api, formatApiErrorMessage } from './api.ts';
 import type { DashboardData } from './dashboardData.ts';
-import { DEMO_NEWCOMER_ID } from './demoConfig.ts';
+import { DEMO_NEWCOMER_ID, DEMO_SECONDARY_NEWCOMER_ID } from './demoConfig.ts';
 
 export function usePathname() {
   const [location, setLocation] = useState(`${window.location.pathname}${window.location.search}`);
@@ -96,10 +96,18 @@ async function loadReviewSurfaceData(): Promise<DashboardData> {
 }
 
 async function loadManagerSurfaceData(): Promise<DashboardData> {
-  const newcomer = await api.getNewcomer(DEMO_NEWCOMER_ID);
+  const [roles, newcomer, secondaryNewcomer] = await Promise.all([
+    api.getRoles(),
+    api.getNewcomer(DEMO_NEWCOMER_ID),
+    api.getNewcomer(DEMO_SECONDARY_NEWCOMER_ID),
+  ]);
+  const enabledRoleIds = new Set(roles.filter((role) => role.enabled !== false).map((role) => role.id));
+  const newcomers = [newcomer, secondaryNewcomer].filter((item) => enabledRoleIds.has(item.roleId));
   const weekly = await api.getWeeklyFeedback(newcomer.id);
   return {
     newcomer,
+    newcomers,
+    roles,
     weekly,
   };
 }

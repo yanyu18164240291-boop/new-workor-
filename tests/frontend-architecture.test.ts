@@ -68,7 +68,19 @@ describe('frontend architecture boundaries', () => {
     assert.equal(newcomerLoader.includes('getAnonymousFeedbacks'), false);
     assert.equal(managerLoader.includes('getAdminConfig'), false);
     assert.equal(managerLoader.includes('getAnonymousFeedbacks'), false);
+    assert.match(managerLoader, /api\.getRoles\(\)/);
+    assert.match(managerLoader, /enabledRoleIds/);
     assert.equal(reviewLoader.includes('getAnonymousFeedbacks'), false);
+  });
+
+  it('keeps manager overview synchronized with enabled role data instead of hardcoded role counts', () => {
+    const managerPages = readFileSync('src/frontend/pages/managerPages.tsx', 'utf8');
+    assert.match(managerPages, /visibleManagerNewcomers/);
+    assert.match(managerPages, /roleCounts/);
+    assert.match(managerPages, /data\.roles/);
+    assert.equal(managerPages.includes('今日新员工 2 人'), false);
+    assert.equal(managerPages.includes('协同办公产品实习生 · D7'), false);
+    assert.equal(managerPages.includes('产品实习生'), false);
   });
 
   it('keeps frontend HTTP access behind the API client', () => {

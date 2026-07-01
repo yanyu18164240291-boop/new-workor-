@@ -1,27 +1,47 @@
 import { api } from '../api.ts';
 import { ActionButton, Card, DataRow, SectionCard, StatGrid, StatusChip, StepList } from '../components.tsx';
 import type { DashboardData } from '../dashboardData.ts';
-import { DEMO_NEWCOMER_ID, DEMO_SECONDARY_NEWCOMER_ID, DEMO_WEEKLY_FEEDBACK_ID } from '../demoConfig.ts';
+import { DEMO_WEEKLY_FEEDBACK_ID } from '../demoConfig.ts';
 
 type Navigate = (path: string) => void;
 type Toast = (message: string) => void;
 type Reload = () => Promise<void>;
 
-export function ManagerPage({ navigate, toast }: { data: DashboardData; navigate: Navigate; toast: Toast }) {
+function roleName(data: DashboardData, roleId?: string): string {
+  return data.roles?.find((role) => role.id === roleId)?.name ?? '岗位已停用';
+}
+
+function visibleManagerNewcomers(data: DashboardData) {
+  return data.newcomers ?? [];
+}
+
+export function ManagerPage({ data, navigate, toast }: { data: DashboardData; navigate: Navigate; toast: Toast }) {
+  const newcomers = visibleManagerNewcomers(data);
+  const roleCounts = (data.roles ?? []).map((role) => ({
+    value: newcomers.filter((newcomer) => newcomer.roleId === role.id).length,
+    label: role.name,
+  }));
+
   return (
     <>
-      <SectionCard title="今日新员工 2 人" action={<StatusChip tone="success">需关注</StatusChip>}>
-        <StatGrid
-          items={[
-            { value: 2, label: '产品实习生' },
-            { value: 0, label: '高风险' },
-            { value: 1, label: '待跟进' },
-          ]}
-        />
+      <SectionCard title={`今日新员工 ${newcomers.length} 人`} action={<StatusChip tone="success">需关注</StatusChip>}>
+        <StatGrid items={roleCounts.length > 0 ? roleCounts : [{ value: 0, label: '暂无启用岗位' }]} />
       </SectionCard>
       <SectionCard title="今日到岗名单" action={<button className="text-button">点击查看详情</button>}>
-        <DataRow title="燕余" desc="协同办公产品实习生 · D7 · 刘长省" chip="首周反馈需查看" tone="success" onClick={() => navigate(`/manager/newcomer/${DEMO_NEWCOMER_ID}`)} />
-        <DataRow title="崔令飞" desc="协同办公产品实习生 · D1 · 刘长省" chip="权限待跟进" tone="warning" onClick={() => navigate(`/manager/newcomer/${DEMO_SECONDARY_NEWCOMER_ID}`)} />
+        {newcomers.length > 0 ? (
+          newcomers.map((newcomer) => (
+            <DataRow
+              key={newcomer.id}
+              title={newcomer.name}
+              desc={`${roleName(data, newcomer.roleId)} · ${newcomer.stage} · ${newcomer.managerName}`}
+              chip={newcomer.weeklyFeedbackSubmitted ? '首周反馈需查看' : '权限待跟进'}
+              tone={newcomer.weeklyFeedbackSubmitted ? 'success' : 'warning'}
+              onClick={() => navigate(`/manager/newcomer/${newcomer.id}`)}
+            />
+          ))
+        ) : (
+          <Card className="quiet-card">当前没有归属于启用岗位的新人。停用岗位的历史记录仍保留，但不进入管理端概览。</Card>
+        )}
       </SectionCard>
       <SectionCard title="今日管理动作">
         <p>1. 查看 ChatGPT 账号权限卡点，确认是否需要导师跟进。</p>
@@ -35,13 +55,18 @@ export function ManagerPage({ navigate, toast }: { data: DashboardData; navigate
 }
 
 export function ManagerDetailPage({ data, navigate, toast }: { data: DashboardData; navigate: Navigate; toast: Toast }) {
+  const currentRoleName = roleName(data, data.newcomer?.roleId);
+  if (!data.roles?.some((role) => role.id === data.newcomer?.roleId)) {
+    return <Card className="quiet-card">该新人的岗位已停用，管理端概览不再展示；历史跟进记录仍保留。</Card>;
+  }
+
   return (
     <>
       <Card className="newcomer-card">
         <div className="avatar-block">燕</div>
         <div>
           <h2>燕余</h2>
-          <p>协同办公产品实习生 · D7 · 首周中</p>
+          <p>{currentRoleName} · D7 · 首周中</p>
         </div>
         <StatusChip tone="success">跟进中</StatusChip>
       </Card>
