@@ -30,7 +30,7 @@ type PermissionDraft = Omit<PermissionItem, 'id' | 'sensitive'> & {
 };
 
 type PermissionScope = 'all' | 'required' | 'optional' | 'disabled';
-type RoleDraft = Pick<Role, 'name' | 'department' | 'description'> & { id?: string };
+type RoleDraft = Pick<Role, 'name' | 'department' | 'description'> & { id?: string; enabled?: boolean };
 
 const blankPermissionDraft: PermissionDraft = {
   name: '',
@@ -51,6 +51,7 @@ const blankRoleDraft: RoleDraft = {
   name: '',
   department: '协同办公部门',
   description: '',
+  enabled: true,
 };
 
 function waitingReasonsText(item: PermissionDraft): string {
@@ -206,6 +207,7 @@ export function RolePackagesTab({ data, filters, search = '', toast, reload }: R
       name: selectedRole.name,
       department: selectedRole.department,
       description: selectedRole.description,
+      enabled: selectedRole.enabled !== false,
     });
     setRoleFieldError('');
     setRoleDrawerOpen(true);
@@ -232,6 +234,7 @@ export function RolePackagesTab({ data, filters, search = '', toast, reload }: R
         name: roleDraft.name.trim(),
         department: roleDraft.department.trim(),
         description: roleDraft.description.trim(),
+        enabled: roleDraft.enabled !== false,
       };
       const saved = roleDraft.id ? await saveRoleForPackage(roleDraft.id, payload) : await createRoleForPackage(payload);
       setSelectedRoleId(saved.id);
@@ -240,6 +243,27 @@ export function RolePackagesTab({ data, filters, search = '', toast, reload }: R
       await reload();
     } catch (error) {
       setRoleFieldError(formatApiErrorMessage(error, '保存失败，请检查岗位字段'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleSelectedRoleEnabled() {
+    if (!selectedRole) return;
+    setSaving(true);
+    setRoleFieldError('');
+    try {
+      const nextEnabled = selectedRole.enabled === false;
+      await saveRoleForPackage(selectedRole.id, {
+        name: selectedRole.name,
+        department: selectedRole.department,
+        description: selectedRole.description,
+        enabled: nextEnabled,
+      });
+      toast(nextEnabled ? '已启用岗位，新人端和管理端可重新选择该岗位' : '已停用岗位，新人端和管理端将不再展示该岗位，历史数据保留');
+      await reload();
+    } catch (error) {
+      toast(formatApiErrorMessage(error, selectedRole.enabled === false ? '启用岗位失败' : '停用岗位失败'));
     } finally {
       setSaving(false);
     }
@@ -362,18 +386,23 @@ export function RolePackagesTab({ data, filters, search = '', toast, reload }: R
               <select value={selectedRole?.id ?? ''} onChange={(event) => setSelectedRoleId(event.target.value)}>
                 {roles.map((role) => (
                   <option key={role.id} value={role.id}>
-                    {role.name}
+                    {role.name}{role.enabled === false ? '（停用）' : ''}
                   </option>
                 ))}
               </select>
               <button className="admin-secondary-action" type="button" disabled={!selectedRole} onClick={openEditRole}>
                 编辑岗位
               </button>
+              <button className="admin-secondary-action" type="button" disabled={!selectedRole || saving} onClick={() => void toggleSelectedRoleEnabled()}>
+                {selectedRole?.enabled === false ? '启用岗位' : '停用岗位'}
+              </button>
             </div>
           </div>
           <dl className="admin-definition-list">
             <dt>当前岗位</dt>
-            <dd>{selectedRole?.name ?? '-'}</dd>
+            <dd>
+              {selectedRole?.name ?? '-'} {selectedRole?.enabled === false ? <StatusTag tone="neutral">停用</StatusTag> : <StatusTag tone="success">启用</StatusTag>}
+            </dd>
             <dt>岗位描述</dt>
             <dd>{selectedRole?.description ?? '-'}</dd>
             <dt>所属部门</dt>
@@ -581,6 +610,11 @@ export function RolePackagesTab({ data, filters, search = '', toast, reload }: R
             岗位描述 <b>*</b>
             <textarea value={roleDraft.description} onChange={(event) => patchRoleDraft({ description: event.target.value })} />
           </label>
+          <label className="admin-switch-row">
+            岗位启用状态
+            <input type="checkbox" checked={roleDraft.enabled !== false} onChange={(event) => patchRoleDraft({ enabled: event.target.checked })} />
+          </label>
+          <p className="admin-help-text">停用后岗位配置和历史关联仍保留；新人端和管理端不再展示，后台仍可恢复。</p>
         </div>
       </RightDrawer>
     </div>

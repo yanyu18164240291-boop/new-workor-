@@ -22,14 +22,15 @@ export function createPosition(db: Database, input: CreatePositionInput): Record
   const id = createdId('role');
   db.prepare(
     `INSERT INTO roles
-     (id, name, departmentId, department, description, createdAt, updatedAt, updatedBy)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+     (id, name, departmentId, department, description, enabled, createdAt, updatedAt, updatedBy)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sqlValue(input.name),
     sqlValue(input.departmentId),
     sqlValue(input.department),
     sqlValue(input.description),
+    1,
     time,
     time,
     sqlValue(input.updatedBy),

@@ -28,7 +28,11 @@ async function loadNewcomerSurfaceData(previewRoleId?: string): Promise<Dashboar
   const [newcomer, roles] = await Promise.all([api.getNewcomer(DEMO_NEWCOMER_ID), api.getRoles()]);
   const enabledRoles = roles.filter((role) => role.enabled !== false);
   const selectedRoleId =
-    previewRoleId && enabledRoles.some((role) => role.id === previewRoleId) ? previewRoleId : newcomer.roleId;
+    previewRoleId && enabledRoles.some((role) => role.id === previewRoleId)
+      ? previewRoleId
+      : enabledRoles.some((role) => role.id === newcomer.roleId)
+        ? newcomer.roleId
+        : enabledRoles[0]?.id ?? newcomer.roleId;
   const [permissionPackage, progress, followUps, d1GuideConfig, weeklyConfig, anonymousConfig, weekly] = await Promise.all([
     api.getPermissionPackage(selectedRoleId),
     api.getPermissionProgress(newcomer.id),

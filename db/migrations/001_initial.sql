@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS roles (
   departmentId TEXT NOT NULL DEFAULT 'dept-collaboration-office',
   department TEXT NOT NULL,
   description TEXT NOT NULL,
+  enabled INTEGER NOT NULL CHECK (enabled IN (0, 1)) DEFAULT 1,
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL,
   updatedBy TEXT NOT NULL DEFAULT 'demo-admin'

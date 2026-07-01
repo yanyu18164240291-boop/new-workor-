@@ -29,11 +29,13 @@ import {
 } from '../repositories/feedbackRepository.ts';
 import { getPermission } from '../repositories/permissionRepository.ts';
 
-export const listRoles: RouteMatch['handler'] = ({ db }) => ({ data: normalizeRows(db.prepare('SELECT * FROM roles ORDER BY createdAt').all() as Array<Record<string, unknown>>) });
+export const listRoles: RouteMatch['handler'] = ({ db }) => ({
+        data: normalizeRows(db.prepare('SELECT * FROM roles WHERE enabled = 1 ORDER BY createdAt').all() as Array<Record<string, unknown>>),
+      });
 
 export const getRolePermissionPackage: RouteMatch['handler'] = ({ db }, match) => {
         const roleId = decodeURIComponent(match[1]);
-        const role = normalizeRow(db.prepare('SELECT * FROM roles WHERE id = ?').get(roleId) as Record<string, unknown> | undefined);
+        const role = normalizeRow(db.prepare('SELECT * FROM roles WHERE id = ? AND enabled = 1').get(roleId) as Record<string, unknown> | undefined);
         if (!role) return { status: 404, error: 'Role not found' };
         const rows = normalizeRows(
           db

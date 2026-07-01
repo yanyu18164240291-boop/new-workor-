@@ -379,7 +379,7 @@ export const api = {
     apiSend<Role>('/api/admin/roles', 'POST', body),
   createPosition: (body: { name: string; departmentId: string; department: string; description: string; updatedBy?: string }) =>
     apiSend<Role>('/api/admin-config/positions', 'POST', body),
-  updateRole: (id: string, body: { name?: string; department?: string; description?: string; updatedBy?: string }) =>
+  updateRole: (id: string, body: { name?: string; department?: string; description?: string; enabled?: boolean; updatedBy?: string }) =>
     apiSend<Role>(`/api/admin/roles/${id}`, 'PATCH', body),
   createPermissionItem: (body: {
     name: string;

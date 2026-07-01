@@ -31,6 +31,8 @@ function ensureAuditColumns(db: Database): void {
   }
   addColumnIfMissing(db, 'roles', 'departmentId', "TEXT NOT NULL DEFAULT 'dept-collaboration-office'");
   db.exec("UPDATE roles SET departmentId = 'dept-collaboration-office' WHERE departmentId = '' OR departmentId IS NULL;");
+  addColumnIfMissing(db, 'roles', 'enabled', 'INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1))');
+  db.exec('UPDATE roles SET enabled = 1 WHERE enabled IS NULL;');
   addColumnIfMissing(db, 'permission_items', 'ownerType', "TEXT NOT NULL DEFAULT 'department'");
   addColumnIfMissing(db, 'permission_items', 'applyEntryName', "TEXT NOT NULL DEFAULT ''");
   db.exec("UPDATE permission_items SET applyEntryName = name WHERE applyEntryName = '' OR applyEntryName IS NULL;");

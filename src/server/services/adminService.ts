@@ -279,16 +279,18 @@ export const createRole: RouteMatch['handler'] = async ({ db, request }) => {
           departmentId: typeof body.departmentId === 'string' && body.departmentId.trim() ? body.departmentId.trim() : 'dept-collaboration-office',
           department: requiredString(body, 'department'),
           description: requiredString(body, 'description'),
+          enabled: 1,
           createdAt: time,
           updatedAt: time,
           updatedBy: adminActor(body),
         };
-        db.prepare('INSERT INTO roles (id, name, departmentId, department, description, createdAt, updatedAt, updatedBy) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(
+        db.prepare('INSERT INTO roles (id, name, departmentId, department, description, enabled, createdAt, updatedAt, updatedBy) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
           row.id,
           row.name,
           row.departmentId,
           row.department,
           row.description,
+          row.enabled,
           row.createdAt,
           row.updatedAt,
           row.updatedBy,
@@ -324,10 +326,12 @@ export const updateRole: RouteMatch['handler'] = async ({ db, request }, match) 
         const duplicate = findPositionByName(db, name);
         if (duplicate && duplicate.id !== id) throw badRequest('role name already exists');
         const time = nowIso();
-        db.prepare('UPDATE roles SET name = ?, department = ?, description = ?, updatedAt = ?, updatedBy = ? WHERE id = ?').run(
+        const enabled = 'enabled' in body ? boolToDb(body.enabled) : boolToDb(existing.enabled);
+        db.prepare('UPDATE roles SET name = ?, department = ?, description = ?, enabled = ?, updatedAt = ?, updatedBy = ? WHERE id = ?').run(
           sqlValue(name),
           sqlValue(optionalString(body, 'department', existing.department)),
           sqlValue(optionalString(body, 'description', existing.description)),
+          enabled,
           time,
           adminActor(body),
           id,

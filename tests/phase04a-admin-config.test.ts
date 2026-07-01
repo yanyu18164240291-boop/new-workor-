@@ -58,6 +58,7 @@ describe('Phase 04A writable admin configuration', () => {
     const roleColumns = legacyDb.prepare('PRAGMA table_info(roles)').all() as Array<{ name: string }>;
     const feedbackColumns = legacyDb.prepare('PRAGMA table_info(anonymous_feedbacks)').all() as Array<{ name: string }>;
     assert.ok(roleColumns.some((column) => column.name === 'departmentId'));
+    assert.ok(roleColumns.some((column) => column.name === 'enabled'));
     assert.ok(roleColumns.some((column) => column.name === 'updatedBy'));
     assert.ok(feedbackColumns.some((column) => column.name === 'handlerName'));
     assert.ok(feedbackColumns.some((column) => column.name === 'handledAt'));
@@ -251,6 +252,52 @@ describe('Phase 04A writable admin configuration', () => {
     assert.equal(duplicate.status, 400);
     assert.equal(duplicate.body.code, 'VALIDATION_ERROR');
     assert.match(duplicate.body.error, /position name already exists|role name already exists/i);
+  });
+
+  it('soft-disables positions while keeping admin recovery and hiding them from newcomer role data', async () => {
+    const created = await requestJson<{
+      data: { id: string; name: string; enabled: boolean; updatedBy: string };
+    }>('/api/admin-config/positions', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: `Soft Disabled Role ${Date.now()}`,
+        departmentId: 'dept-soft-disabled',
+        department: 'Soft Disable Department',
+        description: 'Created to verify role soft delete guardrails.',
+        updatedBy: 'malicious-admin',
+      }),
+    });
+
+    assert.equal(created.status, 201);
+    assert.equal(created.body.data.enabled, true);
+    assert.equal(created.body.data.updatedBy, 'demo-admin');
+
+    const disabled = await requestJson<{ data: { id: string; enabled: boolean; updatedBy: string } }>(`/api/admin/roles/${created.body.data.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ enabled: false, updatedBy: 'malicious-admin' }),
+    });
+    assert.equal(disabled.status, 200);
+    assert.equal(disabled.body.data.enabled, false);
+    assert.equal(disabled.body.data.updatedBy, 'demo-admin');
+
+    const admin = await requestJson<{ data: { roles: Array<{ id: string; enabled: boolean }> } }>('/api/admin/config');
+    assert.ok(admin.body.data.roles.some((role) => role.id === created.body.data.id && role.enabled === false));
+
+    const publicRoles = await requestJson<{ data: Array<{ id: string }> }>('/api/roles');
+    assert.equal(publicRoles.body.data.some((role) => role.id === created.body.data.id), false);
+
+    const hiddenPackage = await requestJson<{ error: string }>(`/api/roles/${created.body.data.id}/permission-package`);
+    assert.equal(hiddenPackage.status, 404);
+
+    const restored = await requestJson<{ data: { id: string; enabled: boolean } }>(`/api/admin/roles/${created.body.data.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ enabled: true }),
+    });
+    assert.equal(restored.status, 200);
+    assert.equal(restored.body.data.enabled, true);
+
+    const restoredPublicRoles = await requestJson<{ data: Array<{ id: string }> }>('/api/roles');
+    assert.ok(restoredPublicRoles.body.data.some((role) => role.id === created.body.data.id));
   });
 
   it('rejects unsafe admin permission writes before they can break downstream pages', async () => {
