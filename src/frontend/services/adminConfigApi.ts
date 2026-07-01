@@ -92,6 +92,13 @@ export function saveWeeklyFeedbackQuestion(question: WeeklyFeedbackQuestionSave)
   );
 }
 
+export function reorderWeeklyFeedbackQuestions(questions: Array<Pick<WeeklyFeedbackQuestion, 'id' | 'sortOrder'>>) {
+  return api.updateWeeklyFeedbackConfig(
+    questions.map((question) => ({ id: question.id, sortOrder: question.sortOrder })),
+    adminActorName,
+  );
+}
+
 export function createWeeklyFeedbackQuestion(
   question: Pick<WeeklyFeedbackQuestion, 'title' | 'inputType' | 'required' | 'maxLength' | 'enabled'> & {
     description?: string | null;

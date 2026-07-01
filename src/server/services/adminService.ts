@@ -564,6 +564,16 @@ export const updateWeeklyFeedbackConfig: RouteMatch['handler'] = async ({ db, re
         for (const question of questions) {
           const id = requiredString(question, 'id');
           assertExists(db, 'weekly_feedback_questions', id, 'questionId');
+          if ('sortOrder' in question) {
+            const sortOrder = Number(question.sortOrder);
+            if (!Number.isFinite(sortOrder) || sortOrder <= 0) throw badRequest('sortOrder is invalid');
+            db.prepare('UPDATE weekly_feedback_questions SET sortOrder = ?, updatedAt = ?, updatedBy = ? WHERE id = ?').run(
+              sortOrder,
+              time,
+              adminActor(body),
+              id,
+            );
+          }
           if ('title' in question) {
             const title = requiredString(question, 'title');
             db.prepare('UPDATE weekly_feedback_questions SET title = ?, description = ?, required = ?, maxLength = ?, enabled = ?, updatedAt = ?, updatedBy = ? WHERE id = ?').run(

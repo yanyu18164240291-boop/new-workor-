@@ -194,6 +194,9 @@ describe('Phase 04A admin config workbench contract', () => {
     assert.match(weeklyTab, /option\.label/);
     assert.match(weeklyTab, /questionId is invalid/);
     assert.match(weeklyTab, /已按新问题保存/);
+    assert.match(weeklyTab, /GripVertical/);
+    assert.match(weeklyTab, /draggable=/);
+    assert.match(weeklyTab, /reorderWeeklyFeedbackQuestions/);
   });
 
   it('renders editable anonymous feedback three-level config without physical delete semantics', () => {

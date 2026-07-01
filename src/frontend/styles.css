@@ -829,6 +829,10 @@ button {
   gap: 8px;
 }
 
+.admin-table-actions {
+  flex-wrap: nowrap;
+}
+
 .admin-primary-action,
 .admin-secondary-action,
 .admin-icon-action,
@@ -860,11 +864,29 @@ button {
   border: 1px solid #dce6f4;
   color: #1f6bff;
   background: #ffffff;
+  white-space: nowrap;
 }
 
 .admin-table-actions button:disabled {
   color: #98a2b3;
   cursor: not-allowed;
+}
+
+.admin-drag-handle {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #dce6f4;
+  border-radius: 8px;
+  color: #667085;
+  background: #ffffff;
+  cursor: grab;
+}
+
+.admin-drag-handle:active {
+  cursor: grabbing;
 }
 
 .admin-drawer {

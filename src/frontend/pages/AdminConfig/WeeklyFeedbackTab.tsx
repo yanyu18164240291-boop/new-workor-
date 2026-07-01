@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Plus, RefreshCw } from 'lucide-react';
+import { GripVertical, Plus, RefreshCw } from 'lucide-react';
 
 import { DataTable, type DataTableColumn } from '../../components/admin-config/DataTable.tsx';
 import { FieldError } from '../../components/admin-config/FieldError.tsx';
@@ -7,7 +7,7 @@ import { RightDrawer } from '../../components/admin-config/RightDrawer.tsx';
 import { StatusTag } from '../../components/admin-config/StatusTag.tsx';
 import { formatApiErrorMessage, type WeeklyFeedbackOption, type WeeklyFeedbackQuestion } from '../../api.ts';
 import type { DashboardData } from '../../dashboardData.ts';
-import { createWeeklyFeedbackQuestion, saveWeeklyFeedbackQuestion } from '../../services/adminConfigApi.ts';
+import { createWeeklyFeedbackQuestion, reorderWeeklyFeedbackQuestions, saveWeeklyFeedbackQuestion } from '../../services/adminConfigApi.ts';
 import type { AdminConfigFilters } from '../../types/adminConfig.ts';
 
 type WeeklyFeedbackTabProps = {
@@ -160,6 +160,7 @@ export function WeeklyFeedbackTab({ data, filters, toast, reload }: WeeklyFeedba
   const [draft, setDraft] = useState<WeeklyQuestionDraft>(blankQuestionDraft);
   const [fieldError, setFieldError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [draggingQuestionId, setDraggingQuestionId] = useState<string | null>(null);
 
   const filteredQuestions = useMemo(() => {
     const keyword = filters.keyword.trim().toLowerCase();
@@ -259,11 +260,61 @@ export function WeeklyFeedbackTab({ data, filters, toast, reload }: WeeklyFeedba
     }
   }
 
+  async function moveQuestionBefore(targetQuestionId: string) {
+    if (!draggingQuestionId || draggingQuestionId === targetQuestionId || saving) {
+      setDraggingQuestionId(null);
+      return;
+    }
+    const fromIndex = questions.findIndex((question) => question.id === draggingQuestionId);
+    const toIndex = questions.findIndex((question) => question.id === targetQuestionId);
+    if (fromIndex < 0 || toIndex < 0) {
+      setDraggingQuestionId(null);
+      return;
+    }
+    const reordered = [...questions];
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, moved);
+    setSaving(true);
+    try {
+      await reorderWeeklyFeedbackQuestions(reordered.map((question, index) => ({ id: question.id, sortOrder: index + 1 })));
+      toast('已更新首周反馈问题排序，新人端和管理端将按新顺序展示');
+      await reload();
+    } catch (error) {
+      toast(formatApiErrorMessage(error, '排序保存失败'));
+    } finally {
+      setSaving(false);
+      setDraggingQuestionId(null);
+    }
+  }
+
   const enabledCount = questions.filter((question) => question.enabled).length;
   const choiceCount = questions.filter((question) => question.inputType !== 'text').length;
   const textCount = questions.filter((question) => question.inputType === 'text').length;
 
   const columns: Array<DataTableColumn<WeeklyFeedbackQuestion>> = [
+    {
+      key: 'sort',
+      title: '',
+      render: (question) => (
+        <button
+          className="admin-drag-handle"
+          type="button"
+          draggable={!saving}
+          aria-label={`拖动调整 ${question.title} 排序`}
+          onDragStart={() => setDraggingQuestionId(question.id)}
+          onDragOver={(event) => {
+            if (!saving) event.preventDefault();
+          }}
+          onDrop={(event) => {
+            event.preventDefault();
+            void moveQuestionBefore(question.id);
+          }}
+          onDragEnd={() => setDraggingQuestionId(null)}
+        >
+          <GripVertical size={16} />
+        </button>
+      ),
+    },
     { key: 'title', title: '问题标题', render: (question) => <strong>{question.title}</strong> },
     { key: 'description', title: '问题说明', render: (question) => question.description || '-' },
     { key: 'inputType', title: '输入类型', render: (question) => inputTypeLabel(question.inputType) },

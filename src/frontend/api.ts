@@ -448,11 +448,12 @@ export const api = {
   updateWeeklyFeedbackConfig: (
     questions: Array<{
       id: string;
-      title: string;
+      title?: string;
       description?: string | null;
       required?: boolean;
       maxLength?: number | null;
       enabled?: boolean;
+      sortOrder?: number;
       options?: Array<{ id?: string; optionKey?: string; label: string; enabled?: boolean; sortOrder?: number }>;
     }>,
     updatedBy?: string,

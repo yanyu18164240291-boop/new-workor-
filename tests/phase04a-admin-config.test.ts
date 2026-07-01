@@ -678,6 +678,36 @@ describe('Phase 04A writable admin configuration', () => {
     assert.ok(restored.body.data.questions.some((question) => question.id === target.id && question.enabled === true));
   });
 
+  it('persists weekly feedback question order for newcomer rendering', async () => {
+    const admin = await requestJson<{
+      data: { weeklyFeedbackConfig: { questions: Array<{ id: string; enabled: boolean; sortOrder: number }> } };
+    }>('/api/admin/config');
+    const enabled = admin.body.data.weeklyFeedbackConfig.questions.filter((question) => question.enabled);
+    assert.ok(enabled.length >= 2);
+    const first = enabled[0];
+    const last = enabled[enabled.length - 1];
+
+    const reordered = await requestJson<{ data: { questions: Array<{ id: string; enabled: boolean; sortOrder: number }> } }>('/api/admin/weekly-feedback-config', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        updatedBy: 'demo-admin',
+        questions: [
+          { id: last.id, sortOrder: 1 },
+          { id: first.id, sortOrder: 2 },
+        ],
+      }),
+    });
+
+    assert.equal(reordered.status, 200);
+    const adminEnabledOrder = reordered.body.data.questions.filter((question) => question.enabled).map((question) => question.id);
+    assert.equal(adminEnabledOrder[0], last.id);
+    assert.equal(adminEnabledOrder[1], first.id);
+
+    const newcomer = await requestJson<{ data: { questions: Array<{ id: string }> } }>('/api/weekly-feedback-config');
+    assert.equal(newcomer.body.data.questions[0].id, last.id);
+    assert.equal(newcomer.body.data.questions[1].id, first.id);
+  });
+
   it('persists editable anonymous feedback classification config and validates references', async () => {
     const invalid = await requestJson<{ error: string }>('/api/admin/anonymous-feedback-config', {
       method: 'PATCH',
