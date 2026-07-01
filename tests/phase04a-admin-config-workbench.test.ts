@@ -195,10 +195,12 @@ describe('Phase 04A admin config workbench contract', () => {
     assert.match(weeklyTab, /option\.label/);
     assert.match(weeklyTab, /questionId is invalid/);
     assert.match(weeklyTab, /已按新问题保存/);
-    assert.match(weeklyTab, /GripVertical/);
-    assert.match(weeklyTab, /draggable=/);
+    assert.match(weeklyTab, /ChevronUp/);
+    assert.match(weeklyTab, /ChevronDown/);
+    assert.match(weeklyTab, /moveQuestionByStep/);
+    assert.match(weeklyTab, /admin-order-controls/);
+    assert.doesNotMatch(weeklyTab, /draggable=/);
     assert.match(weeklyTab, /reorderWeeklyFeedbackQuestions/);
-    assert.match(weeklyTab, /getRowProps/);
     assert.match(dataTable, /getRowProps/);
   });
 

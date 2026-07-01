@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from 'react';
-import { GripVertical, Plus, RefreshCw } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { ChevronDown, ChevronUp, Plus, RefreshCw } from 'lucide-react';
 
 import { DataTable, type DataTableColumn } from '../../components/admin-config/DataTable.tsx';
 import { FieldError } from '../../components/admin-config/FieldError.tsx';
@@ -9,6 +9,7 @@ import { formatApiErrorMessage, type WeeklyFeedbackOption, type WeeklyFeedbackQu
 import type { DashboardData } from '../../dashboardData.ts';
 import { createWeeklyFeedbackQuestion, reorderWeeklyFeedbackQuestions, saveWeeklyFeedbackQuestion } from '../../services/adminConfigApi.ts';
 import type { AdminConfigFilters } from '../../types/adminConfig.ts';
+import { moveWeeklyQuestionByStep } from '../../weeklyFeedbackQuestionOrdering.ts';
 
 type WeeklyFeedbackTabProps = {
   data: DashboardData;
@@ -156,16 +157,19 @@ function isInvalidQuestionIdError(error: unknown): boolean {
 
 export function WeeklyFeedbackTab({ data, filters, toast, reload }: WeeklyFeedbackTabProps) {
   const questions = getWeeklyQuestions(data);
+  const [orderedQuestions, setOrderedQuestions] = useState<WeeklyFeedbackQuestion[]>(questions);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [draft, setDraft] = useState<WeeklyQuestionDraft>(blankQuestionDraft);
   const [fieldError, setFieldError] = useState('');
   const [saving, setSaving] = useState(false);
-  const [draggingQuestionId, setDraggingQuestionId] = useState<string | null>(null);
-  const draggingQuestionIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    setOrderedQuestions(questions);
+  }, [questions]);
 
   const filteredQuestions = useMemo(() => {
     const keyword = filters.keyword.trim().toLowerCase();
-    return questions.filter((question) => {
+    return orderedQuestions.filter((question) => {
       const matchesKeyword =
         !keyword ||
         [question.title, question.description ?? '', question.inputType, ...question.options.map((option) => option.label)]
@@ -179,7 +183,7 @@ export function WeeklyFeedbackTab({ data, filters, toast, reload }: WeeklyFeedba
         !['启用', '停用'].includes(filters.status);
       return matchesKeyword && matchesStatus;
     });
-  }, [filters.keyword, filters.status, questions]);
+  }, [filters.keyword, filters.status, orderedQuestions]);
 
   function openCreate() {
     setDraft({ ...blankQuestionDraft, options: blankQuestionDraft.options.map((option) => ({ ...option })) });
@@ -261,65 +265,64 @@ export function WeeklyFeedbackTab({ data, filters, toast, reload }: WeeklyFeedba
     }
   }
 
-  async function moveQuestionBefore(targetQuestionId: string, draggedQuestionId = draggingQuestionIdRef.current ?? draggingQuestionId) {
-    if (!draggedQuestionId || draggedQuestionId === targetQuestionId || saving) {
-      setDraggingQuestionId(null);
-      draggingQuestionIdRef.current = null;
-      return;
-    }
-    const fromIndex = questions.findIndex((question) => question.id === draggedQuestionId);
-    const toIndex = questions.findIndex((question) => question.id === targetQuestionId);
-    if (fromIndex < 0 || toIndex < 0) {
-      setDraggingQuestionId(null);
-      draggingQuestionIdRef.current = null;
-      return;
-    }
-    const reordered = [...questions];
-    const [moved] = reordered.splice(fromIndex, 1);
-    reordered.splice(toIndex, 0, moved);
+  async function moveQuestionByStep(questionId: string, direction: -1 | 1) {
+    if (saving) return;
+    const previousQuestions = orderedQuestions;
+    const result = moveWeeklyQuestionByStep(
+      orderedQuestions,
+      filteredQuestions.map((question) => question.id),
+      questionId,
+      direction,
+    );
+    if (!result.changed) return;
+    const byId = new Map(orderedQuestions.map((question) => [question.id, question]));
+    setOrderedQuestions(result.orderedIds.map((id) => byId.get(id)).filter((question): question is WeeklyFeedbackQuestion => Boolean(question)));
     setSaving(true);
     try {
-      await reorderWeeklyFeedbackQuestions(reordered.map((question, index) => ({ id: question.id, sortOrder: index + 1 })));
+      await reorderWeeklyFeedbackQuestions(result.persistedSortOrders);
       toast('已更新首周反馈问题排序，新人端和管理端将按新顺序展示');
       await reload();
     } catch (error) {
+      setOrderedQuestions(previousQuestions);
       toast(formatApiErrorMessage(error, '排序保存失败'));
     } finally {
       setSaving(false);
-      setDraggingQuestionId(null);
-      draggingQuestionIdRef.current = null;
     }
   }
 
-  const enabledCount = questions.filter((question) => question.enabled).length;
-  const choiceCount = questions.filter((question) => question.inputType !== 'text').length;
-  const textCount = questions.filter((question) => question.inputType === 'text').length;
+  const enabledCount = orderedQuestions.filter((question) => question.enabled).length;
+  const choiceCount = orderedQuestions.filter((question) => question.inputType !== 'text').length;
+  const textCount = orderedQuestions.filter((question) => question.inputType === 'text').length;
 
   const columns: Array<DataTableColumn<WeeklyFeedbackQuestion>> = [
     {
       key: 'sort',
       title: '',
-      render: (question) => (
-        <span
-          className="admin-drag-handle"
-          draggable={!saving}
-          role="button"
-          tabIndex={0}
-          aria-label={`拖动调整 ${question.title} 排序`}
-          onDragStart={(event) => {
-            draggingQuestionIdRef.current = question.id;
-            setDraggingQuestionId(question.id);
-            event.dataTransfer.effectAllowed = 'move';
-            event.dataTransfer.setData('text/plain', question.id);
-          }}
-          onDragEnd={() => {
-            draggingQuestionIdRef.current = null;
-            setDraggingQuestionId(null);
-          }}
-        >
-          <GripVertical size={16} />
-        </span>
-      ),
+      render: (question) => {
+        const visibleIndex = filteredQuestions.findIndex((item) => item.id === question.id);
+        return (
+          <div className="admin-order-controls" aria-label={`${question.title} 排序调整`}>
+            <button
+              type="button"
+              disabled={saving || visibleIndex <= 0}
+              onClick={() => void moveQuestionByStep(question.id, -1)}
+              aria-label={`上移 ${question.title}`}
+              title="上移"
+            >
+              <ChevronUp size={15} />
+            </button>
+            <button
+              type="button"
+              disabled={saving || visibleIndex < 0 || visibleIndex >= filteredQuestions.length - 1}
+              onClick={() => void moveQuestionByStep(question.id, 1)}
+              aria-label={`下移 ${question.title}`}
+              title="下移"
+            >
+              <ChevronDown size={15} />
+            </button>
+          </div>
+        );
+      },
     },
     { key: 'title', title: '问题标题', render: (question) => <strong>{question.title}</strong> },
     { key: 'description', title: '问题说明', render: (question) => question.description || '-' },
@@ -359,7 +362,7 @@ export function WeeklyFeedbackTab({ data, filters, toast, reload }: WeeklyFeedba
         <div className="admin-card">
           <h2>启用问题</h2>
           <strong className="admin-large-number">{enabledCount}</strong>
-          <p>共 {questions.length} 个问题</p>
+          <p>共 {orderedQuestions.length} 个问题</p>
         </div>
         <div className="admin-card">
           <h2>选择题</h2>
@@ -393,17 +396,6 @@ export function WeeklyFeedbackTab({ data, filters, toast, reload }: WeeklyFeedba
           columns={columns}
           rows={filteredQuestions}
           getRowKey={(question) => question.id}
-          getRowProps={(question) => ({
-            className: draggingQuestionId === question.id ? 'admin-draggable-row is-dragging' : 'admin-draggable-row',
-            onDragOver: (event) => {
-              if (!saving) event.preventDefault();
-            },
-            onDrop: (event) => {
-              event.preventDefault();
-              const draggedQuestionId = event.dataTransfer.getData('text/plain') || undefined;
-              void moveQuestionBefore(question.id, draggedQuestionId);
-            },
-          })}
           emptyText="暂无首周反馈问题"
         />
       </section>

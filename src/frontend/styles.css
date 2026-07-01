@@ -564,18 +564,6 @@ button {
   border-bottom: 0;
 }
 
-.admin-draggable-row {
-  transition: background 0.15s ease;
-}
-
-.admin-draggable-row:hover {
-  background: #f8fbff;
-}
-
-.admin-draggable-row.is-dragging {
-  opacity: 0.62;
-}
-
 .admin-description-cell {
   display: -webkit-box;
   max-width: 320px;
@@ -884,21 +872,28 @@ button {
   cursor: not-allowed;
 }
 
-.admin-drag-handle {
-  width: 30px;
-  height: 30px;
+.admin-order-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.admin-order-controls button {
+  width: 28px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border: 1px solid #dce6f4;
   border-radius: 8px;
-  color: #667085;
+  color: #1f6bff;
   background: #ffffff;
-  cursor: grab;
 }
 
-.admin-drag-handle:active {
-  cursor: grabbing;
+.admin-order-controls button:disabled {
+  color: #b8c1ce;
+  background: #f8fafc;
+  cursor: not-allowed;
 }
 
 .admin-drawer {
