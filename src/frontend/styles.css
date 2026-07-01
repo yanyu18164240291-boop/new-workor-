@@ -2254,6 +2254,51 @@ button {
   cursor: pointer;
 }
 
+.review-note {
+  margin: 10px 0 0;
+  color: #667085;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.review-summary-strip {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.review-summary-strip span,
+.review-next-actions span {
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  border: 1px solid #dbe8fb;
+  border-radius: 9px;
+  padding: 7px 10px;
+  color: #345071;
+  background: #f8fbff;
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.review-empty-state {
+  margin-bottom: 10px;
+  border: 1px dashed #cfd9ea;
+  border-radius: 10px;
+  padding: 12px;
+  color: #667085;
+  background: #fbfdff;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.review-next-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
 .tag-grid {
   display: grid;
   gap: 8px;
