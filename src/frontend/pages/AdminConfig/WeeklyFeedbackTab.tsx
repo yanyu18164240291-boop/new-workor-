@@ -150,6 +150,10 @@ function updatePayload(draft: WeeklyQuestionDraft): Parameters<typeof saveWeekly
   };
 }
 
+function isInvalidQuestionIdError(error: unknown): boolean {
+  return /questionId is invalid/i.test(formatApiErrorMessage(error, ''));
+}
+
 export function WeeklyFeedbackTab({ data, filters, toast, reload }: WeeklyFeedbackTabProps) {
   const questions = getWeeklyQuestions(data);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -221,8 +225,14 @@ export function WeeklyFeedbackTab({ data, filters, toast, reload }: WeeklyFeedba
     setFieldError('');
     try {
       if (draft.id) {
-        await saveWeeklyFeedbackQuestion(updatePayload(draft));
-        toast('已保存首周反馈问题');
+        try {
+          await saveWeeklyFeedbackQuestion(updatePayload(draft));
+          toast('已保存首周反馈问题');
+        } catch (error) {
+          if (!isInvalidQuestionIdError(error)) throw error;
+          await createWeeklyFeedbackQuestion(createPayload(draft));
+          toast('原问题已不在当前配置中，已按新问题保存并同步到数据库');
+        }
       } else {
         await createWeeklyFeedbackQuestion(createPayload(draft));
         toast('已新增首周反馈问题');
