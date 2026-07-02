@@ -145,13 +145,13 @@ export const getManagerOverview: RouteMatch['handler'] = ({ db, request }) => {
           data: {
             scope: { managerName },
             summary: {
-              visibleNewcomerCount: candidates.length,
-              submittedWeeklyCount: candidates.filter((row) => row.latestWeeklyFeedbackId).length,
-              pendingManagerActionCount: candidates.filter((row) => onboardingStatus(row) !== 'on_track').length,
+              visibleNewcomerCount: weeklyRows.length,
+              submittedWeeklyCount: weeklyRows.filter((row) => row.latestWeeklyFeedbackId).length,
+              pendingManagerActionCount: weeklyRows.filter((row) => onboardingStatus(row) !== 'on_track').length,
             },
             roleStats: roleStats.map((item) => ({
               ...item,
-              count: candidates.filter((row) => row.roleId === item.roleId).length,
+              count: weeklyRows.filter((row) => row.roleId === item.roleId).length,
             })),
             recentWeeklyFeedbackId,
             newcomers: rows.map((row) => ({

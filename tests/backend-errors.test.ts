@@ -104,6 +104,22 @@ describe('backend error responses', () => {
     assert.match(body.error, /admin/i);
   });
 
+  it('rejects manager API requests without the demo manager role guard', async () => {
+    const missing = await nativeFetch(`${baseUrl}/api/manager/overview`);
+    const missingBody = (await missing.json()) as { error: string; code: string };
+    const unknown = await nativeFetch(`${baseUrl}/api/manager/overview`, {
+      headers: { 'x-haina-role': 'manager', 'x-haina-actor': 'unknown-manager' },
+    });
+    const unknownBody = (await unknown.json()) as { error: string; code: string };
+
+    assert.equal(missing.status, 403);
+    assert.equal(missingBody.code, 'FORBIDDEN');
+    assert.match(missingBody.error, /manager/i);
+    assert.equal(unknown.status, 403);
+    assert.equal(unknownBody.code, 'FORBIDDEN');
+    assert.match(unknownBody.error, /manager/i);
+  });
+
   it('returns JSON 500 errors when SQLite writes fail', async () => {
     const lockedDir = await mkdtemp(path.join(tmpdir(), 'haina-closed-db-'));
     const db = createDatabase(path.join(lockedDir, 'closed.db'));

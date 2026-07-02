@@ -19,12 +19,13 @@ async function requestJson<T>(
   init?: RequestInit,
 ): Promise<{ status: number; body: T }> {
   const response = await nativeFetch(`${baseUrl}${route}`, {
+    ...init,
     headers: {
       'content-type': 'application/json',
       ...(route.startsWith('/api/admin/') ? { 'x-haina-role': 'admin', 'x-haina-actor': 'demo-admin' } : {}),
+      ...(route.startsWith('/api/manager/') ? { 'x-haina-role': 'manager', 'x-haina-actor': 'demo-manager' } : {}),
       ...(init?.headers ?? {}),
     },
-    ...init,
   });
   return {
     status: response.status,

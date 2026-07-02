@@ -6,6 +6,7 @@ import {
   seedAnonymousFeedbackConfig,
   seedDatabase,
   seedJoinFeishuOrgTasks,
+  seedManagerFeedbackActions,
   seedSubmittedPermissionFollowUps,
   seedWeeklyFeedbackConfig,
 } from './seed.ts';
@@ -23,6 +24,7 @@ seedJoinFeishuOrgTasks(db);
 seedSubmittedPermissionFollowUps(db);
 seedWeeklyFeedbackConfig(db);
 seedAnonymousFeedbackConfig(db);
+seedManagerFeedbackActions(db);
 
 const server = await createApiServer({ db, port: Number(process.env.API_PORT ?? 4000) });
 console.log(`Haina onboarding API listening at ${server.baseUrl}`);

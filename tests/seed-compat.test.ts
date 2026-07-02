@@ -6,7 +6,13 @@ import { after, describe, it } from 'node:test';
 
 import { createDatabase } from '../src/server/db.ts';
 import { runMigrations } from '../src/server/migrations.ts';
-import { seedD1GuideConfig, seedJoinFeishuOrgTasks, seedSubmittedPermissionFollowUps, seedWeeklyFeedbackConfig } from '../src/server/seed.ts';
+import {
+  seedD1GuideConfig,
+  seedJoinFeishuOrgTasks,
+  seedManagerFeedbackActions,
+  seedSubmittedPermissionFollowUps,
+  seedWeeklyFeedbackConfig,
+} from '../src/server/seed.ts';
 
 const tempDirs: string[] = [];
 
@@ -321,15 +327,24 @@ describe('seed compatibility helpers', () => {
 
       seedWeeklyFeedbackConfig(db);
       seedWeeklyFeedbackConfig(db);
+      seedManagerFeedbackActions(db);
+      seedManagerFeedbackActions(db);
 
       const feedback = db.prepare('SELECT workSummary FROM weekly_feedbacks WHERE id = ?').get('weekly-yanyu') as { workSummary: string };
       const answers = db
         .prepare('SELECT textValue FROM weekly_feedback_answers WHERE weeklyFeedbackId = ? AND questionId = ?')
         .all('weekly-yanyu', 'wfq-work-summary') as Array<{ textValue: string }>;
+      const actions = db
+        .prepare('SELECT managerName, managerViewed, managerActionStatus FROM manager_feedback_actions WHERE weeklyFeedbackId = ?')
+        .all('weekly-yanyu') as Array<{ managerName: string; managerViewed: number; managerActionStatus: string }>;
       assert.equal(feedback.workSummary, '111');
       assert.deepEqual(
         answers.map((answer) => answer.textValue),
         ['111'],
+      );
+      assert.deepEqual(
+        actions.map((action) => ({ ...action })),
+        [{ managerName: 'Legacy manager', managerViewed: 0, managerActionStatus: 'unread' }],
       );
     } finally {
       db.close();

@@ -27,13 +27,13 @@ describe('Phase 05 manager flow', () => {
 
   async function requestJson<T>(route: string, init?: RequestInit): Promise<{ status: number; body: T }> {
     const response = await nativeFetch(`${baseUrl}${route}`, {
+      ...init,
       headers: {
         'content-type': 'application/json',
         'x-haina-role': 'manager',
         'x-haina-actor': 'demo-manager',
         ...(init?.headers ?? {}),
       },
-      ...init,
     });
     return {
       status: response.status,
@@ -43,13 +43,13 @@ describe('Phase 05 manager flow', () => {
 
   async function requestAdminJson<T>(route: string, init?: RequestInit): Promise<{ status: number; body: T }> {
     const response = await nativeFetch(`${baseUrl}${route}`, {
+      ...init,
       headers: {
         'content-type': 'application/json',
         'x-haina-role': 'admin',
         'x-haina-actor': 'demo-admin',
         ...(init?.headers ?? {}),
       },
-      ...init,
     });
     return {
       status: response.status,
@@ -210,8 +210,19 @@ describe('Phase 05 manager flow', () => {
       daysAgoIso(7),
       'newcomer-yanyu',
     );
-    const d8Overview = await requestJson<{ data: { newcomers: Array<{ id: string; stage: string }> } }>('/api/manager/overview?limit=10&offset=0');
+    const d8Overview = await requestJson<{
+      data: {
+        summary: { visibleNewcomerCount: number };
+        roleStats: Array<{ roleId: string; count: number }>;
+        newcomers: Array<{ id: string; stage: string }>;
+      };
+    }>('/api/manager/overview?limit=10&offset=0');
     assert.equal(d8Overview.body.data.newcomers.some((item) => item.id === 'newcomer-yanyu'), false);
+    assert.equal(d8Overview.body.data.summary.visibleNewcomerCount, d8Overview.body.data.newcomers.length);
+    assert.equal(
+      d8Overview.body.data.roleStats.reduce((sum, item) => sum + item.count, 0),
+      d8Overview.body.data.newcomers.length,
+    );
     db.prepare("UPDATE newcomer_task_states SET completedAt = ? WHERE newcomerId = ? AND taskKey = 'join_feishu_org'").run(
       daysAgoIso(6),
       'newcomer-yanyu',

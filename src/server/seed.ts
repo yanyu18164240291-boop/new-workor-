@@ -66,6 +66,33 @@ function seedDemoWeeklyWorkSummaryAnswer(db: Database): void {
   });
 }
 
+export function seedManagerFeedbackActions(db: Database): void {
+  const rows = db
+    .prepare(
+      `SELECT wf.id AS weeklyFeedbackId, wf.submittedAt, n.managerName
+       FROM weekly_feedbacks wf
+       JOIN newcomers n ON n.id = wf.newcomerId
+       LEFT JOIN manager_feedback_actions mfa ON mfa.weeklyFeedbackId = wf.id
+       WHERE wf.visibleToManager = 1 AND mfa.id IS NULL
+       ORDER BY wf.submittedAt`,
+    )
+    .all() as Array<{ weeklyFeedbackId: string; submittedAt: string; managerName: string }>;
+
+  for (const row of rows) {
+    insert(db, 'manager_feedback_actions', {
+      id: `manager-action-${row.weeklyFeedbackId}`,
+      weeklyFeedbackId: row.weeklyFeedbackId,
+      managerName: row.managerName,
+      managerViewed: 0,
+      managerViewedAt: null,
+      managerActionStatus: 'unread',
+      actionNote: '',
+      createdAt: row.submittedAt,
+      updatedAt: row.submittedAt,
+    });
+  }
+}
+
 function addHours(iso: string, hours: number): string {
   return new Date(new Date(iso).getTime() + hours * 60 * 60 * 1000).toISOString();
 }
