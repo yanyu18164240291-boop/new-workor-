@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
 import { getBottomNavItems, getOwnerHomePath } from '../src/frontend/routes.ts';
-import { DEMO_NEWCOMER_ID, DEMO_WEEKLY_FEEDBACK_ID } from '../src/frontend/demoConfig.ts';
+import { DEMO_NEWCOMER_ID } from '../src/frontend/demoConfig.ts';
 
 describe('role navigation separation', () => {
   it('keeps newcomer, admin, and manager bottom navigation inside their own surface', () => {
@@ -17,12 +18,19 @@ describe('role navigation separation', () => {
     assert.deepEqual(adminPaths, ['/admin-config', '/admin-config?tab=knowledge', '/admin-config?tab=feedback', '/review']);
 
     const managerPaths = getBottomNavItems('10').map((item) => item.path);
-    assert.deepEqual(managerPaths, ['/manager', `/manager/newcomer/${DEMO_NEWCOMER_ID}`, `/manager/feedback/${DEMO_WEEKLY_FEEDBACK_ID}`, '/manager']);
+    assert.deepEqual(managerPaths, ['/manager', `/manager/newcomer/${DEMO_NEWCOMER_ID}`]);
   });
 
   it('routes header back action to the current surface home, not always the newcomer home', () => {
     assert.equal(getOwnerHomePath('newcomer'), '/');
     assert.equal(getOwnerHomePath('admin'), '/admin-config');
     assert.equal(getOwnerHomePath('manager'), '/manager');
+  });
+
+  it('keeps two-item manager bottom navigation evenly distributed', () => {
+    const styles = readFileSync(new URL('../src/frontend/styles.css', import.meta.url), 'utf8');
+
+    assert.match(styles, /\.bottom-nav:has\(button:nth-child\(2\):last-child\)/);
+    assert.match(styles, /grid-template-columns:\s*repeat\(2,\s*1fr\)/);
   });
 });

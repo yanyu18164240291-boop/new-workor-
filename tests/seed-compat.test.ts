@@ -257,10 +257,80 @@ describe('seed compatibility helpers', () => {
       const options = db.prepare('SELECT id FROM weekly_feedback_options ORDER BY sortOrder').all() as Array<{ id: string }>;
       assert.deepEqual(
         questions.map((question) => question.id),
-        ['wfq-overall', 'wfq-blockers', 'wfq-support', 'wfq-message'],
+        ['wfq-overall', 'wfq-blockers', 'wfq-support', 'wfq-message', 'wfq-work-summary'],
       );
       assert.ok(questions.some((question) => question.enabled === 1));
       assert.ok(options.length > 0);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('repairs the demo weekly work summary answer for existing databases', async () => {
+    const tempDir = await mkdtemp(path.join(tmpdir(), 'haina-seed-compat-'));
+    tempDirs.push(tempDir);
+    const db = createDatabase(path.join(tempDir, 'test.db'));
+    try {
+      runMigrations(db);
+      db.prepare('INSERT INTO roles (id, name, department, description, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)').run(
+        'role-product-intern',
+        'Legacy role',
+        'Legacy department',
+        'Legacy role for seed compatibility.',
+        '2026-06-24T01:00:00.000Z',
+        '2026-06-24T01:00:00.000Z',
+      );
+      db.prepare(
+        `INSERT INTO newcomers
+         (id, name, roleId, department, stage, managerName, mentorName, status, d1GuideCompleted, permissionPackageViewed, weeklyFeedbackSubmitted, managerViewedFeedback, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        'newcomer-yanyu',
+        'Legacy newcomer',
+        'role-product-intern',
+        'Legacy department',
+        'D7',
+        'Legacy manager',
+        'Legacy mentor',
+        'active',
+        1,
+        1,
+        1,
+        0,
+        '2026-06-24T01:00:00.000Z',
+        '2026-06-24T01:00:00.000Z',
+      );
+      db.prepare(
+        `INSERT INTO weekly_feedbacks
+         (id, newcomerId, overallFeeling, blockers, supportNeeded, message, workSummary, visibleToManager, lifecycle, submittedAt, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        'weekly-yanyu',
+        'newcomer-yanyu',
+        'ok',
+        'none',
+        'none',
+        'message',
+        '',
+        1,
+        'submitted',
+        '2026-06-24T05:00:00.000Z',
+        '2026-06-24T01:00:00.000Z',
+        '2026-06-24T01:00:00.000Z',
+      );
+
+      seedWeeklyFeedbackConfig(db);
+      seedWeeklyFeedbackConfig(db);
+
+      const feedback = db.prepare('SELECT workSummary FROM weekly_feedbacks WHERE id = ?').get('weekly-yanyu') as { workSummary: string };
+      const answers = db
+        .prepare('SELECT textValue FROM weekly_feedback_answers WHERE weeklyFeedbackId = ? AND questionId = ?')
+        .all('weekly-yanyu', 'wfq-work-summary') as Array<{ textValue: string }>;
+      assert.equal(feedback.workSummary, '111');
+      assert.deepEqual(
+        answers.map((answer) => answer.textValue),
+        ['111'],
+      );
     } finally {
       db.close();
     }

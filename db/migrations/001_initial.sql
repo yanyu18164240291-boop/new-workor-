@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS roles (
   departmentId TEXT NOT NULL DEFAULT 'dept-collaboration-office',
   department TEXT NOT NULL,
   description TEXT NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL,
   updatedBy TEXT NOT NULL DEFAULT 'demo-admin'
@@ -61,6 +62,9 @@ CREATE TABLE IF NOT EXISTS newcomers (
   updatedAt TEXT NOT NULL
 );
 
+CREATE INDEX IF NOT EXISTS idx_newcomers_manager_name ON newcomers(managerName);
+CREATE INDEX IF NOT EXISTS idx_newcomers_role_id ON newcomers(roleId);
+
 CREATE TABLE IF NOT EXISTS newcomer_task_states (
   id TEXT PRIMARY KEY,
   newcomerId TEXT NOT NULL REFERENCES newcomers(id) ON DELETE CASCADE,
@@ -72,6 +76,8 @@ CREATE TABLE IF NOT EXISTS newcomer_task_states (
   updatedAt TEXT NOT NULL,
   UNIQUE(newcomerId, taskKey)
 );
+
+CREATE INDEX IF NOT EXISTS idx_newcomer_task_states_newcomer_id ON newcomer_task_states(newcomerId);
 
 CREATE TABLE IF NOT EXISTS d1_guide_configs (
   actionKey TEXT PRIMARY KEY,
@@ -106,6 +112,9 @@ CREATE TABLE IF NOT EXISTS permission_progress (
   UNIQUE(newcomerId, permissionItemId)
 );
 
+CREATE INDEX IF NOT EXISTS idx_permission_progress_newcomer_id ON permission_progress(newcomerId);
+CREATE INDEX IF NOT EXISTS idx_permission_progress_permission_item_id ON permission_progress(permissionItemId);
+
 CREATE TABLE IF NOT EXISTS follow_up_tasks (
   id TEXT PRIMARY KEY,
   newcomerId TEXT NOT NULL REFERENCES newcomers(id) ON DELETE CASCADE,
@@ -118,6 +127,10 @@ CREATE TABLE IF NOT EXISTS follow_up_tasks (
   updatedAt TEXT NOT NULL,
   UNIQUE(permissionProgressId)
 );
+
+CREATE INDEX IF NOT EXISTS idx_follow_up_tasks_newcomer_id ON follow_up_tasks(newcomerId);
+CREATE INDEX IF NOT EXISTS idx_follow_up_tasks_permission_progress_id ON follow_up_tasks(permissionProgressId);
+CREATE INDEX IF NOT EXISTS idx_follow_up_tasks_status ON follow_up_tasks(status);
 
 CREATE TABLE IF NOT EXISTS follow_up_message_cards (
   id TEXT PRIMARY KEY,
@@ -220,12 +233,16 @@ CREATE TABLE IF NOT EXISTS weekly_feedbacks (
   blockers TEXT NOT NULL,
   supportNeeded TEXT NOT NULL,
   message TEXT NOT NULL,
+  workSummary TEXT NOT NULL DEFAULT '',
   visibleToManager INTEGER NOT NULL CHECK (visibleToManager IN (0, 1)),
   lifecycle TEXT NOT NULL,
   submittedAt TEXT NOT NULL,
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL
 );
+
+CREATE INDEX IF NOT EXISTS idx_weekly_feedbacks_newcomer_id ON weekly_feedbacks(newcomerId);
+CREATE INDEX IF NOT EXISTS idx_weekly_feedbacks_visible_submitted ON weekly_feedbacks(visibleToManager, submittedAt);
 
 CREATE TABLE IF NOT EXISTS weekly_feedback_questions (
   id TEXT PRIMARY KEY,
@@ -276,6 +293,9 @@ CREATE TABLE IF NOT EXISTS manager_feedback_actions (
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL
 );
+
+CREATE INDEX IF NOT EXISTS idx_manager_feedback_actions_weekly_feedback_id ON manager_feedback_actions(weeklyFeedbackId);
+CREATE INDEX IF NOT EXISTS idx_manager_feedback_actions_manager_name ON manager_feedback_actions(managerName);
 
 CREATE TABLE IF NOT EXISTS knowledge_base_docs (
   id TEXT PRIMARY KEY,

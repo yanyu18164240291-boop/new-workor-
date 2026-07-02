@@ -209,6 +209,7 @@ export type WeeklyFeedback = {
   blockers: string;
   supportNeeded: string;
   message: string;
+  workSummary?: string;
   visibleToManager: boolean;
   lifecycle: string;
   managerAction?: {
@@ -216,6 +217,58 @@ export type WeeklyFeedback = {
     managerActionStatus: string;
     actionNote: string;
   };
+};
+
+export type ManagerOverviewNewcomer = {
+  id: string;
+  name: string;
+  roleName: string;
+  department: string;
+  stage: string;
+  managerName: string;
+  mentorName: string;
+  d1GuideCompleted: boolean;
+  permissionPackageViewed: boolean;
+  weeklyFeedbackSubmitted: boolean;
+  managerViewedFeedback: boolean;
+  pendingFollowUpCount: number;
+  pendingPermissionCount: number;
+  weeklyFeedbackId?: string | null;
+  managerActionStatus: string;
+  includeReason: 'first_week' | 'pending_todo';
+  onboardingStatus: 'weekly_feedback_pending_review' | 'permission_pending_follow_up' | 'on_track';
+  primaryAction: {
+    type: 'view_feedback' | 'remind_mentor' | 'view_detail';
+    label: string;
+    targetPath?: string;
+  };
+};
+
+export type ManagerOverview = {
+  scope: { managerName: string };
+  summary: {
+    visibleNewcomerCount: number;
+    submittedWeeklyCount: number;
+    pendingManagerActionCount: number;
+  };
+  roleStats: Array<{ roleId: string; roleName: string; count: number }>;
+  recentWeeklyFeedbackId?: string;
+  newcomers: ManagerOverviewNewcomer[];
+  page: { limit: number; offset: number; hasMore: boolean };
+};
+
+export type ManagerNewcomerDetail = {
+  scope: { managerName: string };
+  newcomer: Newcomer & { roleName?: string };
+  weeklyFeedback: {
+    id: string;
+    statusText: string;
+    overallFeeling: string;
+    blockers: string[];
+    supportNeeded: string[];
+    message: string;
+    workSummary: string;
+  } | null;
 };
 
 export type WeeklyFeedbackOption = {
@@ -316,6 +369,9 @@ async function requestApi<T>(path: string, init?: RequestInit): Promise<T> {
     ...(path.startsWith('/api/admin/') || path.startsWith('/api/admin-config/')
       ? { 'x-haina-role': 'admin', 'x-haina-actor': 'demo-admin' }
       : {}),
+    ...(path.startsWith('/api/manager/')
+      ? { 'x-haina-role': 'manager', 'x-haina-actor': 'demo-manager' }
+      : {}),
     ...(init?.headers ?? {}),
   };
   try {
@@ -375,11 +431,11 @@ export const api = {
   triggerMockKnowledgeParse: (id: string) => apiSend<KnowledgeDoc>(`/api/admin-config/knowledge/${id}/trigger-mock-parse`, 'POST', {}),
   updateKnowledgeDocStatus: (id: string, status: 'disabled' | 'enabled' | 'offline') =>
     apiSend<KnowledgeDoc>(`/api/admin-config/knowledge/${id}/status`, 'PATCH', { status }),
-  createRole: (body: { name: string; departmentId?: string; department: string; description: string; updatedBy?: string }) =>
+  createRole: (body: { name: string; departmentId?: string; department: string; description: string; enabled?: boolean; updatedBy?: string }) =>
     apiSend<Role>('/api/admin/roles', 'POST', body),
-  createPosition: (body: { name: string; departmentId: string; department: string; description: string; updatedBy?: string }) =>
+  createPosition: (body: { name: string; departmentId: string; department: string; description: string; enabled?: boolean; updatedBy?: string }) =>
     apiSend<Role>('/api/admin-config/positions', 'POST', body),
-  updateRole: (id: string, body: { name?: string; department?: string; description?: string; updatedBy?: string }) =>
+  updateRole: (id: string, body: { name?: string; department?: string; description?: string; enabled?: boolean; updatedBy?: string }) =>
     apiSend<Role>(`/api/admin/roles/${id}`, 'PATCH', body),
   createPermissionItem: (body: {
     name: string;
@@ -459,6 +515,14 @@ export const api = {
   ) =>
     apiSend<WeeklyFeedbackConfig>('/api/admin/weekly-feedback-config', 'PATCH', { questions, updatedBy }),
   getWeeklyFeedback: (newcomerId: string) => apiGet<WeeklyFeedback>(`/api/newcomers/${newcomerId}/weekly-feedback`),
+  getManagerOverview: (options?: { limit?: number; offset?: number }) => {
+    const params = new URLSearchParams();
+    if (options?.limit !== undefined) params.set('limit', String(options.limit));
+    if (options?.offset !== undefined) params.set('offset', String(options.offset));
+    const query = params.toString();
+    return apiGet<ManagerOverview>(`/api/manager/overview${query ? `?${query}` : ''}`);
+  },
+  getManagerNewcomerDetail: (newcomerId: string) => apiGet<ManagerNewcomerDetail>(`/api/manager/newcomer/${newcomerId}`),
   getManagerFeedback: (weeklyFeedbackId: string) => apiGet<WeeklyFeedback>(`/api/manager/feedback/${weeklyFeedbackId}`),
   syncPermissionApplications: (newcomerId: string, selectedPermissionItemIds: string[], scopePermissionItemIds: string[]) =>
     apiSend<{ selectedPermissionItemIds: string[]; removedPermissionItemIds: string[] }>(
@@ -495,6 +559,7 @@ export const api = {
     blockers?: string;
     supportNeeded?: string;
     message?: string;
+    workSummary?: string;
     answers?: Array<{ questionId: string; selectedOptionIds?: string[]; textValue?: string }>;
   }) => apiSend<WeeklyFeedback>('/api/weekly-feedbacks', 'POST', body),
   updateManagerFeedbackAction: (weeklyFeedbackId: string, managerActionStatus: string, actionNote: string) =>

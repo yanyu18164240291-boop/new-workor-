@@ -116,14 +116,17 @@ export function answerSelection(answer: WeeklyAnswerInput | Record<string, unkno
 export function deriveWeeklyLegacyFields(
   db: Database,
   answers: WeeklyAnswerInput[],
-): { overallFeeling: string; blockers: string; supportNeeded: string; message: string } {
-  const questions = db.prepare('SELECT id, questionKey FROM weekly_feedback_questions').all() as Array<{ id: string; questionKey: string }>;
+): { overallFeeling: string; blockers: string; supportNeeded: string; message: string; workSummary: string } {
+  const questions = db.prepare('SELECT id, questionKey, title FROM weekly_feedback_questions').all() as Array<{ id: string; questionKey: string; title: string }>;
   const byId = new Map(questions.map((question) => [question.id, question.questionKey]));
+  const titleById = new Map(questions.map((question) => [question.id, question.title]));
   const byKey = new Map<string, Record<string, unknown>>();
+  let workSummaryAnswer: Record<string, unknown> | undefined;
   for (const answer of answers) {
     const questionId = typeof answer.questionId === 'string' ? answer.questionId : '';
     const key = byId.get(questionId);
     if (key) byKey.set(key, answer);
+    if (key === 'work_summary' || titleById.get(questionId) === '首周工作摘要') workSummaryAnswer = answer;
   }
   const overallIds = answerSelection(byKey.get('overall_feeling') ?? {});
   const blockerIds = answerSelection(byKey.get('blockers') ?? {});
@@ -134,6 +137,7 @@ export function deriveWeeklyLegacyFields(
     blockers: optionLabels(db, blockerIds).join('、'),
     supportNeeded: optionLabels(db, supportIds).join('、'),
     message: typeof messageAnswer?.textValue === 'string' ? messageAnswer.textValue.trim() : '',
+    workSummary: typeof workSummaryAnswer?.textValue === 'string' ? workSummaryAnswer.textValue.trim() : '',
   };
 }
 

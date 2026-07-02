@@ -408,7 +408,7 @@ export function WeeklyFeedbackPage({ data, reload, toast }: { data: DashboardDat
         .map((question) => [question.id, [question.options[0].id]]),
     ),
   );
-  const [message, setMessage] = useState('这一周整体适应还可以，团队同学都很友好。目前主要还是部分权限没有完全开通。');
+  const [textByQuestion, setTextByQuestion] = useState<Record<string, string>>({});
 
   useEffect(() => {
     setSelectedByQuestion((current) => {
@@ -418,6 +418,14 @@ export function WeeklyFeedbackPage({ data, reload, toast }: { data: DashboardDat
         const validOptionIds = new Set(question.options.map((option) => option.id));
         const selected = (current[question.id] ?? []).filter((id) => validOptionIds.has(id));
         next[question.id] = selected.length > 0 ? selected : question.inputType === 'single' && question.options[0] ? [question.options[0].id] : [];
+      }
+      return next;
+    });
+    setTextByQuestion((current) => {
+      const next: Record<string, string> = {};
+      for (const question of questions) {
+        if (question.inputType !== 'text') continue;
+        next[question.id] = current[question.id] ?? (question.questionKey === 'message' ? '这一周整体适应还可以，团队同学都很友好。目前主要还是部分权限没有完全开通。' : '');
       }
       return next;
     });
@@ -444,7 +452,7 @@ export function WeeklyFeedbackPage({ data, reload, toast }: { data: DashboardDat
       newcomerId: data.newcomer.id,
       answers: questions.map((question) =>
         question.inputType === 'text'
-          ? { questionId: question.id, textValue: message }
+          ? { questionId: question.id, textValue: textByQuestion[question.id] ?? '' }
           : { questionId: question.id, selectedOptionIds: selectedByQuestion[question.id] ?? [] },
       ),
     });
@@ -460,7 +468,11 @@ export function WeeklyFeedbackPage({ data, reload, toast }: { data: DashboardDat
       {questions.map((question) => (
         <SectionCard title={question.title} key={question.id}>
           {question.inputType === 'text' ? (
-            <textarea value={message} maxLength={question.maxLength ?? 500} onChange={(event) => setMessage(event.target.value)} />
+            <textarea
+              value={textByQuestion[question.id] ?? ''}
+              maxLength={question.maxLength ?? 500}
+              onChange={(event) => setTextByQuestion((current) => ({ ...current, [question.id]: event.target.value }))}
+            />
           ) : (
             <div className="tag-row tag-grid tag-grid-two">
               {question.options.map((option) => {

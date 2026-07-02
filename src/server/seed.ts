@@ -39,8 +39,48 @@ function insertIfMissing(db: Database, table: string, keyColumn: string, row: Re
   insert(db, table, row);
 }
 
+function seedDemoWeeklyWorkSummaryAnswer(db: Database): void {
+  const row = db
+    .prepare("SELECT id, COALESCE(workSummary, '') AS workSummary FROM weekly_feedbacks WHERE id = ?")
+    .get('weekly-yanyu') as { id: string; workSummary: string } | undefined;
+  if (!row) return;
+
+  const summary = row.workSummary.trim() || '111';
+  if (!row.workSummary.trim()) {
+    db.prepare('UPDATE weekly_feedbacks SET workSummary = ?, updatedAt = ? WHERE id = ?').run(summary, seedTime, row.id);
+  }
+
+  const existing = db
+    .prepare('SELECT id FROM weekly_feedback_answers WHERE weeklyFeedbackId = ? AND questionId = ? LIMIT 1')
+    .get(row.id, 'wfq-work-summary');
+  if (existing) return;
+
+  insert(db, 'weekly_feedback_answers', {
+    id: 'wfa-yanyu-work-summary',
+    weeklyFeedbackId: row.id,
+    questionId: 'wfq-work-summary',
+    optionId: null,
+    textValue: summary,
+    createdAt: seedTime,
+    updatedAt: seedTime,
+  });
+}
+
 function addHours(iso: string, hours: number): string {
   return new Date(new Date(iso).getTime() + hours * 60 * 60 * 1000).toISOString();
+}
+
+function demoJoinCompletedAt(dayOffset: number): string {
+  const day = new Date();
+  day.setHours(2, 0, 0, 0);
+  day.setDate(day.getDate() - dayOffset);
+  return day.toISOString();
+}
+
+function demoFeishuJoinCompletedAt(newcomerId: string, fallback: string): string {
+  if (newcomerId === 'newcomer-yanyu') return demoJoinCompletedAt(6);
+  if (newcomerId === 'newcomer-cuilingfei') return demoJoinCompletedAt(0);
+  return fallback;
 }
 
 const d1GuideDefaults = [
@@ -154,9 +194,13 @@ export function seedJoinFeishuOrgTasks(db: Database): void {
   for (const newcomer of newcomers) {
     const existing = db
       .prepare('SELECT id FROM newcomer_task_states WHERE newcomerId = ? AND taskKey = ?')
-      .get(newcomer.id, 'join_feishu_org');
-    if (existing) continue;
-    const completedAt = newcomer.id === 'newcomer-yanyu' ? '2026-06-19T02:00:00.000Z' : (newcomer.createdAt ?? seedTime);
+      .get(newcomer.id, 'join_feishu_org') as { id: string } | undefined;
+    const completedAt = demoFeishuJoinCompletedAt(newcomer.id, newcomer.createdAt ?? seedTime);
+    if (existing) {
+      if (!['newcomer-yanyu', 'newcomer-cuilingfei'].includes(newcomer.id)) continue;
+      db.prepare("UPDATE newcomer_task_states SET status = 'completed', completedAt = ?, updatedAt = ? WHERE id = ?").run(completedAt, seedTime, existing.id);
+      continue;
+    }
     insert(db, 'newcomer_task_states', {
       id: `task-join-feishu-org-${newcomer.id}`,
       newcomerId: newcomer.id,
@@ -283,6 +327,17 @@ export function seedWeeklyFeedbackConfig(db: Database): void {
       sortOrder: 4,
       options: [],
     },
+    {
+      id: 'wfq-work-summary',
+      questionKey: 'work_summary',
+      title: '首周工作摘要',
+      description: '记录本周完成的主要事项，供管理者查看和跟进。',
+      inputType: 'text',
+      required: 0,
+      maxLength: 500,
+      sortOrder: 5,
+      options: [],
+    },
   ];
 
   for (const question of questions) {
@@ -315,9 +370,11 @@ export function seedWeeklyFeedbackConfig(db: Database): void {
 
   const enabled = db.prepare('SELECT COUNT(*) AS total FROM weekly_feedback_questions WHERE enabled = 1').get() as { total: number };
   if (enabled.total === 0) {
-    db.prepare("UPDATE weekly_feedback_questions SET enabled = 1, updatedAt = ? WHERE id IN ('wfq-overall', 'wfq-blockers', 'wfq-support', 'wfq-message')").run(seedTime);
+    db.prepare("UPDATE weekly_feedback_questions SET enabled = 1, updatedAt = ? WHERE id IN ('wfq-overall', 'wfq-blockers', 'wfq-support', 'wfq-message', 'wfq-work-summary')").run(seedTime);
     db.prepare("UPDATE weekly_feedback_options SET enabled = 1, updatedAt = ? WHERE questionId IN ('wfq-overall', 'wfq-blockers', 'wfq-support')").run(seedTime);
   }
+
+  seedDemoWeeklyWorkSummaryAnswer(db);
 }
 
 export function seedAnonymousFeedbackConfig(db: Database): void {
@@ -672,6 +729,7 @@ export function seedDatabase(db: Database): void {
     blockers: 'OA 已提交，邮箱还在等待开通',
     supportNeeded: '希望 mentor 帮忙确认邮箱进度',
     message: '第一周对业务和工具链有基本理解，感谢团队支持。',
+    workSummary: '完成 D1 到达引导，查看岗位权限包，并提交首周反馈。',
     visibleToManager: 1,
     lifecycle: 'submitted',
     submittedAt: '2026-06-24T05:00:00.000Z',

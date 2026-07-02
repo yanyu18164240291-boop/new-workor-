@@ -48,8 +48,8 @@ describe('frontend architecture boundaries', () => {
   it('loads admin-only data only for the admin config route', () => {
     const app = readFileSync('src/frontend/App.tsx', 'utf8');
     const appState = readFileSync('src/frontend/appState.ts', 'utf8');
-    assert.match(app, /useDashboardData\(route\.pageNo\)/);
-    assert.match(appState, /loadDashboardDataForPage\(pageNo\)/);
+    assert.match(app, /useDashboardData\(route\.pageNo(?:,\s*params)?\)/);
+    assert.match(appState, /loadDashboardDataForPage\(pageNo(?:,\s*params)?/);
 
     const extractFunction = (name: string) => {
       const start = appState.indexOf(`async function ${name}`);

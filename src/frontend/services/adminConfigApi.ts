@@ -24,18 +24,18 @@ export function saveRolePackagePermission(id: string, draft: Partial<PermissionI
   } as Parameters<typeof api.updatePermissionItem>[1]);
 }
 
-export function createRoleForPackage(draft: Pick<Role, 'name' | 'department' | 'description'>) {
+export function createRoleForPackage(draft: Pick<Role, 'name' | 'department' | 'description'> & { enabled?: boolean }) {
   return createPosition({
     ...draft,
     departmentId: `dept-${Date.now()}`,
   });
 }
 
-export function saveRoleForPackage(id: string, draft: Pick<Role, 'name' | 'department' | 'description'>) {
+export function saveRoleForPackage(id: string, draft: Pick<Role, 'name' | 'department' | 'description'> & { enabled?: boolean }) {
   return api.updateRole(id, { ...draft, updatedBy: adminActorName });
 }
 
-export function createPosition(draft: Pick<Role, 'name' | 'department' | 'description'> & { departmentId?: string }) {
+export function createPosition(draft: Pick<Role, 'name' | 'department' | 'description'> & { departmentId?: string; enabled?: boolean }) {
   return api.createPosition({
     ...draft,
     departmentId: draft.departmentId?.trim() || `dept-${Date.now()}`,

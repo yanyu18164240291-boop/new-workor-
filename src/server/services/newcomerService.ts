@@ -272,14 +272,15 @@ export const createWeeklyFeedback: RouteMatch['handler'] = async ({ db, request 
           blockers: derived?.blockers || requiredString(body, 'blockers'),
           supportNeeded: derived?.supportNeeded || requiredString(body, 'supportNeeded'),
           message: derived ? derived.message : requiredString(body, 'message'),
+          workSummary: derived ? derived.workSummary : typeof body.workSummary === 'string' ? body.workSummary.trim() : '',
           visibleToManager: true,
           lifecycle: 'submitted',
           submittedAt,
         };
         db.prepare(
           `INSERT INTO weekly_feedbacks
-           (id, newcomerId, overallFeeling, blockers, supportNeeded, message, visibleToManager, lifecycle, submittedAt, createdAt, updatedAt)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (id, newcomerId, overallFeeling, blockers, supportNeeded, message, workSummary, visibleToManager, lifecycle, submittedAt, createdAt, updatedAt)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         ).run(
           row.id,
           row.newcomerId,
@@ -287,6 +288,7 @@ export const createWeeklyFeedback: RouteMatch['handler'] = async ({ db, request 
           row.blockers,
           row.supportNeeded,
           row.message,
+          row.workSummary,
           boolToDb(row.visibleToManager),
           row.lifecycle,
           row.submittedAt,

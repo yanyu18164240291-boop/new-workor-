@@ -6,6 +6,7 @@ export type CreatePositionInput = {
   departmentId: string;
   department: string;
   description: string;
+  enabled?: boolean;
   updatedBy: string;
 };
 
@@ -22,14 +23,15 @@ export function createPosition(db: Database, input: CreatePositionInput): Record
   const id = createdId('role');
   db.prepare(
     `INSERT INTO roles
-     (id, name, departmentId, department, description, createdAt, updatedAt, updatedBy)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+     (id, name, departmentId, department, description, enabled, createdAt, updatedAt, updatedBy)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sqlValue(input.name),
     sqlValue(input.departmentId),
     sqlValue(input.department),
     sqlValue(input.description),
+    sqlValue(input.enabled ?? true),
     time,
     time,
     sqlValue(input.updatedBy),
