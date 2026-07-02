@@ -206,6 +206,11 @@ button {
   font-weight: 900;
 }
 
+.admin-workbench-date-filter {
+  flex: 0 0 152px;
+  padding: 0 12px;
+}
+
 .admin-workbench-filters select {
   appearance: none;
   font-weight: 900;
@@ -214,6 +219,12 @@ button {
 .admin-workbench-filters input {
   width: 104px;
   font-weight: 900;
+}
+
+.admin-workbench-date-filter input {
+  width: 118px;
+  padding-right: 2px;
+  font-variant-numeric: tabular-nums;
 }
 
 .admin-workbench-user {

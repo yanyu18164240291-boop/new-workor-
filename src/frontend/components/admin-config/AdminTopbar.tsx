@@ -45,7 +45,7 @@ export function AdminTopbar({ filters, onFiltersChange, reload }: AdminTopbarPro
           </select>
           <ChevronDown size={14} />
         </label>
-        <label>
+        <label className="admin-workbench-date-filter">
           <CalendarDays size={15} />
           <input type="date" value={filters.date} onChange={(event) => updateFilter('date', event.target.value)} aria-label="日期：2026-06-23" />
         </label>
