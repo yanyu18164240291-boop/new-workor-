@@ -153,7 +153,7 @@ button {
 .admin-workbench-topbar {
   min-height: 72px;
   display: grid;
-  grid-template-columns: minmax(320px, 420px) minmax(470px, 1fr) auto auto;
+  grid-template-columns: minmax(320px, 1fr) auto auto auto;
   align-items: center;
   gap: 14px;
   padding: 16px 24px;
@@ -194,16 +194,20 @@ button {
 }
 
 .admin-workbench-filters {
+  width: max-content;
+  justify-self: end;
   display: flex;
   justify-content: flex-end;
   gap: 12px;
 }
 
 .admin-workbench-filters label {
+  flex: 0 0 auto;
   padding: 0 10px;
   color: #172033;
   font-size: 14px;
   font-weight: 900;
+  white-space: nowrap;
 }
 
 .admin-workbench-date-filter {
