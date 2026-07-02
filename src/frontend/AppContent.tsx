@@ -78,7 +78,7 @@ export function AppContent({
     case '11':
       return <ManagerDetailPage data={data} navigate={navigate} toast={toast} />;
     case '12':
-      return <ManagerFeedbackPage data={data} reload={reload} toast={toast} />;
+      return <ManagerFeedbackPage data={data} navigate={navigate} reload={reload} toast={toast} />;
     default:
       return null;
   }

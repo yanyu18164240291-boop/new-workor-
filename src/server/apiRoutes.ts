@@ -26,6 +26,15 @@ function assertAdminRouteGuard(context: ApiContext): void {
   }
 }
 
+function assertManagerRouteGuard(context: ApiContext): void {
+  if (!context.pathname.startsWith('/api/manager/')) return;
+  const role = String(context.request.headers['x-haina-role'] ?? '').trim().toLowerCase();
+  const actor = String(context.request.headers['x-haina-actor'] ?? '').trim();
+  if (role !== 'manager' || !['demo-manager', 'demo-other-manager'].includes(actor)) {
+    throw forbidden('Manager role is required for manager API access');
+  }
+}
+
 export async function handleApiRequest(context: ApiContext): Promise<ApiResult> {
   const matches = routes[context.method] ?? [];
   for (const route of matches) {
@@ -33,6 +42,7 @@ export async function handleApiRequest(context: ApiContext): Promise<ApiResult> 
     if (match) {
       try {
         assertAdminRouteGuard(context);
+        assertManagerRouteGuard(context);
         return await route.handler(context, match);
       } catch (error) {
         const apiError = toApiError(error);

@@ -260,7 +260,7 @@ export function RolePackagesTab({ data, filters, search = '', toast, reload }: R
         description: selectedRole.description,
         enabled: nextEnabled,
       });
-      toast(nextEnabled ? '已启用岗位，新人端和管理端可重新选择该岗位' : '已停用岗位，新人端和管理端将不再展示该岗位，历史数据保留');
+      toast(nextEnabled ? '已启用岗位，并同步到新人端与管理端岗位统计' : '已停用岗位，新人端和管理端将不再展示该岗位，历史数据保留');
       await reload();
     } catch (error) {
       toast(formatApiErrorMessage(error, selectedRole.enabled === false ? '启用岗位失败' : '停用岗位失败'));

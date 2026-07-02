@@ -106,7 +106,7 @@ export const pageRoutes: PageRoute[] = [
     pageNo: '10',
     path: '/manager',
     title: '管理者首页 / 今日新员工概览',
-    shortTitle: '管理者',
+    shortTitle: '入职管理',
     owner: 'manager',
     purpose: '帮助管理者查看今日新人、权限进度和待跟进事项。',
   },
@@ -168,8 +168,6 @@ export function getBottomNavItems(currentPage: string): BottomNavItem[] {
     return [
       { path: '/manager', label: '总览', icon: 'grid', pages: ['10'] },
       { path: `/manager/newcomer/${DEMO_NEWCOMER_ID}`, label: '新人', icon: 'user', pages: ['11'] },
-      { path: `/manager/feedback/${DEMO_WEEKLY_FEEDBACK_ID}`, label: '反馈', icon: 'message', pages: ['12'] },
-      { path: '/manager', label: '我的', icon: 'home', pages: [] },
     ];
   }
 

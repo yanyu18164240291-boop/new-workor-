@@ -48,8 +48,8 @@ describe('frontend architecture boundaries', () => {
   it('loads admin-only data only for the admin config route', () => {
     const app = readFileSync('src/frontend/App.tsx', 'utf8');
     const appState = readFileSync('src/frontend/appState.ts', 'utf8');
-    assert.match(app, /useDashboardData\(route\.pageNo\)/);
-    assert.match(appState, /loadDashboardDataForPage\(pageNo\)/);
+    assert.match(app, /useDashboardData\(route\.pageNo(?:,\s*params)?\)/);
+    assert.match(appState, /loadDashboardDataForPage\(pageNo(?:,\s*params)?/);
 
     const extractFunction = (name: string) => {
       const start = appState.indexOf(`async function ${name}`);
@@ -68,16 +68,16 @@ describe('frontend architecture boundaries', () => {
     assert.equal(newcomerLoader.includes('getAnonymousFeedbacks'), false);
     assert.equal(managerLoader.includes('getAdminConfig'), false);
     assert.equal(managerLoader.includes('getAnonymousFeedbacks'), false);
-    assert.match(managerLoader, /api\.getRoles\(\)/);
-    assert.match(managerLoader, /enabledRoleIds/);
+    assert.match(managerLoader, /api\.getManagerOverview\(\{ limit: 20, offset: 0 \}\)/);
+    assert.match(managerLoader, /api\.getManagerNewcomerDetail/);
     assert.equal(reviewLoader.includes('getAnonymousFeedbacks'), false);
   });
 
-  it('keeps manager overview synchronized with enabled role data instead of hardcoded role counts', () => {
+  it('keeps manager overview synchronized through the backend aggregate instead of hardcoded role counts', () => {
     const managerPages = readFileSync('src/frontend/pages/managerPages.tsx', 'utf8');
-    assert.match(managerPages, /visibleManagerNewcomers/);
-    assert.match(managerPages, /roleCounts/);
-    assert.match(managerPages, /data\.roles/);
+    assert.match(managerPages, /data\.managerOverview/);
+    assert.match(managerPages, /overview\?\.roleStats/);
+    assert.match(managerPages, /overview\?\.summary\.visibleNewcomerCount/);
     assert.equal(managerPages.includes('今日新员工 2 人'), false);
     assert.equal(managerPages.includes('协同办公产品实习生 · D7'), false);
     assert.equal(managerPages.includes('产品实习生'), false);

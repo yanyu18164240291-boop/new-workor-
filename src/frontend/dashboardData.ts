@@ -4,6 +4,8 @@ import type {
   AnonymousFeedbackConfig,
   D1GuideConfig,
   FollowUpTask,
+  ManagerNewcomerDetail,
+  ManagerOverview,
   KnowledgeDoc,
   Newcomer,
   PermissionPackage,
@@ -17,7 +19,8 @@ import type {
 
 export type DashboardData = {
   newcomer?: Newcomer;
-  newcomers?: Newcomer[];
+  managerDetail?: ManagerNewcomerDetail;
+  managerOverview?: ManagerOverview;
   roles?: Role[];
   selectedRoleId?: string;
   package?: PermissionPackage;

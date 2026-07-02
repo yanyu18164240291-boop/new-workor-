@@ -24,13 +24,29 @@ import { getBottomNavItems, getShellKind, matchRoute } from './routes.ts';
 export function App() {
   const { pathname, search, navigate } = usePathname();
   const { route, params } = useMemo(() => matchRoute(pathname), [pathname]);
-  const { data, status, error, reload, selectPreviewRole } = useDashboardData(route.pageNo);
+  const { data, status, error, reload, selectPreviewRole } = useDashboardData(route.pageNo, params);
   const [toastMessage, setToastMessage] = useState('');
   const [modal, setModal] = useState<'required' | 'optional' | 'owner' | null>(null);
 
   function toast(message: string) {
     setToastMessage(message);
     window.setTimeout(() => setToastMessage(''), 2200);
+  }
+
+  function handleBottomNavNavigate(path: string) {
+    if (route.owner === 'manager' && path.startsWith('/manager/feedback/')) {
+      if (data.managerOverview?.recentWeeklyFeedbackId) {
+        navigate(`/manager/feedback/${data.managerOverview.recentWeeklyFeedbackId}`);
+        return;
+      }
+      if (data.weekly) {
+        navigate(`/manager/feedback/${data.weekly.id}`);
+        return;
+      }
+      toast('暂无新人首周反馈');
+      return;
+    }
+    navigate(path);
   }
 
   const subtitle = route.pageNo === '01' ? '你的入职好帮手' : route.purpose;
@@ -190,7 +206,7 @@ export function App() {
               <LoadingState status={status} error={error} />
               {content}
             </PageBoard>
-            {bottomNavItems.length > 0 && <BottomNav currentPage={route.pageNo} navigate={navigate} />}
+            {bottomNavItems.length > 0 && <BottomNav currentPage={route.pageNo} navigate={handleBottomNavNavigate} />}
             {modalLayer}
           </PhoneFrame>
         </PrototypePage>

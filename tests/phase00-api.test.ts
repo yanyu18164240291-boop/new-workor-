@@ -19,12 +19,13 @@ async function requestJson<T>(
   init?: RequestInit,
 ): Promise<{ status: number; body: T }> {
   const response = await nativeFetch(`${baseUrl}${route}`, {
+    ...init,
     headers: {
       'content-type': 'application/json',
       ...(route.startsWith('/api/admin/') ? { 'x-haina-role': 'admin', 'x-haina-actor': 'demo-admin' } : {}),
+      ...(route.startsWith('/api/manager/') ? { 'x-haina-role': 'manager', 'x-haina-actor': 'demo-manager' } : {}),
       ...(init?.headers ?? {}),
     },
-    ...init,
   });
   return {
     status: response.status,
@@ -385,6 +386,7 @@ describe('Phase 00 backend MVP APIs', () => {
         ['blockers', 'multi'],
         ['support_needed', 'multi'],
         ['message', 'text'],
+        ['work_summary', 'text'],
       ],
     );
 
@@ -392,8 +394,9 @@ describe('Phase 00 backend MVP APIs', () => {
     const blockers = config.body.data.questions.find((question) => question.questionKey === 'blockers')!;
     const support = config.body.data.questions.find((question) => question.questionKey === 'support_needed')!;
     const message = config.body.data.questions.find((question) => question.questionKey === 'message')!;
+    const workSummary = config.body.data.questions.find((question) => question.questionKey === 'work_summary')!;
 
-    const submitted = await requestJson<{ data: { id: string; overallFeeling: string; blockers: string; supportNeeded: string; message: string } }>(
+    const submitted = await requestJson<{ data: { id: string; overallFeeling: string; blockers: string; supportNeeded: string; message: string; workSummary: string } }>(
       '/api/weekly-feedbacks',
       {
         method: 'POST',
@@ -404,6 +407,7 @@ describe('Phase 00 backend MVP APIs', () => {
             { questionId: blockers.id, selectedOptionIds: [blockers.options[0].id, blockers.options[2].id] },
             { questionId: support.id, selectedOptionIds: [support.options[0].id] },
             { questionId: message.id, textValue: '希望下周安排一个轻量真实任务。' },
+            { questionId: workSummary.id, textValue: '本周完成 D1 引导和权限申请。' },
           ],
         }),
       },
@@ -413,6 +417,7 @@ describe('Phase 00 backend MVP APIs', () => {
     assert.equal(submitted.body.data.blockers, `${blockers.options[0].label}、${blockers.options[2].label}`);
     assert.equal(submitted.body.data.supportNeeded, support.options[0].label);
     assert.equal(submitted.body.data.message, '希望下周安排一个轻量真实任务。');
+    assert.equal(submitted.body.data.workSummary, '本周完成 D1 引导和权限申请。');
 
     const analysis = await requestJson<{
       data: {

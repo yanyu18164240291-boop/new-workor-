@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 
-import { api, formatApiErrorMessage } from './api.ts';
+import { api, formatApiErrorMessage, isApiClientError } from './api.ts';
 import type { DashboardData } from './dashboardData.ts';
-import { DEMO_NEWCOMER_ID, DEMO_SECONDARY_NEWCOMER_ID } from './demoConfig.ts';
+import { DEMO_NEWCOMER_ID, DEMO_WEEKLY_FEEDBACK_ID } from './demoConfig.ts';
 
 export function usePathname() {
   const [location, setLocation] = useState(`${window.location.pathname}${window.location.search}`);
@@ -28,11 +28,7 @@ async function loadNewcomerSurfaceData(previewRoleId?: string): Promise<Dashboar
   const [newcomer, roles] = await Promise.all([api.getNewcomer(DEMO_NEWCOMER_ID), api.getRoles()]);
   const enabledRoles = roles.filter((role) => role.enabled !== false);
   const selectedRoleId =
-    previewRoleId && enabledRoles.some((role) => role.id === previewRoleId)
-      ? previewRoleId
-      : enabledRoles.some((role) => role.id === newcomer.roleId)
-        ? newcomer.roleId
-        : enabledRoles[0]?.id ?? newcomer.roleId;
+    previewRoleId && enabledRoles.some((role) => role.id === previewRoleId) ? previewRoleId : newcomer.roleId;
   const [permissionPackage, progress, followUps, d1GuideConfig, weeklyConfig, anonymousConfig, weekly] = await Promise.all([
     api.getPermissionPackage(selectedRoleId),
     api.getPermissionProgress(newcomer.id),
@@ -95,44 +91,65 @@ async function loadReviewSurfaceData(): Promise<DashboardData> {
   };
 }
 
-async function loadManagerSurfaceData(): Promise<DashboardData> {
-  const [roles, newcomer, secondaryNewcomer] = await Promise.all([
-    api.getRoles(),
-    api.getNewcomer(DEMO_NEWCOMER_ID),
-    api.getNewcomer(DEMO_SECONDARY_NEWCOMER_ID),
-  ]);
-  const enabledRoleIds = new Set(roles.filter((role) => role.enabled !== false).map((role) => role.id));
-  const newcomers = [newcomer, secondaryNewcomer].filter((item) => enabledRoleIds.has(item.roleId));
-  const weekly = await api.getWeeklyFeedback(newcomer.id);
+async function getOptionalManagerFeedback(feedbackId: string) {
+  try {
+    return await api.getManagerFeedback(feedbackId);
+  } catch (caught) {
+    if (isApiClientError(caught) && caught.code === 'NOT_FOUND') return undefined;
+    throw caught;
+  }
+}
+
+async function loadManagerSurfaceData(pageNo: string, params: Record<string, string>): Promise<DashboardData> {
+  if (pageNo === '10') {
+    const managerOverview = await api.getManagerOverview({ limit: 20, offset: 0 });
+    return {
+      managerOverview,
+    };
+  }
+
+  if (pageNo === '12') {
+    const feedbackId = params.id ?? DEMO_WEEKLY_FEEDBACK_ID;
+    const weekly = await getOptionalManagerFeedback(feedbackId);
+    const newcomerId = weekly?.newcomerId ?? feedbackId;
+    const managerDetail = await api.getManagerNewcomerDetail(newcomerId);
+    return {
+      managerDetail,
+      newcomer: managerDetail.newcomer,
+      weekly,
+    };
+  }
+
+  const newcomerId = params.id ?? DEMO_NEWCOMER_ID;
+  const managerDetail = await api.getManagerNewcomerDetail(newcomerId);
   return {
-    newcomer,
-    newcomers,
-    roles,
-    weekly,
+    managerDetail,
+    newcomer: managerDetail.newcomer,
   };
 }
 
-async function loadDashboardDataForPage(pageNo: string, previewRoleId?: string): Promise<DashboardData> {
+async function loadDashboardDataForPage(pageNo: string, params: Record<string, string>, previewRoleId?: string): Promise<DashboardData> {
   if (pageNo === '08') return loadAdminConfigSurfaceData();
   if (pageNo === '09') return loadReviewSurfaceData();
-  if (managerPageNos.has(pageNo)) return loadManagerSurfaceData();
+  if (managerPageNos.has(pageNo)) return loadManagerSurfaceData(pageNo, params);
   if (newcomerPageNos.has(pageNo)) return loadNewcomerSurfaceData(previewRoleId);
   return {};
 }
 
-export function useDashboardData(pageNo: string) {
+export function useDashboardData(pageNo: string, params: Record<string, string> = {}) {
   const [data, setData] = useState<DashboardData>({});
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [error, setError] = useState('');
   const [previewRoleId, setPreviewRoleId] = useState<string | undefined>();
+  const paramsKey = JSON.stringify(params);
 
   async function load(nextPreviewRoleId = previewRoleId) {
     try {
       setStatus('loading');
       setError('');
       const nextData = nextPreviewRoleId
-        ? await loadDashboardDataForPage(pageNo, nextPreviewRoleId)
-        : await loadDashboardDataForPage(pageNo);
+        ? await loadDashboardDataForPage(pageNo, params, nextPreviewRoleId)
+        : await loadDashboardDataForPage(pageNo, params);
       setData(nextData);
       setStatus('ready');
     } catch (caught) {
@@ -148,7 +165,7 @@ export function useDashboardData(pageNo: string) {
 
   useEffect(() => {
     load();
-  }, [pageNo]);
+  }, [pageNo, paramsKey]);
 
   return { data, status, error, reload: () => load(previewRoleId), selectPreviewRole };
 }

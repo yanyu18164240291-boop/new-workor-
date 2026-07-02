@@ -6,6 +6,7 @@ export type CreatePositionInput = {
   departmentId: string;
   department: string;
   description: string;
+  enabled?: boolean;
   updatedBy: string;
 };
 
@@ -30,7 +31,7 @@ export function createPosition(db: Database, input: CreatePositionInput): Record
     sqlValue(input.departmentId),
     sqlValue(input.department),
     sqlValue(input.description),
-    1,
+    sqlValue(input.enabled ?? true),
     time,
     time,
     sqlValue(input.updatedBy),

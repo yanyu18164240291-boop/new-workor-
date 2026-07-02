@@ -39,6 +39,7 @@ function ensureAuditColumns(db: Database): void {
   addColumnIfMissing(db, 'anonymous_feedbacks', 'handlerName', 'TEXT');
   addColumnIfMissing(db, 'anonymous_feedbacks', 'handledAt', 'TEXT');
   addColumnIfMissing(db, 'anonymous_feedbacks', 'resolutionNote', 'TEXT');
+  addColumnIfMissing(db, 'weekly_feedbacks', 'workSummary', "TEXT NOT NULL DEFAULT ''");
   addColumnIfMissing(db, 'knowledge_base_docs', 'applicableRoleId', "TEXT NOT NULL DEFAULT 'role-product-intern'");
   addColumnIfMissing(db, 'knowledge_base_docs', 'fileSize', 'INTEGER NOT NULL DEFAULT 0');
   addColumnIfMissing(db, 'knowledge_base_docs', 'fileHash', "TEXT NOT NULL DEFAULT 'mock-md5-pending'");
