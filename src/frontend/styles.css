@@ -203,7 +203,7 @@ button {
 
 .admin-workbench-filters label {
   flex: 0 0 auto;
-  padding: 0 10px;
+  padding: 0 8px 0 10px;
   color: #172033;
   font-size: 14px;
   font-weight: 900;
@@ -211,13 +211,23 @@ button {
 }
 
 .admin-workbench-date-filter {
-  flex: 0 0 170px;
-  padding: 0 12px;
+  flex: 0 0 auto;
+  padding: 0 8px 0 10px;
 }
 
 .admin-workbench-filters select {
   appearance: none;
   font-weight: 900;
+}
+
+.admin-workbench-select-filter {
+  gap: 5px;
+}
+
+.admin-workbench-compact-select {
+  width: auto;
+  max-width: 88px;
+  padding: 0;
 }
 
 .admin-workbench-filters input {
@@ -226,8 +236,8 @@ button {
 }
 
 .admin-workbench-date-filter input {
-  width: 136px;
-  padding-right: 2px;
+  width: 122px;
+  padding-right: 0;
   font-variant-numeric: tabular-nums;
 }
 
@@ -644,14 +654,49 @@ button {
 }
 
 .admin-role-info-card {
-  min-height: 148px;
+  min-height: 180px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  grid-template-rows: auto auto 1fr;
+  column-gap: 18px;
+  align-content: start;
 }
 
 .admin-role-info-card .admin-section-heading {
-  margin-bottom: 12px;
+  display: contents;
+}
+
+.admin-role-info-card .admin-section-heading h2 {
+  grid-column: 1;
+  grid-row: 1;
+  margin: 0 0 12px;
+}
+
+.admin-role-info-card .admin-toolbar-actions {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  justify-self: end;
+  align-self: start;
+  width: 280px;
+}
+
+.admin-role-info-card .admin-toolbar-actions select,
+.admin-role-info-card .admin-toolbar-actions button {
+  width: 100%;
+}
+
+.admin-role-info-card .admin-toolbar-actions button {
+  justify-content: flex-start;
+  padding-left: 16px;
+  text-align: left;
 }
 
 .admin-role-info-card .admin-definition-list {
+  grid-column: 1;
+  grid-row: 2;
   max-width: 760px;
   grid-template-columns: 74px minmax(0, 1fr);
   gap: 11px 18px;
@@ -673,19 +718,23 @@ button {
 
 .admin-compact-summary-card {
   align-content: center;
-  justify-items: center;
-  gap: 10px;
-  grid-auto-flow: row;
-  grid-template-columns: 1fr;
-  grid-template-areas: none;
-  text-align: center;
+  align-items: center;
+  justify-items: stretch;
+  gap: 8px 16px;
+  grid-auto-flow: initial;
+  grid-template-columns: 112px minmax(0, 1fr);
+  grid-template-areas:
+    "score title"
+    "score counts";
+  text-align: left;
 }
 
 .admin-compact-summary-card h2 {
-  order: 2;
-  grid-area: auto;
+  order: initial;
+  grid-area: title;
   margin: 0;
-  font-size: 17px;
+  font-size: 18px;
+  line-height: 1.25;
 }
 
 .admin-compact-summary-card p {
@@ -784,35 +833,37 @@ button {
 }
 
 .admin-completeness-ring {
-  width: 94px;
-  height: 94px;
+  width: 108px;
+  height: 112px;
   display: grid;
   place-items: center;
-  order: 1;
-  margin: 0 auto;
-  border: 10px solid #dce8ff;
-  border-top-color: #1f6bff;
-  border-radius: 50%;
+  order: initial;
+  grid-area: score;
+  margin: 0;
+  border: 1px solid #dce6f4;
+  border-radius: 8px;
   color: #172033;
-  font-size: 25px;
+  background: #ffffff;
+  font-size: 34px;
   font-weight: 950;
 }
 
 .admin-package-counts {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 6px;
-  order: 3;
+  gap: 8px;
+  order: initial;
+  grid-area: counts;
   width: 100%;
-  color: #475467;
-  font-size: 13px;
+  color: #172033;
+  font-size: 16px;
   font-weight: 850;
 }
 
 .admin-package-counts span {
   min-width: 0;
-  text-align: center;
-  line-height: 1.25;
+  text-align: left;
+  line-height: 1.35;
   white-space: normal;
 }
 

@@ -43,8 +43,8 @@ describe('newcomer page structure regressions', () => {
     const styles = source('src/frontend/styles.css');
     const weeklyTab = source('src/frontend/pages/AdminConfig/WeeklyFeedbackTab.tsx');
 
-    assert.match(styles, /\.admin-workbench-date-filter\s*\{[\s\S]*flex:\s*0 0 170px/);
-    assert.match(styles, /\.admin-workbench-date-filter input\s*\{[\s\S]*width:\s*136px/);
+    assert.match(styles, /\.admin-workbench-date-filter\s*\{[\s\S]*flex:\s*0 0 auto/);
+    assert.match(styles, /\.admin-workbench-date-filter input\s*\{[\s\S]*width:\s*122px/);
     assert.match(weeklyTab, /key:\s*'sort'[\s\S]*title:\s*'排序'/);
   });
 });

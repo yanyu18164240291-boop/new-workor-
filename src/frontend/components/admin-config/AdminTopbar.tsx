@@ -26,17 +26,17 @@ export function AdminTopbar({ filters, onFiltersChange, reload }: AdminTopbarPro
       </label>
 
       <div className="admin-workbench-filters">
-        <label>
+        <label className="admin-workbench-select-filter">
           组织：
-          <select value={filters.organization} onChange={(event) => updateFilter('organization', event.target.value)}>
+          <select className="admin-workbench-compact-select" value={filters.organization} onChange={(event) => updateFilter('organization', event.target.value)}>
             <option>全部组织</option>
             <option>协同办公部门</option>
           </select>
           <ChevronDown size={14} />
         </label>
-        <label>
+        <label className="admin-workbench-select-filter">
           状态：
-          <select value={filters.status} onChange={(event) => updateFilter('status', event.target.value)}>
+          <select className="admin-workbench-compact-select" value={filters.status} onChange={(event) => updateFilter('status', event.target.value)}>
             <option>全部状态</option>
             <option>启用</option>
             <option>停用</option>
