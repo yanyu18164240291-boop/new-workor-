@@ -1,10 +1,17 @@
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { fileURLToPath } from 'node:url';
 
 export type Database = DatabaseSync;
 
-export function createDatabase(filePath = path.resolve('data/haina-onboarding.db')): Database {
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+
+export function defaultDatabasePath(): string {
+  return path.resolve(process.env.HAINA_DB_PATH ?? path.join(projectRoot, 'data/haina-onboarding.db'));
+}
+
+export function createDatabase(filePath = defaultDatabasePath()): Database {
   if (filePath !== ':memory:') {
     mkdirSync(path.dirname(filePath), { recursive: true });
   }
