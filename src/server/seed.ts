@@ -320,6 +320,15 @@ export function seedWeeklyFeedbackConfig(db: Database): void {
   }
 }
 
+export function seedKnowledgeDocStatusGuard(db: Database): void {
+  db.prepare(
+    `UPDATE knowledge_base_docs
+     SET status = 'disabled', updatedAt = ?, updatedBy = 'demo-admin'
+     WHERE status = 'enabled'
+       AND (COALESCE(parseStatus, '') <> 'parsed' OR COALESCE(vectorStatus, '') <> 'ready')`,
+  ).run(new Date().toISOString());
+}
+
 export function seedAnonymousFeedbackConfig(db: Database): void {
   const existing = db.prepare('SELECT COUNT(*) AS total FROM anonymous_feedback_modules').get() as { total: number };
   if (existing.total > 0) return;

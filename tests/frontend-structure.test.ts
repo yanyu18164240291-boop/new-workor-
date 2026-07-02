@@ -31,4 +31,11 @@ describe('newcomer page structure regressions', () => {
     assert.match(components, /className="step-arrow"/);
     assert.match(components, /step-row-with-arrow/);
   });
+
+  it('keeps StepList keys stable when several steps share the same visible day label', () => {
+    const components = source('src/frontend/components.tsx');
+
+    assert.match(components, /const rowKey = `\$\{step\.no\}-\$\{step\.title\}`/);
+    assert.doesNotMatch(components, /key=\{step\.no\}/);
+  });
 });

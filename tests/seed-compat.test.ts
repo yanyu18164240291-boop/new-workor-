@@ -6,7 +6,13 @@ import { after, describe, it } from 'node:test';
 
 import { createDatabase } from '../src/server/db.ts';
 import { runMigrations } from '../src/server/migrations.ts';
-import { seedD1GuideConfig, seedJoinFeishuOrgTasks, seedSubmittedPermissionFollowUps, seedWeeklyFeedbackConfig } from '../src/server/seed.ts';
+import {
+  seedD1GuideConfig,
+  seedJoinFeishuOrgTasks,
+  seedKnowledgeDocStatusGuard,
+  seedSubmittedPermissionFollowUps,
+  seedWeeklyFeedbackConfig,
+} from '../src/server/seed.ts';
 
 const tempDirs: string[] = [];
 
@@ -261,6 +267,88 @@ describe('seed compatibility helpers', () => {
       );
       assert.ok(questions.some((question) => question.enabled === 1));
       assert.ok(options.length > 0);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('soft-disables enabled knowledge docs that are not parsed and vector ready', async () => {
+    const tempDir = await mkdtemp(path.join(tmpdir(), 'haina-seed-compat-'));
+    tempDirs.push(tempDir);
+    const db = createDatabase(path.join(tempDir, 'test.db'));
+    try {
+      runMigrations(db);
+      db.prepare('INSERT INTO roles (id, name, department, description, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)').run(
+        'role-product-intern',
+        '协同办公产品实习生',
+        '协同办公部门',
+        '知识库外键岗位',
+        '2026-06-24T01:00:00.000Z',
+        '2026-06-24T01:00:00.000Z',
+      );
+      db.prepare(
+        `INSERT INTO knowledge_base_docs
+         (id, title, category, applicableRoleId, applicableRole, applicableStage, ownerName, sourceUrl, fileSize, fileHash, filePath, status, parseStatus, vectorStatus, hitCount, createdAt, updatedAt, updatedBy)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        'kb-legacy-enabled-pending',
+        'Legacy pending enabled doc',
+        '入职知识',
+        'role-product-intern',
+        '协同办公产品实习生',
+        'D1',
+        'demo-admin',
+        'mock-drive://legacy-pending',
+        0,
+        'mock-md5-legacy-pending',
+        'mock-file://legacy-pending.pdf',
+        'enabled',
+        'pending',
+        'ready',
+        0,
+        '2026-06-24T01:00:00.000Z',
+        '2026-06-24T01:00:00.000Z',
+        'legacy-admin',
+      );
+      db.prepare(
+        `INSERT INTO knowledge_base_docs
+         (id, title, category, applicableRoleId, applicableRole, applicableStage, ownerName, sourceUrl, fileSize, fileHash, filePath, status, parseStatus, vectorStatus, hitCount, createdAt, updatedAt, updatedBy)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        'kb-ready-enabled',
+        'Ready enabled doc',
+        '入职知识',
+        'role-product-intern',
+        '协同办公产品实习生',
+        'D1',
+        'demo-admin',
+        'mock-drive://ready',
+        0,
+        'mock-md5-ready',
+        'mock-file://ready.pdf',
+        'enabled',
+        'parsed',
+        'ready',
+        0,
+        '2026-06-24T01:00:00.000Z',
+        '2026-06-24T01:00:00.000Z',
+        'legacy-admin',
+      );
+
+      seedKnowledgeDocStatusGuard(db);
+
+      const pending = db.prepare('SELECT status, updatedBy FROM knowledge_base_docs WHERE id = ?').get('kb-legacy-enabled-pending') as {
+        status: string;
+        updatedBy: string;
+      };
+      const ready = db.prepare('SELECT status, updatedBy FROM knowledge_base_docs WHERE id = ?').get('kb-ready-enabled') as {
+        status: string;
+        updatedBy: string;
+      };
+      assert.equal(pending.status, 'disabled');
+      assert.equal(pending.updatedBy, 'demo-admin');
+      assert.equal(ready.status, 'enabled');
+      assert.equal(ready.updatedBy, 'legacy-admin');
     } finally {
       db.close();
     }

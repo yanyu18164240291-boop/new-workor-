@@ -218,6 +218,7 @@ export function StepList({
     <div className="step-list">
       {steps.map((step) => {
         const rowClass = `step-row ${hideStatus ? 'step-row-no-status' : ''} ${showArrow ? 'step-row-with-arrow' : ''}`;
+        const rowKey = `${step.no}-${step.title}`;
         const content = (
           <>
             <span className={step.status === '已完成' ? 'step-dot done' : step.status === '进行中' ? 'step-dot active' : 'step-dot'}>{step.no}</span>
@@ -230,11 +231,11 @@ export function StepList({
           </>
         );
         return step.onClick ? (
-          <button className={rowClass} key={step.no} onClick={step.onClick}>
+          <button className={rowClass} key={rowKey} onClick={step.onClick}>
             {content}
           </button>
         ) : (
-          <div className={rowClass} key={step.no}>
+          <div className={rowClass} key={rowKey}>
             {content}
           </div>
         );
