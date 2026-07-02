@@ -38,4 +38,13 @@ describe('newcomer page structure regressions', () => {
     assert.match(components, /const rowKey = `\$\{step\.no\}-\$\{step\.title\}`/);
     assert.doesNotMatch(components, /key=\{step\.no\}/);
   });
+
+  it('keeps admin date and weekly sort controls visibly labeled', () => {
+    const styles = source('src/frontend/styles.css');
+    const weeklyTab = source('src/frontend/pages/AdminConfig/WeeklyFeedbackTab.tsx');
+
+    assert.match(styles, /\.admin-workbench-date-filter\s*\{[\s\S]*flex:\s*0 0 170px/);
+    assert.match(styles, /\.admin-workbench-date-filter input\s*\{[\s\S]*width:\s*136px/);
+    assert.match(weeklyTab, /key:\s*'sort'[\s\S]*title:\s*'排序'/);
+  });
 });

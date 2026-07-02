@@ -207,7 +207,7 @@ button {
 }
 
 .admin-workbench-date-filter {
-  flex: 0 0 152px;
+  flex: 0 0 170px;
   padding: 0 12px;
 }
 
@@ -222,7 +222,7 @@ button {
 }
 
 .admin-workbench-date-filter input {
-  width: 118px;
+  width: 136px;
   padding-right: 2px;
   font-variant-numeric: tabular-nums;
 }

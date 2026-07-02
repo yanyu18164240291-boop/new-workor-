@@ -246,6 +246,23 @@ function assertWeeklyChoiceQuestionsHaveEnabledOption(db: Parameters<RouteMatch[
   }
 }
 
+function normalizeWeeklyQuestionSortOrders(db: Parameters<RouteMatch['handler']>[0]['db'], prioritizedIds: string[], time: string, actor: string): void {
+  const priority = new Map(prioritizedIds.map((id, index) => [id, index]));
+  const rows = db.prepare('SELECT id, sortOrder FROM weekly_feedback_questions').all() as Array<{ id: string; sortOrder: number }>;
+  const ordered = [...rows].sort((left, right) => {
+    const bySort = Number(left.sortOrder) - Number(right.sortOrder);
+    if (bySort !== 0) return bySort;
+    const leftPriority = priority.get(left.id) ?? Number.MAX_SAFE_INTEGER;
+    const rightPriority = priority.get(right.id) ?? Number.MAX_SAFE_INTEGER;
+    if (leftPriority !== rightPriority) return leftPriority - rightPriority;
+    return left.id.localeCompare(right.id);
+  });
+  const update = db.prepare('UPDATE weekly_feedback_questions SET sortOrder = ?, updatedAt = ?, updatedBy = ? WHERE id = ?');
+  ordered.forEach((row, index) => {
+    update.run(index + 1, time, actor, row.id);
+  });
+}
+
 function assertWeeklyInputType(value: unknown): 'single' | 'multi' | 'text' {
   if (value === 'single' || value === 'multi' || value === 'text') return value;
   throw badRequest('inputType is invalid');
@@ -559,6 +576,8 @@ export const updateWeeklyFeedbackConfig: RouteMatch['handler'] = async ({ db, re
         const body = await readBody(request);
         const questions = Array.isArray(body.questions) ? (body.questions as Array<Record<string, unknown>>) : [];
         const time = nowIso();
+        const actor = adminActor(body);
+        const sortOrderUpdates: string[] = [];
         assertWeeklyConfigStillHasQuestion(db, questions);
         assertWeeklyChoiceQuestionsHaveEnabledOption(db, questions);
         for (const question of questions) {
@@ -570,9 +589,10 @@ export const updateWeeklyFeedbackConfig: RouteMatch['handler'] = async ({ db, re
             db.prepare('UPDATE weekly_feedback_questions SET sortOrder = ?, updatedAt = ?, updatedBy = ? WHERE id = ?').run(
               sortOrder,
               time,
-              adminActor(body),
+              actor,
               id,
             );
+            sortOrderUpdates.push(id);
           }
           if ('title' in question) {
             const title = requiredString(question, 'title');
@@ -583,7 +603,7 @@ export const updateWeeklyFeedbackConfig: RouteMatch['handler'] = async ({ db, re
               'maxLength' in question ? (question.maxLength === null ? null : Number(question.maxLength)) : sqlValue((db.prepare('SELECT maxLength FROM weekly_feedback_questions WHERE id = ?').get(id) as { maxLength?: number | null }).maxLength),
               'enabled' in question ? boolToDb(question.enabled) : sqlValue((db.prepare('SELECT enabled FROM weekly_feedback_questions WHERE id = ?').get(id) as { enabled: number }).enabled),
               time,
-              adminActor(body),
+              actor,
               id,
             );
           }
@@ -599,7 +619,7 @@ export const updateWeeklyFeedbackConfig: RouteMatch['handler'] = async ({ db, re
                     'enabled' in option ? boolToDb(option.enabled) : sqlValue((db.prepare('SELECT enabled FROM weekly_feedback_options WHERE id = ?').get(optionId) as { enabled: number }).enabled),
                     'sortOrder' in option ? Number(option.sortOrder) : sqlValue((db.prepare('SELECT sortOrder FROM weekly_feedback_options WHERE id = ?').get(optionId) as { sortOrder: number }).sortOrder),
                     time,
-                    adminActor(body),
+                    actor,
                     optionId,
                     id,
                   );
@@ -618,12 +638,15 @@ export const updateWeeklyFeedbackConfig: RouteMatch['handler'] = async ({ db, re
                     'sortOrder' in option ? Number(option.sortOrder) : 99,
                     time,
                     time,
-                    adminActor(body),
+                    actor,
                   );
                 }
               }
             }
           }
+        }
+        if (sortOrderUpdates.length > 0) {
+          normalizeWeeklyQuestionSortOrders(db, sortOrderUpdates, time, actor);
         }
         return { data: getAdminWeeklyFeedbackConfig(db) };
       };

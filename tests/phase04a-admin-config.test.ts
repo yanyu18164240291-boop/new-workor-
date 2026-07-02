@@ -702,6 +702,9 @@ describe('Phase 04A writable admin configuration', () => {
     const adminEnabledOrder = reordered.body.data.questions.filter((question) => question.enabled).map((question) => question.id);
     assert.equal(adminEnabledOrder[0], last.id);
     assert.equal(adminEnabledOrder[1], first.id);
+    const sortOrders = reordered.body.data.questions.map((question) => question.sortOrder);
+    assert.deepEqual(sortOrders, [...sortOrders].sort((left, right) => left - right));
+    assert.equal(new Set(sortOrders).size, sortOrders.length);
 
     const newcomer = await requestJson<{ data: { questions: Array<{ id: string }> } }>('/api/weekly-feedback-config');
     assert.equal(newcomer.body.data.questions[0].id, last.id);

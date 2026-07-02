@@ -297,7 +297,7 @@ export function WeeklyFeedbackTab({ data, filters, toast, reload }: WeeklyFeedba
   const columns: Array<DataTableColumn<WeeklyFeedbackQuestion>> = [
     {
       key: 'sort',
-      title: '',
+      title: '排序',
       render: (question) => {
         const visibleIndex = filteredQuestions.findIndex((item) => item.id === question.id);
         return (
