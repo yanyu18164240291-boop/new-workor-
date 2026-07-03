@@ -1,3 +1,6 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { createApiServer } from './app.ts';
 import { createDatabase } from './db.ts';
 import { runMigrations } from './migrations.ts';
@@ -11,6 +14,8 @@ import {
   seedSubmittedPermissionFollowUps,
   seedWeeklyFeedbackConfig,
 } from './seed.ts';
+
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 const db = createDatabase();
 runMigrations(db);
@@ -28,5 +33,10 @@ seedAnonymousFeedbackConfig(db);
 seedKnowledgeDocStatusGuard(db);
 seedManagerFeedbackActions(db);
 
-const server = await createApiServer({ db, port: Number(process.env.API_PORT ?? 4000) });
-console.log(`Haina onboarding API listening at ${server.baseUrl}`);
+const server = await createApiServer({
+  db,
+  port: Number(process.env.PORT ?? process.env.API_PORT ?? 4000),
+  host: '0.0.0.0',
+  staticDir: path.join(projectRoot, 'dist'),
+});
+console.log(`Haina onboarding app listening at ${server.baseUrl}`);
