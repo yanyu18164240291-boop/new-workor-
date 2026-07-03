@@ -2001,9 +2001,8 @@ button {
 .home-fixed-chat .quick-chip-row button {
   min-width: 0;
   flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.25;
+  white-space: normal;
 }
 
 .home-chat-input-row {

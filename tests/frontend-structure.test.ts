@@ -47,4 +47,12 @@ describe('newcomer page structure regressions', () => {
     assert.match(styles, /\.admin-workbench-date-filter input\s*\{[\s\S]*width:\s*122px/);
     assert.match(weeklyTab, /key:\s*'sort'[\s\S]*title:\s*'排序'/);
   });
+
+  it('lets home quick question chips wrap instead of clipping long labels', () => {
+    const styles = source('src/frontend/styles.css');
+    const homeChipButtonRule = styles.match(/\.home-fixed-chat \.quick-chip-row button\s*\{[\s\S]*?\}/)?.[0] ?? '';
+
+    assert.doesNotMatch(homeChipButtonRule, /white-space:\s*nowrap/);
+    assert.doesNotMatch(homeChipButtonRule, /text-overflow:\s*ellipsis/);
+  });
 });

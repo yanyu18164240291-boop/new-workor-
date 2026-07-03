@@ -112,8 +112,11 @@ Implement in this order:
 5. `docs/specs/phase-04-admin-and-review.md`
 6. `docs/specs/phase-05-manager-flow.md`
 7. `docs/specs/phase-06-final-qa.md`
+8. `docs/specs/phase-07-deployment-pilot-readiness.md`
 
 Each phase must leave the app runnable and visually coherent.
+
+Phase 07 is deployment pilot readiness. It prepares runtime, access, database, backup, and runbook decisions for a small internal pilot. It must not connect real Feishu, approval, RAG, upload, or message-sending integrations unless the user explicitly approves a new integration phase.
 
 ## Implementation Discipline
 
@@ -137,3 +140,4 @@ Commit after each phase reaches its acceptance criteria:
 - `feat: implement admin config and review pages`
 - `feat: implement manager feedback workflow`
 - `test: complete final h5 qa pass`
+- `chore: prepare pilot deployment readiness`
