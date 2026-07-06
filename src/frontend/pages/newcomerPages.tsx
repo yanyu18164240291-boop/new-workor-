@@ -86,12 +86,67 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
   const [homeChatMessages, setHomeChatMessages] = useState<HomeChatMessage[]>([]);
   const [isHomeChatActive, setIsHomeChatActive] = useState(false);
   const [progressCollapsed, setProgressCollapsed] = useState(true);
+  const [activeHomePanel, setActiveHomePanel] = useState<'search' | 'history' | null>(null);
+  const [homeSearchQuery, setHomeSearchQuery] = useState('');
+  const [selectedHistory, setSelectedHistory] = useState('current');
+  const [showAttachSheet, setShowAttachSheet] = useState(false);
   const homeOpeningMessage: HomeChatMessage = {
     id: 'home-opening-message',
     role: 'bot',
     text: '你好呀！我是海纳AI入职Bot 👋 我会陪你完成入职第一周：先知道今天做什么，再处理岗位权限，提交后我会在 4 个工作小时内回访。',
   };
   const visibleHomeChatMessages = isHomeChatActive ? [homeOpeningMessage, ...homeChatMessages] : homeChatMessages;
+  const searchableMessages = [homeOpeningMessage, ...homeChatMessages];
+  const homeSearchResults = searchableMessages.filter((message) => {
+    const query = homeSearchQuery.trim().toLowerCase();
+    return !query || message.text.toLowerCase().includes(query);
+  });
+  const homeHistoryItems = [
+    {
+      id: 'current',
+      title: homeChatMessages.length > 0 ? '当前对话' : '当前对话（待开始）',
+      time: '刚刚',
+      messages: searchableMessages,
+    },
+    {
+      id: 'chatgpt-account',
+      title: 'ChatGPT账号申请方式',
+      time: '今天 09:35',
+      messages: [
+        { id: 'history-chatgpt-user', role: 'user', text: 'ChatGPT账号怎么申请？' },
+        { id: 'history-chatgpt-bot', role: 'bot', text: '从首页进入“权限申请”，打开 ChatGPT 账号详情，复制申请理由后提交审批。' },
+      ] as HomeChatMessage[],
+    },
+    {
+      id: 'oa-login',
+      title: 'OA系统登录问题',
+      time: '昨天 17:20',
+      messages: [
+        { id: 'history-oa-user', role: 'user', text: 'OA系统怎么登录？' },
+        { id: 'history-oa-bot', role: 'bot', text: '先完成 D1 引导和部门群加入，再按权限包里的入口登录；失败时联系权限 Owner。' },
+      ] as HomeChatMessage[],
+    },
+  ];
+  const selectedHistoryMessages = homeHistoryItems.find((item) => item.id === selectedHistory)?.messages ?? searchableMessages;
+
+  useEffect(() => {
+    const openSearch = () => {
+      setIsHomeChatActive(true);
+      setActiveHomePanel('search');
+      setShowAttachSheet(false);
+    };
+    const openHistory = () => {
+      setIsHomeChatActive(true);
+      setActiveHomePanel('history');
+      setShowAttachSheet(false);
+    };
+    window.addEventListener('haina-home-search', openSearch);
+    window.addEventListener('haina-home-history', openHistory);
+    return () => {
+      window.removeEventListener('haina-home-search', openSearch);
+      window.removeEventListener('haina-home-history', openHistory);
+    };
+  }, []);
 
   function handleSendHomeChat() {
     const question = answer.trim();
@@ -105,6 +160,12 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
       { id: `${Date.now()}-bot`, role: 'bot', text: reply },
     ]);
     setAnswer('');
+  }
+
+  function handleOpenAttachmentSheet() {
+    setIsHomeChatActive(true);
+    setActiveHomePanel(null);
+    setShowAttachSheet((value) => !value);
   }
 
   return (
@@ -149,6 +210,54 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
         </Card>
       </div>
       <div className={`home-fixed-chat${isHomeChatActive ? ' home-fixed-chat-chatting' : ''}`}>
+        {activeHomePanel === 'search' && (
+          <div className="home-chat-panel home-search-panel">
+            <div className="home-panel-head">
+              <strong>搜索对话</strong>
+              <button type="button" onClick={() => setActiveHomePanel(null)}>关闭</button>
+            </div>
+            <input
+              autoFocus
+              value={homeSearchQuery}
+              placeholder="搜索你问过的问题或 Bot 答案"
+              onChange={(event) => setHomeSearchQuery(event.target.value)}
+            />
+            <div className="home-panel-list">
+              {homeSearchResults.map((message) => (
+                <button type="button" key={message.id} onClick={() => setActiveHomePanel(null)}>
+                  <span>{message.role === 'bot' ? 'Bot' : '我'}</span>
+                  <p>{message.text}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {activeHomePanel === 'history' && (
+          <div className="home-chat-panel home-history-panel">
+            <div className="home-panel-head">
+              <strong>历史对话</strong>
+              <button type="button" onClick={() => setActiveHomePanel(null)}>关闭</button>
+            </div>
+            <div className="home-history-layout">
+              <div className="home-history-list">
+                {homeHistoryItems.map((item) => (
+                  <button className={item.id === selectedHistory ? 'active' : ''} type="button" key={item.id} onClick={() => setSelectedHistory(item.id)}>
+                    <strong>{item.title}</strong>
+                    <span>{item.time}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="home-history-detail">
+                {selectedHistoryMessages.map((message) => (
+                  <p key={message.id}>
+                    <strong>{message.role === 'bot' ? 'Bot' : '我'}：</strong>
+                    {message.text}
+                  </p>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
         {visibleHomeChatMessages.length > 0 && (
           <div className="home-chat-thread" aria-live="polite">
             {visibleHomeChatMessages.map((message) => (
@@ -159,6 +268,28 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
                 <div className="home-chat-message-bubble">{message.text}</div>
               </div>
             ))}
+          </div>
+        )}
+        {showAttachSheet && (
+          <div className="home-attach-sheet">
+            <div className="home-panel-head">
+              <strong>添加内容</strong>
+              <button type="button" onClick={() => setShowAttachSheet(false)}>关闭</button>
+            </div>
+            <div className="home-attach-grid">
+              {[
+                ['图片', '上传截图或照片'],
+                ['文件', '上传申请材料'],
+                ['拍照', '调用相机拍摄'],
+                ['云文档', '选择飞书文档'],
+              ].map(([title, desc]) => (
+                <button type="button" key={title} onClick={() => setShowAttachSheet(false)}>
+                  <strong>{title}</strong>
+                  <span>{desc}</span>
+                </button>
+              ))}
+            </div>
+            <p>演示版仅展示入口，不会真实上传、解析或调用知识库。</p>
           </div>
         )}
         <div className="quick-chip-row">
@@ -172,7 +303,7 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
           ))}
         </div>
         <div className="home-chat-input-row">
-          <button type="button">＋</button>
+          <button type="button" onClick={handleOpenAttachmentSheet}>＋</button>
           <input
             value={answer}
             placeholder="请输入你的问题，例如：ChatGPT账号怎么申请？"

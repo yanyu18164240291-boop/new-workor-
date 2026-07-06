@@ -55,4 +55,17 @@ describe('newcomer page structure regressions', () => {
     assert.doesNotMatch(homeChipButtonRule, /white-space:\s*nowrap/);
     assert.doesNotMatch(homeChipButtonRule, /text-overflow:\s*ellipsis/);
   });
+
+  it('keeps cached surface data visible while background refresh runs', () => {
+    const state = source('src/frontend/appState.ts');
+    const app = source('src/frontend/App.tsx');
+
+    assert.match(state, /const dashboardDataCache = new Map<string, DashboardData>\(\)/);
+    assert.match(state, /getDashboardCacheKey/);
+    assert.match(state, /cachedData/);
+    assert.match(state, /setStatus\('loading'\)/);
+    assert.match(state, /if \(!cachedData\) \{/);
+    assert.match(app, /const canRenderContent = status === 'ready' \|\| Boolean\(data\.__staleWhileRevalidate\)/);
+    assert.match(app, /<LoadingState status=\{canRenderContent \? 'ready' : status\} error=\{error\} \/>/);
+  });
 });

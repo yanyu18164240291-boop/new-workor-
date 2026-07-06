@@ -35,4 +35,5 @@ export type DashboardData = {
   anonymousConfig?: AnonymousFeedbackConfig;
   anonymous?: AnonymousFeedback[];
   d1GuideConfig?: D1GuideConfig;
+  __staleWhileRevalidate?: boolean;
 };

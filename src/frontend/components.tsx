@@ -73,7 +73,19 @@ export function PhoneFrame({ children }: { children: ReactNode }) {
   );
 }
 
-export function AppHeader({ route, subtitle, navigate }: { route: PageRoute; subtitle?: string; navigate: Navigate }) {
+export function AppHeader({
+  route,
+  subtitle,
+  navigate,
+  onHomeSearch,
+  onHomeHistory,
+}: {
+  route: PageRoute;
+  subtitle?: string;
+  navigate: Navigate;
+  onHomeSearch?: () => void;
+  onHomeHistory?: () => void;
+}) {
   if (route.pageNo === '01') {
     return (
       <header className="app-header app-header-home">
@@ -85,10 +97,10 @@ export function AppHeader({ route, subtitle, navigate }: { route: PageRoute; sub
           <p>{subtitle ?? route.purpose}</p>
         </div>
         <div className="header-actions">
-          <button className="plain-icon" aria-label="搜索">
+          <button className="plain-icon" aria-label="搜索" onClick={onHomeSearch}>
             <Search size={17} />
           </button>
-          <button className="plain-icon" aria-label="更多">
+          <button className="plain-icon" aria-label="更多" onClick={onHomeHistory}>
             <MoreHorizontal size={18} />
           </button>
         </div>

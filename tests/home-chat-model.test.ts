@@ -69,4 +69,23 @@ describe('newcomer home chat input', () => {
     assert.doesNotMatch(styles, /\.status-bar/);
     assert.doesNotMatch(styles, /\.status-icons/);
   });
+
+  it('wires home search, history, and attachment actions to visible panels', () => {
+    const page = source('src/frontend/pages/newcomerPages.tsx');
+    const components = source('src/frontend/components.tsx');
+    const styles = source('src/frontend/styles.css');
+
+    assert.match(components, /onHomeSearch/);
+    assert.match(components, /onHomeHistory/);
+    assert.match(page, /homeSearchQuery/);
+    assert.match(page, /homeSearchResults/);
+    assert.match(page, /homeHistoryItems/);
+    assert.match(page, /selectedHistory/);
+    assert.match(page, /showAttachSheet/);
+    assert.match(page, /home-chat-panel home-search-panel/);
+    assert.match(page, /home-chat-panel home-history-panel/);
+    assert.match(page, /home-attach-sheet/);
+    assert.match(styles, /\.home-chat-panel\s*\{/);
+    assert.match(styles, /\.home-attach-grid\s*\{/);
+  });
 });

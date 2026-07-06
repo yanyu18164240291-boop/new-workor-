@@ -2024,6 +2024,167 @@ button {
   padding: 0 2px;
 }
 
+.home-chat-panel {
+  flex: 0 0 auto;
+  margin-bottom: 10px;
+  padding: 10px;
+  border: 1px solid #dce8f8;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 14px 30px rgba(21, 43, 80, 0.12);
+}
+
+.home-attach-sheet {
+  flex: 0 0 auto;
+  margin-bottom: 10px;
+  padding: 10px;
+  border: 1px solid #dce8f8;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 14px 30px rgba(21, 43, 80, 0.12);
+}
+
+.home-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.home-panel-head strong {
+  color: #162033;
+  font-size: 13px;
+}
+
+.home-panel-head button {
+  border: 0;
+  color: #3370ff;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.home-search-panel input {
+  width: 100%;
+  height: 36px;
+  margin-bottom: 8px;
+  border: 1px solid #dce6f4;
+  border-radius: 12px;
+  padding: 0 10px;
+  outline: none;
+  color: #1f2937;
+  background: #f8fbff;
+  font-size: 12px;
+}
+
+.home-panel-list,
+.home-history-detail {
+  max-height: 110px;
+  overflow-y: auto;
+}
+
+.home-panel-list button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: 8px;
+  padding: 8px 0;
+  border: 0;
+  border-top: 1px solid #edf2f9;
+  text-align: left;
+  background: transparent;
+}
+
+.home-panel-list span,
+.home-history-list span {
+  color: #8a94a6;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.home-panel-list p {
+  margin: 0;
+  color: #27364f;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.home-history-layout {
+  display: grid;
+  grid-template-columns: 112px 1fr;
+  gap: 10px;
+}
+
+.home-history-list {
+  display: grid;
+  gap: 7px;
+}
+
+.home-history-list button {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border: 1px solid #e6edf7;
+  border-radius: 10px;
+  text-align: left;
+  background: #f8fbff;
+}
+
+.home-history-list button.active {
+  border-color: #3370ff;
+  background: #eef5ff;
+}
+
+.home-history-list strong {
+  overflow: hidden;
+  color: #162033;
+  font-size: 11px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-history-detail p {
+  margin: 0 0 8px;
+  color: #27364f;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.home-attach-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.home-attach-grid button {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  padding: 10px 6px;
+  border: 1px solid #dce8f8;
+  border-radius: 12px;
+  text-align: center;
+  background: #f8fbff;
+}
+
+.home-attach-grid strong {
+  color: #172033;
+  font-size: 12px;
+}
+
+.home-attach-grid span,
+.home-attach-sheet p {
+  color: #8a94a6;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.home-attach-sheet p {
+  margin: 8px 0 0;
+}
+
 .home-chat-message {
   width: 100%;
   display: flex;

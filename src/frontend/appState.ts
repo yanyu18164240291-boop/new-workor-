@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { api, formatApiErrorMessage, isApiClientError } from './api.ts';
 import type { DashboardData } from './dashboardData.ts';
@@ -23,6 +23,15 @@ export function usePathname() {
 
 const newcomerPageNos = new Set(['01', '02', '03', '04', '05', '06', '07']);
 const managerPageNos = new Set(['10', '11', '12']);
+const dashboardDataCache = new Map<string, DashboardData>();
+
+function getDashboardCacheKey(pageNo: string, params: Record<string, string>, previewRoleId?: string) {
+  if (newcomerPageNos.has(pageNo)) return `newcomer:${previewRoleId ?? 'default'}`;
+  if (pageNo === '08') return 'admin-config';
+  if (pageNo === '09') return 'review';
+  if (managerPageNos.has(pageNo)) return `manager:${pageNo}:${JSON.stringify(params)}`;
+  return `page:${pageNo}:${JSON.stringify(params)}`;
+}
 
 async function loadNewcomerSurfaceData(previewRoleId?: string): Promise<DashboardData> {
   const [newcomer, roles] = await Promise.all([api.getNewcomer(DEMO_NEWCOMER_ID), api.getRoles()]);
@@ -141,20 +150,33 @@ export function useDashboardData(pageNo: string, params: Record<string, string> 
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [error, setError] = useState('');
   const [previewRoleId, setPreviewRoleId] = useState<string | undefined>();
+  const loadVersionRef = useRef(0);
   const paramsKey = JSON.stringify(params);
 
   async function load(nextPreviewRoleId = previewRoleId) {
+    const requestVersion = loadVersionRef.current + 1;
+    loadVersionRef.current = requestVersion;
+    const cacheKey = getDashboardCacheKey(pageNo, params, nextPreviewRoleId);
+    const cachedData = dashboardDataCache.get(cacheKey);
     try {
-      setStatus('loading');
+      if (!cachedData) {
+        setStatus('loading');
+      } else {
+        setData({ ...cachedData, __staleWhileRevalidate: true });
+        setStatus('ready');
+      }
       setError('');
       const nextData = nextPreviewRoleId
         ? await loadDashboardDataForPage(pageNo, params, nextPreviewRoleId)
         : await loadDashboardDataForPage(pageNo, params);
-      setData(nextData);
+      if (loadVersionRef.current !== requestVersion) return;
+      dashboardDataCache.set(cacheKey, nextData);
+      setData({ ...nextData, __staleWhileRevalidate: false });
       setStatus('ready');
     } catch (caught) {
+      if (loadVersionRef.current !== requestVersion) return;
       setError(formatApiErrorMessage(caught));
-      setStatus('error');
+      setStatus(cachedData ? 'ready' : 'error');
     }
   }
 
