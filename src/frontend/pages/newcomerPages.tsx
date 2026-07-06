@@ -88,6 +88,7 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
   const [progressCollapsed, setProgressCollapsed] = useState(true);
   const [activeHomePanel, setActiveHomePanel] = useState<'search' | 'history' | null>(null);
   const [homeSearchQuery, setHomeSearchQuery] = useState('');
+  const [dismissedHomeSearchRecordIds, setDismissedHomeSearchRecordIds] = useState<string[]>([]);
   const [showAttachSheet, setShowAttachSheet] = useState(false);
   const homeOpeningMessage: HomeChatMessage = {
     id: 'home-opening-message',
@@ -128,6 +129,9 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
   ];
   const homeShortcutItems = getHomeShortcutItems();
   const homeSearchRecordItems = homeHistoryItems.filter((item) => item.id !== 'current');
+  const visibleHomeSearchRecords = (homeSearchQuery ? homeSearchResults : homeSearchRecordItems).filter(
+    (item) => !dismissedHomeSearchRecordIds.includes(item.id),
+  );
   const homeAttachActions = [
     { key: 'image', label: '图片', icon: 'image', tone: 'blue' },
     { key: 'camera', label: '拍照', icon: 'camera', tone: 'default' },
@@ -191,13 +195,23 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
             <button type="button" onClick={() => setActiveHomePanel(null)}>取消</button>
           </div>
           <div className="home-search-records">
-            {(homeSearchQuery ? homeSearchResults : homeSearchRecordItems).map((item) => (
-              <button type="button" key={item.id} onClick={() => {
-                setHomeSearchQuery('messages' in item ? item.messages[0]?.text ?? item.title : item.text);
-              }}>
-                <span aria-hidden="true">↺</span>
-                <strong>{'title' in item ? item.title : item.text}</strong>
-              </button>
+            {visibleHomeSearchRecords.map((item) => (
+              <div className="home-search-record-row" key={item.id}>
+                <button className="home-search-record-main" type="button" onClick={() => {
+                  setHomeSearchQuery('messages' in item ? item.messages[0]?.text ?? item.title : item.text);
+                }}>
+                  <span className="home-search-history-icon" aria-hidden="true" />
+                  <strong>{'title' in item ? item.title : item.text}</strong>
+                </button>
+                <button
+                  aria-label="删除历史搜索"
+                  className="home-search-record-remove"
+                  type="button"
+                  onClick={() => setDismissedHomeSearchRecordIds((ids) => [...ids, item.id])}
+                >
+                  <span aria-hidden="true">×</span>
+                </button>
+              </div>
             ))}
           </div>
         </div>
@@ -230,8 +244,8 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
             </div>
             {homeHistoryItems.map((item) => (
               <button type="button" key={item.id} onClick={() => setActiveHomePanel(null)}>
-                <strong>{item.title}</strong>
-                <span>{item.time}</span>
+                <strong className="home-side-record-main">{item.title}</strong>
+                <span className="home-side-record-meta">{item.time}</span>
               </button>
             ))}
           </div>

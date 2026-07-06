@@ -99,6 +99,25 @@ describe('newcomer home chat input', () => {
     assert.match(styles, /\.home-attach-option-icon\s*\{/);
   });
 
+  it('keeps search and history records aligned to Feishu list typography', () => {
+    const page = source('src/frontend/pages/newcomerPages.tsx');
+    const styles = source('src/frontend/styles.css');
+
+    assert.match(page, /home-search-history-icon/);
+    assert.match(page, /home-search-record-remove/);
+    assert.match(page, /home-side-record-main/);
+    assert.match(page, /home-side-record-meta/);
+    assert.match(styles, /\.home-search-shell button\s*\{[\s\S]*?font-size:\s*15px/);
+    assert.match(styles, /\.home-search-shell button\s*\{[\s\S]*?font-weight:\s*500/);
+    assert.match(styles, /\.home-search-record-row\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) 28px/);
+    assert.match(styles, /\.home-search-record-main\s*\{[\s\S]*?grid-template-columns:\s*24px minmax\(0, 1fr\)/);
+    assert.match(styles, /\.home-search-records strong\s*\{[\s\S]*?font-size:\s*15px/);
+    assert.match(styles, /\.home-search-records strong\s*\{[\s\S]*?font-weight:\s*500/);
+    assert.match(styles, /\.home-side-record-main\s*\{[\s\S]*?font-size:\s*15px/);
+    assert.match(styles, /\.home-side-record-main\s*\{[\s\S]*?font-weight:\s*500/);
+    assert.match(styles, /\.home-side-record-meta\s*\{[\s\S]*?font-size:\s*12px/);
+  });
+
   it('moves preset questions from the bottom dock into the focused chat body', () => {
     const page = source('src/frontend/pages/newcomerPages.tsx');
     const styles = source('src/frontend/styles.css');
