@@ -2005,6 +2005,37 @@ button {
   white-space: normal;
 }
 
+.home-chat-thread {
+  max-height: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+  overflow-y: auto;
+}
+
+.home-chat-message {
+  max-width: 86%;
+  padding: 8px 10px;
+  border-radius: 14px;
+  font-size: 12px;
+  line-height: 1.45;
+  box-shadow: 0 8px 18px rgba(20, 39, 80, 0.08);
+}
+
+.home-chat-message-user {
+  align-self: flex-end;
+  color: #ffffff;
+  background: #3370ff;
+}
+
+.home-chat-message-bot {
+  align-self: flex-start;
+  color: #27364f;
+  border: 1px solid #dce8f8;
+  background: #ffffff;
+}
+
 .home-chat-input-row {
   display: grid;
   grid-template-columns: 42px 1fr 54px;

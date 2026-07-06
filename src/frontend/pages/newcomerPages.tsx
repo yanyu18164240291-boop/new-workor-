@@ -14,6 +14,7 @@ import {
   StepList,
 } from '../components.tsx';
 import type { DashboardData } from '../dashboardData.ts';
+import { buildHomeBotReply, type HomeChatMessage } from '../homeChatModel.ts';
 import { buildHomeProgressStats } from '../homeProgress.ts';
 import { getHomeQuickQuestions, getHomeShortcutItems } from '../routes.ts';
 import {
@@ -82,7 +83,22 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
   const progressByPermission = new Map((data.progress ?? []).map((item) => [item.permissionItemId, item]));
   const progressItems = [...(data.package?.requiredPermissions ?? []), ...(data.package?.optionalPermissions ?? [])].slice(0, 4);
   const [answer, setAnswer] = useState('');
+  const [homeChatMessages, setHomeChatMessages] = useState<HomeChatMessage[]>([]);
   const [progressCollapsed, setProgressCollapsed] = useState(false);
+
+  function handleSendHomeChat() {
+    const question = answer.trim();
+    const reply = buildHomeBotReply(question);
+    if (!question || !reply) return;
+
+    setHomeChatMessages((messages) => [
+      ...messages.slice(-4),
+      { id: `${Date.now()}-user`, role: 'user', text: question },
+      { id: `${Date.now()}-bot`, role: 'bot', text: reply },
+    ]);
+    setAnswer('');
+  }
+
   return (
     <>
       <div className="home-content-pad">
@@ -121,6 +137,15 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
         </Card>
       </div>
       <div className="home-fixed-chat">
+        {homeChatMessages.length > 0 && (
+          <div className="home-chat-thread" aria-live="polite">
+            {homeChatMessages.map((message) => (
+              <div className={`home-chat-message home-chat-message-${message.role}`} key={message.id}>
+                {message.text}
+              </div>
+            ))}
+          </div>
+        )}
         <div className="quick-chip-row">
           {getHomeQuickQuestions().map((question) => (
             <button key={question} onClick={() => setAnswer(question)}>
@@ -129,16 +154,18 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
           ))}
         </div>
         <div className="home-chat-input-row">
-          <button>＋</button>
-          <input readOnly value={answer} placeholder="请输入你的问题，例如：ChatGPT账号怎么申请？" />
-          <button onClick={() => setAnswer('ChatGPT账号怎么申请？')}>发送</button>
+          <button type="button">＋</button>
+          <input
+            value={answer}
+            placeholder="请输入你的问题，例如：ChatGPT账号怎么申请？"
+            onChange={(event) => setAnswer(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') handleSendHomeChat();
+            }}
+          />
+          <button type="button" onClick={handleSendHomeChat}>发送</button>
         </div>
       </div>
-      {answer && (
-        <SectionCard title="ChatGPT账号申请方式">
-          <p>你需要在“权限申请”中进入对应权限详情，复制申请理由后提交审批。提交后回到详情页点击“我已提交”，首页进度会同步更新。</p>
-        </SectionCard>
-      )}
     </>
   );
 }
