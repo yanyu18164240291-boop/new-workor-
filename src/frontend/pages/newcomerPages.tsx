@@ -287,18 +287,19 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
                 <div className="home-chat-message-bubble">{message.text}</div>
               </div>
             ))}
+            {isHomeChatActive && homeChatMessages.length === 0 && (
+              <div className="home-suggested-questions">
+                {getHomeQuickQuestions().map((question) => (
+                  <button className="home-suggested-question-card" type="button" key={question} onClick={() => setAnswer(question)}>
+                    <span aria-hidden="true">#</span>
+                    <strong>{question}</strong>
+                    <i aria-hidden="true" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
-        <div className="quick-chip-row">
-          {getHomeQuickQuestions().map((question) => (
-            <button key={question} onClick={() => {
-              setIsHomeChatActive(true);
-              setAnswer(question);
-            }}>
-              {question}
-            </button>
-          ))}
-        </div>
         <div className="home-chat-input-row">
           <button type="button" onClick={handleOpenAttachmentSheet}>＋</button>
           <input

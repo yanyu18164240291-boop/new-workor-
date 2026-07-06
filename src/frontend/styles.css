@@ -2222,23 +2222,6 @@ button {
   background: #f3f6fb;
 }
 
-.home-fixed-chat .quick-chip-row {
-  margin-bottom: 7px;
-  flex-wrap: nowrap;
-  overflow: hidden;
-}
-
-.home-fixed-chat-chatting .quick-chip-row {
-  display: none;
-}
-
-.home-fixed-chat .quick-chip-row button {
-  min-width: 0;
-  flex: 1;
-  line-height: 1.25;
-  white-space: normal;
-}
-
 .home-chat-thread {
   max-height: 120px;
   display: flex;
@@ -2443,6 +2426,55 @@ button {
   gap: 6px;
   font-size: 12px;
   line-height: 1.45;
+}
+
+.home-suggested-questions {
+  display: grid;
+  gap: 10px;
+  margin: 34px 20px 0 34px;
+}
+
+.home-suggested-question-card {
+  min-height: 54px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #e7eef8;
+  border-radius: 14px;
+  padding: 10px 12px;
+  color: #172033;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 10px 24px rgba(21, 43, 80, 0.07);
+}
+
+.home-suggested-question-card span {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: #ffffff;
+  background: #6b45d9;
+  font-size: 20px;
+  font-weight: 950;
+}
+
+.home-suggested-question-card strong {
+  min-width: 0;
+  color: #172033;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.home-suggested-question-card i {
+  width: 8px;
+  height: 8px;
+  justify-self: end;
+  transform: rotate(45deg);
+  border-top: 2px solid #a8b2c3;
+  border-right: 2px solid #a8b2c3;
 }
 
 .home-chat-avatar {

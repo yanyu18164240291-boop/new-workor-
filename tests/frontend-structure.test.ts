@@ -48,12 +48,13 @@ describe('newcomer page structure regressions', () => {
     assert.match(weeklyTab, /key:\s*'sort'[\s\S]*title:\s*'排序'/);
   });
 
-  it('lets home quick question chips wrap instead of clipping long labels', () => {
+  it('keeps home preset questions in focused chat cards without bottom dock styling', () => {
     const styles = source('src/frontend/styles.css');
-    const homeChipButtonRule = styles.match(/\.home-fixed-chat \.quick-chip-row button\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    const questionCardRule = styles.match(/\.home-suggested-question-card strong\s*\{[\s\S]*?\}/)?.[0] ?? '';
 
-    assert.doesNotMatch(homeChipButtonRule, /white-space:\s*nowrap/);
-    assert.doesNotMatch(homeChipButtonRule, /text-overflow:\s*ellipsis/);
+    assert.doesNotMatch(styles, /\.home-fixed-chat \.quick-chip-row/);
+    assert.match(styles, /\.home-suggested-questions\s*\{/);
+    assert.doesNotMatch(questionCardRule, /text-overflow:\s*ellipsis/);
   });
 
   it('keeps cached surface data visible while background refresh runs', () => {

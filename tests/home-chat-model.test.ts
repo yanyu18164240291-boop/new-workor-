@@ -42,7 +42,8 @@ describe('newcomer home chat input', () => {
     assert.match(styles, /\.home-content-pad-chatting\s*\{[\s\S]*?overflow:\s*hidden/);
     assert.match(styles, /\.home-fixed-chat-chatting\s*\{[\s\S]*?top:\s*148px/);
     assert.match(styles, /\.home-fixed-chat-chatting \.home-chat-thread\s*\{[\s\S]*?flex:\s*1/);
-    assert.match(styles, /\.home-fixed-chat-chatting \.quick-chip-row\s*\{[\s\S]*?display:\s*none/);
+    assert.match(page, /home-suggested-questions/);
+    assert.match(styles, /\.home-suggested-questions\s*\{/);
   });
 
   it('shows bot and newcomer avatars in focused chat messages', () => {
@@ -96,5 +97,18 @@ describe('newcomer home chat input', () => {
     assert.match(styles, /\.home-side-panel\s*\{/);
     assert.match(styles, /\.home-attach-grid\s*\{/);
     assert.match(styles, /\.home-attach-option-icon\s*\{/);
+  });
+
+  it('moves preset questions from the bottom dock into the focused chat body', () => {
+    const page = source('src/frontend/pages/newcomerPages.tsx');
+    const styles = source('src/frontend/styles.css');
+
+    assert.doesNotMatch(page, /<div className="quick-chip-row">/);
+    assert.match(page, /isHomeChatActive && homeChatMessages\.length === 0/);
+    assert.match(page, /home-suggested-questions/);
+    assert.match(page, /home-suggested-question-card/);
+    assert.match(page, /<span aria-hidden="true">#<\/span>/);
+    assert.match(styles, /\.home-suggested-question-card\s*\{/);
+    assert.match(styles, /\.home-suggested-question-card span\s*\{/);
   });
 });
