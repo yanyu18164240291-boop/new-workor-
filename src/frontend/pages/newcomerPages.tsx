@@ -88,7 +88,6 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
   const [progressCollapsed, setProgressCollapsed] = useState(true);
   const [activeHomePanel, setActiveHomePanel] = useState<'search' | 'history' | null>(null);
   const [homeSearchQuery, setHomeSearchQuery] = useState('');
-  const [selectedHistory, setSelectedHistory] = useState('current');
   const [showAttachSheet, setShowAttachSheet] = useState(false);
   const homeOpeningMessage: HomeChatMessage = {
     id: 'home-opening-message',
@@ -127,7 +126,14 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
       ] as HomeChatMessage[],
     },
   ];
-  const selectedHistoryMessages = homeHistoryItems.find((item) => item.id === selectedHistory)?.messages ?? searchableMessages;
+  const homeShortcutItems = getHomeShortcutItems();
+  const homeSearchRecordItems = homeHistoryItems.filter((item) => item.id !== 'current');
+  const homeAttachActions = [
+    { key: 'image', label: '图片', icon: 'image', tone: 'blue' },
+    { key: 'camera', label: '拍照', icon: 'camera', tone: 'default' },
+    { key: 'file', label: '文件', icon: 'paperclip', tone: 'warning' },
+    { key: 'doc', label: '云文档', icon: 'file', tone: 'ai' },
+  ] as const;
 
   useEffect(() => {
     const openSearch = () => {
@@ -170,6 +176,67 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
 
   return (
     <>
+      {activeHomePanel === 'search' && (
+        <div className="home-search-screen">
+          <div className="home-search-shell">
+            <label>
+              <IconTile icon="search" tone="default" />
+              <input
+                autoFocus
+                value={homeSearchQuery}
+                placeholder="搜索消息、智能体"
+                onChange={(event) => setHomeSearchQuery(event.target.value)}
+              />
+            </label>
+            <button type="button" onClick={() => setActiveHomePanel(null)}>取消</button>
+          </div>
+          <div className="home-search-records">
+            {(homeSearchQuery ? homeSearchResults : homeSearchRecordItems).map((item) => (
+              <button type="button" key={item.id} onClick={() => {
+                setHomeSearchQuery('messages' in item ? item.messages[0]?.text ?? item.title : item.text);
+              }}>
+                <span aria-hidden="true">↺</span>
+                <strong>{'title' in item ? item.title : item.text}</strong>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {activeHomePanel === 'history' && (
+        <div className="home-side-panel">
+          <div className="home-side-profile">
+            <span>{data.newcomer?.name?.slice(0, 1) ?? '海'}</span>
+            <div>
+              <strong>{data.newcomer?.name ?? 'Yan.'}</strong>
+              <p>入职助手 · 设置</p>
+            </div>
+            <button type="button" onClick={() => setActiveHomePanel(null)}>关闭</button>
+          </div>
+          <div className="home-side-shortcuts">
+            {homeShortcutItems.map((item) => (
+              <button type="button" key={item.path} onClick={() => {
+                setActiveHomePanel(null);
+                navigate(item.path);
+              }}>
+                <IconTile icon={item.icon} tone={item.tone} />
+                <strong>{item.label}</strong>
+              </button>
+            ))}
+          </div>
+          <div className="home-side-records">
+            <div className="home-side-record-title">
+              <strong>对话记录</strong>
+              <span>最近30天</span>
+            </div>
+            {homeHistoryItems.map((item) => (
+              <button type="button" key={item.id} onClick={() => setActiveHomePanel(null)}>
+                <strong>{item.title}</strong>
+                <span>{item.time}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div className={`home-content-pad${isHomeChatActive ? ' home-content-pad-chatting' : ''}`}>
         {!isHomeChatActive && (
           <div className="home-bot-row">
@@ -182,7 +249,7 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
         )}
         {!isHomeChatActive && (
           <div className="home-shortcut-row">
-            {getHomeShortcutItems().map((item) => (
+            {homeShortcutItems.map((item) => (
               <button className={`home-shortcut-card home-shortcut-${item.tone}`} key={item.path} onClick={() => navigate(item.path)}>
                 <IconTile icon={item.icon} tone={item.tone} />
                 <strong>{item.label}</strong>
@@ -210,54 +277,6 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
         </Card>
       </div>
       <div className={`home-fixed-chat${isHomeChatActive ? ' home-fixed-chat-chatting' : ''}`}>
-        {activeHomePanel === 'search' && (
-          <div className="home-chat-panel home-search-panel">
-            <div className="home-panel-head">
-              <strong>搜索对话</strong>
-              <button type="button" onClick={() => setActiveHomePanel(null)}>关闭</button>
-            </div>
-            <input
-              autoFocus
-              value={homeSearchQuery}
-              placeholder="搜索你问过的问题或 Bot 答案"
-              onChange={(event) => setHomeSearchQuery(event.target.value)}
-            />
-            <div className="home-panel-list">
-              {homeSearchResults.map((message) => (
-                <button type="button" key={message.id} onClick={() => setActiveHomePanel(null)}>
-                  <span>{message.role === 'bot' ? 'Bot' : '我'}</span>
-                  <p>{message.text}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        {activeHomePanel === 'history' && (
-          <div className="home-chat-panel home-history-panel">
-            <div className="home-panel-head">
-              <strong>历史对话</strong>
-              <button type="button" onClick={() => setActiveHomePanel(null)}>关闭</button>
-            </div>
-            <div className="home-history-layout">
-              <div className="home-history-list">
-                {homeHistoryItems.map((item) => (
-                  <button className={item.id === selectedHistory ? 'active' : ''} type="button" key={item.id} onClick={() => setSelectedHistory(item.id)}>
-                    <strong>{item.title}</strong>
-                    <span>{item.time}</span>
-                  </button>
-                ))}
-              </div>
-              <div className="home-history-detail">
-                {selectedHistoryMessages.map((message) => (
-                  <p key={message.id}>
-                    <strong>{message.role === 'bot' ? 'Bot' : '我'}：</strong>
-                    {message.text}
-                  </p>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
         {visibleHomeChatMessages.length > 0 && (
           <div className="home-chat-thread" aria-live="polite">
             {visibleHomeChatMessages.map((message) => (
@@ -268,28 +287,6 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
                 <div className="home-chat-message-bubble">{message.text}</div>
               </div>
             ))}
-          </div>
-        )}
-        {showAttachSheet && (
-          <div className="home-attach-sheet">
-            <div className="home-panel-head">
-              <strong>添加内容</strong>
-              <button type="button" onClick={() => setShowAttachSheet(false)}>关闭</button>
-            </div>
-            <div className="home-attach-grid">
-              {[
-                ['图片', '上传截图或照片'],
-                ['文件', '上传申请材料'],
-                ['拍照', '调用相机拍摄'],
-                ['云文档', '选择飞书文档'],
-              ].map(([title, desc]) => (
-                <button type="button" key={title} onClick={() => setShowAttachSheet(false)}>
-                  <strong>{title}</strong>
-                  <span>{desc}</span>
-                </button>
-              ))}
-            </div>
-            <p>演示版仅展示入口，不会真实上传、解析或调用知识库。</p>
           </div>
         )}
         <div className="quick-chip-row">
@@ -315,6 +312,22 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
           />
           <button type="button" onClick={handleSendHomeChat}>发送</button>
         </div>
+        {showAttachSheet && (
+          <div className="home-attach-sheet home-attach-sheet-below">
+            <div className="home-panel-head">
+              <strong>添加内容</strong>
+              <button type="button" onClick={() => setShowAttachSheet(false)}>关闭</button>
+            </div>
+            <div className="home-attach-grid">
+              {homeAttachActions.map((item) => (
+                <button className="home-attach-option-icon" type="button" key={item.key} onClick={() => setShowAttachSheet(false)}>
+                  <IconTile icon={item.icon} tone={item.tone} />
+                  <strong>{item.label}</strong>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

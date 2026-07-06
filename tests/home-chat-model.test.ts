@@ -70,7 +70,7 @@ describe('newcomer home chat input', () => {
     assert.doesNotMatch(styles, /\.status-icons/);
   });
 
-  it('wires home search, history, and attachment actions to visible panels', () => {
+  it('wires home search, history, and attachment actions to mobile-native panels', () => {
     const page = source('src/frontend/pages/newcomerPages.tsx');
     const components = source('src/frontend/components.tsx');
     const styles = source('src/frontend/styles.css');
@@ -80,12 +80,21 @@ describe('newcomer home chat input', () => {
     assert.match(page, /homeSearchQuery/);
     assert.match(page, /homeSearchResults/);
     assert.match(page, /homeHistoryItems/);
-    assert.match(page, /selectedHistory/);
     assert.match(page, /showAttachSheet/);
-    assert.match(page, /home-chat-panel home-search-panel/);
-    assert.match(page, /home-chat-panel home-history-panel/);
-    assert.match(page, /home-attach-sheet/);
-    assert.match(styles, /\.home-chat-panel\s*\{/);
+    assert.match(page, /home-search-screen/);
+    assert.match(page, /home-search-records/);
+    assert.match(page, /home-side-panel/);
+    assert.match(page, /home-side-profile/);
+    assert.match(page, /home-side-shortcuts/);
+    assert.match(page, /home-side-records/);
+    assert.match(page, /home-attach-sheet-below/);
+    assert.match(page, /home-attach-option-icon/);
+    assert.doesNotMatch(page, /home-chat-panel home-search-panel/);
+    assert.doesNotMatch(page, /home-chat-panel home-history-panel/);
+    assert.doesNotMatch(page, /婕旂ず鐗堜粎灞曠ず鍏ュ彛/);
+    assert.match(styles, /\.home-search-screen\s*\{/);
+    assert.match(styles, /\.home-side-panel\s*\{/);
     assert.match(styles, /\.home-attach-grid\s*\{/);
+    assert.match(styles, /\.home-attach-option-icon\s*\{/);
   });
 });
