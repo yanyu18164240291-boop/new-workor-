@@ -26,4 +26,22 @@ describe('newcomer home chat input', () => {
     assert.match(chatInputRow, /onClick=\{handleSendHomeChat\}/);
     assert.match(page, /home-chat-thread/);
   });
+
+  it('expands the home page into a focused chat mode after input focus', () => {
+    const page = source('src/frontend/pages/newcomerPages.tsx');
+    const styles = source('src/frontend/styles.css');
+
+    assert.match(page, /const \[isHomeChatActive, setIsHomeChatActive\] = useState\(false\)/);
+    assert.match(page, /const \[progressCollapsed, setProgressCollapsed\] = useState\(true\)/);
+    assert.match(page, /homeOpeningMessage/);
+    assert.match(page, /visibleHomeChatMessages/);
+    assert.match(page, /!\s*isHomeChatActive && \(/);
+    assert.match(page, /home-content-pad-chatting/);
+    assert.match(page, /home-fixed-chat-chatting/);
+    assert.match(page, /onFocus=\{\(\) => setIsHomeChatActive\(true\)\}/);
+    assert.match(styles, /\.home-content-pad-chatting\s*\{[\s\S]*?overflow:\s*hidden/);
+    assert.match(styles, /\.home-fixed-chat-chatting\s*\{[\s\S]*?top:\s*176px/);
+    assert.match(styles, /\.home-fixed-chat-chatting \.home-chat-thread\s*\{[\s\S]*?flex:\s*1/);
+    assert.match(styles, /\.home-fixed-chat-chatting \.quick-chip-row\s*\{[\s\S]*?display:\s*none/);
+  });
 });

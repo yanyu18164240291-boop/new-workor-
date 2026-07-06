@@ -84,15 +84,23 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
   const progressItems = [...(data.package?.requiredPermissions ?? []), ...(data.package?.optionalPermissions ?? [])].slice(0, 4);
   const [answer, setAnswer] = useState('');
   const [homeChatMessages, setHomeChatMessages] = useState<HomeChatMessage[]>([]);
-  const [progressCollapsed, setProgressCollapsed] = useState(false);
+  const [isHomeChatActive, setIsHomeChatActive] = useState(false);
+  const [progressCollapsed, setProgressCollapsed] = useState(true);
+  const homeOpeningMessage: HomeChatMessage = {
+    id: 'home-opening-message',
+    role: 'bot',
+    text: '你好呀！我是海纳AI入职Bot 👋 我会陪你完成入职第一周：先知道今天做什么，再处理岗位权限，提交后我会在 4 个工作小时内回访。',
+  };
+  const visibleHomeChatMessages = isHomeChatActive ? [homeOpeningMessage, ...homeChatMessages] : homeChatMessages;
 
   function handleSendHomeChat() {
     const question = answer.trim();
     const reply = buildHomeBotReply(question);
     if (!question || !reply) return;
 
+    setIsHomeChatActive(true);
     setHomeChatMessages((messages) => [
-      ...messages.slice(-4),
+      ...messages.slice(-6),
       { id: `${Date.now()}-user`, role: 'user', text: question },
       { id: `${Date.now()}-bot`, role: 'bot', text: reply },
     ]);
@@ -101,23 +109,27 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
 
   return (
     <>
-      <div className="home-content-pad">
-        <div className="home-bot-row">
-          <IconTile icon="bot" tone="blue" />
-          <Card className="bot-bubble-card">
-            <h2>你好呀！我是海纳AI入职Bot 👋</h2>
-            <p>我会陪你完成入职第一周：先知道今天做什么，再处理岗位权限，提交后我会在 4 个工作小时内回访。</p>
-          </Card>
-        </div>
-        <div className="home-shortcut-row">
-          {getHomeShortcutItems().map((item) => (
-            <button className={`home-shortcut-card home-shortcut-${item.tone}`} key={item.path} onClick={() => navigate(item.path)}>
-              <IconTile icon={item.icon} tone={item.tone} />
-              <strong>{item.label}</strong>
-              <span>{item.desc}</span>
-            </button>
-          ))}
-        </div>
+      <div className={`home-content-pad${isHomeChatActive ? ' home-content-pad-chatting' : ''}`}>
+        {!isHomeChatActive && (
+          <div className="home-bot-row">
+            <IconTile icon="bot" tone="blue" />
+            <Card className="bot-bubble-card">
+              <h2>你好呀！我是海纳AI入职Bot 👋</h2>
+              <p>我会陪你完成入职第一周：先知道今天做什么，再处理岗位权限，提交后我会在 4 个工作小时内回访。</p>
+            </Card>
+          </div>
+        )}
+        {!isHomeChatActive && (
+          <div className="home-shortcut-row">
+            {getHomeShortcutItems().map((item) => (
+              <button className={`home-shortcut-card home-shortcut-${item.tone}`} key={item.path} onClick={() => navigate(item.path)}>
+                <IconTile icon={item.icon} tone={item.tone} />
+                <strong>{item.label}</strong>
+                <span>{item.desc}</span>
+              </button>
+            ))}
+          </div>
+        )}
         <Card className="home-progress-card">
           <button className="home-progress-head" onClick={() => setProgressCollapsed((value) => !value)}>
             <h2>我的入职进度</h2>
@@ -136,10 +148,10 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
           )}
         </Card>
       </div>
-      <div className="home-fixed-chat">
-        {homeChatMessages.length > 0 && (
+      <div className={`home-fixed-chat${isHomeChatActive ? ' home-fixed-chat-chatting' : ''}`}>
+        {visibleHomeChatMessages.length > 0 && (
           <div className="home-chat-thread" aria-live="polite">
-            {homeChatMessages.map((message) => (
+            {visibleHomeChatMessages.map((message) => (
               <div className={`home-chat-message home-chat-message-${message.role}`} key={message.id}>
                 {message.text}
               </div>
@@ -148,7 +160,10 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
         )}
         <div className="quick-chip-row">
           {getHomeQuickQuestions().map((question) => (
-            <button key={question} onClick={() => setAnswer(question)}>
+            <button key={question} onClick={() => {
+              setIsHomeChatActive(true);
+              setAnswer(question);
+            }}>
               {question}
             </button>
           ))}
@@ -159,6 +174,7 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
             value={answer}
             placeholder="请输入你的问题，例如：ChatGPT账号怎么申请？"
             onChange={(event) => setAnswer(event.target.value)}
+            onFocus={() => setIsHomeChatActive(true)}
             onKeyDown={(event) => {
               if (event.key === 'Enter') handleSendHomeChat();
             }}

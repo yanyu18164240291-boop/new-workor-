@@ -1826,6 +1826,13 @@ button {
   background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
 }
 
+.home-content-pad-chatting {
+  position: sticky;
+  top: 0;
+  z-index: 7;
+  overflow: hidden;
+}
+
 .home-bot-row {
   display: grid;
   grid-template-columns: 42px 1fr;
@@ -1992,10 +1999,22 @@ button {
   background: linear-gradient(180deg, rgba(243, 246, 251, 0), #f3f6fb 28%);
 }
 
+.home-fixed-chat-chatting {
+  top: 176px;
+  display: flex;
+  flex-direction: column;
+  padding-top: 0;
+  background: #f3f6fb;
+}
+
 .home-fixed-chat .quick-chip-row {
   margin-bottom: 7px;
   flex-wrap: nowrap;
   overflow: hidden;
+}
+
+.home-fixed-chat-chatting .quick-chip-row {
+  display: none;
 }
 
 .home-fixed-chat .quick-chip-row button {
@@ -2012,6 +2031,14 @@ button {
   gap: 6px;
   margin-bottom: 8px;
   overflow-y: auto;
+}
+
+.home-fixed-chat-chatting .home-chat-thread {
+  flex: 1;
+  max-height: none;
+  min-height: 0;
+  margin-bottom: 10px;
+  padding: 0 2px;
 }
 
 .home-chat-message {
