@@ -40,8 +40,33 @@ describe('newcomer home chat input', () => {
     assert.match(page, /home-fixed-chat-chatting/);
     assert.match(page, /onFocus=\{\(\) => setIsHomeChatActive\(true\)\}/);
     assert.match(styles, /\.home-content-pad-chatting\s*\{[\s\S]*?overflow:\s*hidden/);
-    assert.match(styles, /\.home-fixed-chat-chatting\s*\{[\s\S]*?top:\s*176px/);
+    assert.match(styles, /\.home-fixed-chat-chatting\s*\{[\s\S]*?top:\s*148px/);
     assert.match(styles, /\.home-fixed-chat-chatting \.home-chat-thread\s*\{[\s\S]*?flex:\s*1/);
     assert.match(styles, /\.home-fixed-chat-chatting \.quick-chip-row\s*\{[\s\S]*?display:\s*none/);
+  });
+
+  it('shows bot and newcomer avatars in focused chat messages', () => {
+    const page = source('src/frontend/pages/newcomerPages.tsx');
+    const styles = source('src/frontend/styles.css');
+
+    assert.match(page, /home-chat-avatar/);
+    assert.match(page, /home-chat-avatar-\$\{message\.role\}/);
+    assert.match(page, /message\.role === 'bot' \? '海' : '我'/);
+    assert.match(page, /home-chat-message-bubble/);
+    assert.match(styles, /\.home-chat-avatar\s*\{[\s\S]*?border-radius:\s*50%/);
+    assert.match(styles, /\.home-chat-message-user \.home-chat-avatar\s*\{[\s\S]*?order:\s*2/);
+    assert.match(styles, /\.home-chat-message-bot \.home-chat-avatar\s*\{[\s\S]*?background:\s*linear-gradient/);
+  });
+
+  it('does not render a simulated phone status bar above the app header', () => {
+    const app = source('src/frontend/App.tsx');
+    const components = source('src/frontend/components.tsx');
+    const styles = source('src/frontend/styles.css');
+
+    assert.doesNotMatch(app, /StatusBar/);
+    assert.doesNotMatch(components, /function StatusBar/);
+    assert.doesNotMatch(components, /className="status-bar"/);
+    assert.doesNotMatch(styles, /\.status-bar/);
+    assert.doesNotMatch(styles, /\.status-icons/);
   });
 });

@@ -73,15 +73,6 @@ export function PhoneFrame({ children }: { children: ReactNode }) {
   );
 }
 
-export function StatusBar({ time = '09:41' }: { time?: string }) {
-  return (
-    <div className="status-bar" aria-hidden="true">
-      <span>{time}</span>
-      <span className="status-icons">▴ 5G 100%</span>
-    </div>
-  );
-}
-
 export function AppHeader({ route, subtitle, navigate }: { route: PageRoute; subtitle?: string; navigate: Navigate }) {
   if (route.pageNo === '01') {
     return (

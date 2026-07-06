@@ -13,7 +13,6 @@ import {
   PageBoard,
   PhoneFrame,
   PrototypePage,
-  StatusBar,
 } from './components.tsx';
 import {
   filterSelectablePermissions,
@@ -200,7 +199,6 @@ export function App() {
       <div className="mobile-surface-layout">
         <PrototypePage route={route}>
           <PhoneFrame>
-            <StatusBar time={route.pageNo === '05' ? '14:30' : route.pageNo === '06' ? '17:40' : route.pageNo === '07' ? '18:05' : '09:41'} />
             <AppHeader route={route} subtitle={subtitle} navigate={navigate} />
             <PageBoard>
               <LoadingState status={status} error={error} />

@@ -153,7 +153,10 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
           <div className="home-chat-thread" aria-live="polite">
             {visibleHomeChatMessages.map((message) => (
               <div className={`home-chat-message home-chat-message-${message.role}`} key={message.id}>
-                {message.text}
+                <span className={`home-chat-avatar home-chat-avatar-${message.role}`} aria-hidden="true">
+                  {message.role === 'bot' ? '海' : '我'}
+                </span>
+                <div className="home-chat-message-bubble">{message.text}</div>
               </div>
             ))}
           </div>

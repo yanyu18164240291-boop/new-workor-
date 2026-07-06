@@ -1577,23 +1577,6 @@ button {
   background: #f6f8fc;
 }
 
-.status-bar {
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 18px;
-  color: #0f172a;
-  background: #ffffff;
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.status-icons {
-  color: #334155;
-  font-weight: 700;
-}
-
 .app-header {
   height: 54px;
   display: grid;
@@ -2000,7 +1983,7 @@ button {
 }
 
 .home-fixed-chat-chatting {
-  top: 176px;
+  top: 148px;
   display: flex;
   flex-direction: column;
   padding-top: 0;
@@ -2042,22 +2025,58 @@ button {
 }
 
 .home-chat-message {
-  max-width: 86%;
-  padding: 8px 10px;
-  border-radius: 14px;
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
   font-size: 12px;
   line-height: 1.45;
+}
+
+.home-chat-avatar {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #ffffff;
+  background: #94a3b8;
+  font-size: 12px;
+  font-weight: 950;
+  box-shadow: 0 6px 14px rgba(20, 39, 80, 0.14);
+}
+
+.home-chat-message-bubble {
+  max-width: calc(86% - 32px);
+  padding: 8px 10px;
+  border-radius: 14px;
   box-shadow: 0 8px 18px rgba(20, 39, 80, 0.08);
 }
 
 .home-chat-message-user {
-  align-self: flex-end;
+  justify-content: flex-end;
+}
+
+.home-chat-message-user .home-chat-avatar {
+  order: 2;
+  background: #3370ff;
+}
+
+.home-chat-message-user .home-chat-message-bubble {
   color: #ffffff;
   background: #3370ff;
 }
 
 .home-chat-message-bot {
-  align-self: flex-start;
+  justify-content: flex-start;
+}
+
+.home-chat-message-bot .home-chat-avatar {
+  background: linear-gradient(135deg, #2f7cff, #75a7ff);
+}
+
+.home-chat-message-bot .home-chat-message-bubble {
   color: #27364f;
   border: 1px solid #dce8f8;
   background: #ffffff;
