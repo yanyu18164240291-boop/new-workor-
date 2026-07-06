@@ -47,4 +47,26 @@ describe('newcomer page structure regressions', () => {
     assert.match(styles, /\.admin-workbench-date-filter input\s*\{[\s\S]*width:\s*122px/);
     assert.match(weeklyTab, /key:\s*'sort'[\s\S]*title:\s*'排序'/);
   });
+
+  it('keeps home preset questions in focused chat cards without bottom dock styling', () => {
+    const styles = source('src/frontend/styles.css');
+    const questionCardRule = styles.match(/\.home-suggested-question-card strong\s*\{[\s\S]*?\}/)?.[0] ?? '';
+
+    assert.doesNotMatch(styles, /\.home-fixed-chat \.quick-chip-row/);
+    assert.match(styles, /\.home-suggested-questions\s*\{/);
+    assert.doesNotMatch(questionCardRule, /text-overflow:\s*ellipsis/);
+  });
+
+  it('keeps cached surface data visible while background refresh runs', () => {
+    const state = source('src/frontend/appState.ts');
+    const app = source('src/frontend/App.tsx');
+
+    assert.match(state, /const dashboardDataCache = new Map<string, DashboardData>\(\)/);
+    assert.match(state, /getDashboardCacheKey/);
+    assert.match(state, /cachedData/);
+    assert.match(state, /setStatus\('loading'\)/);
+    assert.match(state, /if \(!cachedData\) \{/);
+    assert.match(app, /const canRenderContent = status === 'ready' \|\| Boolean\(data\.__staleWhileRevalidate\)/);
+    assert.match(app, /<LoadingState status=\{canRenderContent \? 'ready' : status\} error=\{error\} \/>/);
+  });
 });

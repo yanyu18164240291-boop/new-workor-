@@ -68,6 +68,7 @@ Use the phase specs in order:
 4. Admin config and V1 review reading real backend data.
 5. Manager overview, newcomer detail, and manager feedback view with persisted manager actions.
 6. Final QA and consistency pass.
+7. Pilot deployment readiness for runtime, access, database backup, and runbook preparation. This is not a real Feishu or approval integration phase.
 
 After each phase:
 

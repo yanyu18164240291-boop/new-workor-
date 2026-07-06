@@ -13,7 +13,6 @@ import {
   PageBoard,
   PhoneFrame,
   PrototypePage,
-  StatusBar,
 } from './components.tsx';
 import {
   filterSelectablePermissions,
@@ -54,8 +53,9 @@ export function App() {
   const bottomNavItems = getBottomNavItems(route.pageNo);
   const selectableRequiredPermissions = filterSelectablePermissions(data.package?.requiredPermissions ?? [], data.progress ?? []);
   const selectableOptionalPermissions = filterSelectablePermissions(data.package?.optionalPermissions ?? [], data.progress ?? []);
+  const canRenderContent = status === 'ready' || Boolean(data.__staleWhileRevalidate);
   const content =
-    status === 'ready' ? (
+    canRenderContent ? (
       <AppContent
         pageNo={route.pageNo}
         data={data}
@@ -186,7 +186,7 @@ export function App() {
             </button>
           </header>
           <section className="admin-content">
-            <LoadingState status={status} error={error} />
+            <LoadingState status={canRenderContent ? 'ready' : status} error={error} />
             {content}
           </section>
           {modalLayer}
@@ -200,10 +200,15 @@ export function App() {
       <div className="mobile-surface-layout">
         <PrototypePage route={route}>
           <PhoneFrame>
-            <StatusBar time={route.pageNo === '05' ? '14:30' : route.pageNo === '06' ? '17:40' : route.pageNo === '07' ? '18:05' : '09:41'} />
-            <AppHeader route={route} subtitle={subtitle} navigate={navigate} />
+            <AppHeader
+              route={route}
+              subtitle={subtitle}
+              navigate={navigate}
+              onHomeSearch={() => window.dispatchEvent(new Event('haina-home-search'))}
+              onHomeHistory={() => window.dispatchEvent(new Event('haina-home-history'))}
+            />
             <PageBoard>
-              <LoadingState status={status} error={error} />
+              <LoadingState status={canRenderContent ? 'ready' : status} error={error} />
               {content}
             </PageBoard>
             {bottomNavItems.length > 0 && <BottomNav currentPage={route.pageNo} navigate={handleBottomNavNavigate} />}

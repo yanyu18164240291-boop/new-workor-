@@ -14,6 +14,7 @@ import {
   StepList,
 } from '../components.tsx';
 import type { DashboardData } from '../dashboardData.ts';
+import { buildHomeBotReply, type HomeChatMessage } from '../homeChatModel.ts';
 import { buildHomeProgressStats } from '../homeProgress.ts';
 import { getHomeQuickQuestions, getHomeShortcutItems } from '../routes.ts';
 import {
@@ -82,26 +83,195 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
   const progressByPermission = new Map((data.progress ?? []).map((item) => [item.permissionItemId, item]));
   const progressItems = [...(data.package?.requiredPermissions ?? []), ...(data.package?.optionalPermissions ?? [])].slice(0, 4);
   const [answer, setAnswer] = useState('');
-  const [progressCollapsed, setProgressCollapsed] = useState(false);
+  const [homeChatMessages, setHomeChatMessages] = useState<HomeChatMessage[]>([]);
+  const [isHomeChatActive, setIsHomeChatActive] = useState(false);
+  const [progressCollapsed, setProgressCollapsed] = useState(true);
+  const [activeHomePanel, setActiveHomePanel] = useState<'search' | 'history' | null>(null);
+  const [homeSearchQuery, setHomeSearchQuery] = useState('');
+  const [dismissedHomeSearchRecordIds, setDismissedHomeSearchRecordIds] = useState<string[]>([]);
+  const [showAttachSheet, setShowAttachSheet] = useState(false);
+  const homeOpeningMessage: HomeChatMessage = {
+    id: 'home-opening-message',
+    role: 'bot',
+    text: '你好呀！我是海纳AI入职Bot 👋 我会陪你完成入职第一周：先知道今天做什么，再处理岗位权限，提交后我会在 4 个工作小时内回访。',
+  };
+  const visibleHomeChatMessages = isHomeChatActive ? [homeOpeningMessage, ...homeChatMessages] : homeChatMessages;
+  const searchableMessages = [homeOpeningMessage, ...homeChatMessages];
+  const homeSearchResults = searchableMessages.filter((message) => {
+    const query = homeSearchQuery.trim().toLowerCase();
+    return !query || message.text.toLowerCase().includes(query);
+  });
+  const homeHistoryItems = [
+    {
+      id: 'current',
+      title: homeChatMessages.length > 0 ? '当前对话' : '当前对话（待开始）',
+      time: '刚刚',
+      messages: searchableMessages,
+    },
+    {
+      id: 'chatgpt-account',
+      title: 'ChatGPT账号申请方式',
+      time: '今天 09:35',
+      messages: [
+        { id: 'history-chatgpt-user', role: 'user', text: 'ChatGPT账号怎么申请？' },
+        { id: 'history-chatgpt-bot', role: 'bot', text: '从首页进入“权限申请”，打开 ChatGPT 账号详情，复制申请理由后提交审批。' },
+      ] as HomeChatMessage[],
+    },
+    {
+      id: 'oa-login',
+      title: 'OA系统登录问题',
+      time: '昨天 17:20',
+      messages: [
+        { id: 'history-oa-user', role: 'user', text: 'OA系统怎么登录？' },
+        { id: 'history-oa-bot', role: 'bot', text: '先完成 D1 引导和部门群加入，再按权限包里的入口登录；失败时联系权限 Owner。' },
+      ] as HomeChatMessage[],
+    },
+  ];
+  const homeShortcutItems = getHomeShortcutItems();
+  const homeSearchRecordItems = homeHistoryItems.filter((item) => item.id !== 'current');
+  const visibleHomeSearchRecords = (homeSearchQuery ? homeSearchResults : homeSearchRecordItems).filter(
+    (item) => !dismissedHomeSearchRecordIds.includes(item.id),
+  );
+  const homeAttachActions = [
+    { key: 'image', label: '图片', icon: 'image', tone: 'blue' },
+    { key: 'camera', label: '拍照', icon: 'camera', tone: 'default' },
+    { key: 'file', label: '文件', icon: 'paperclip', tone: 'warning' },
+    { key: 'doc', label: '云文档', icon: 'file', tone: 'ai' },
+  ] as const;
+
+  useEffect(() => {
+    const openSearch = () => {
+      setIsHomeChatActive(true);
+      setActiveHomePanel('search');
+      setShowAttachSheet(false);
+    };
+    const openHistory = () => {
+      setIsHomeChatActive(true);
+      setActiveHomePanel('history');
+      setShowAttachSheet(false);
+    };
+    window.addEventListener('haina-home-search', openSearch);
+    window.addEventListener('haina-home-history', openHistory);
+    return () => {
+      window.removeEventListener('haina-home-search', openSearch);
+      window.removeEventListener('haina-home-history', openHistory);
+    };
+  }, []);
+
+  function handleSendHomeChat() {
+    const question = answer.trim();
+    const reply = buildHomeBotReply(question);
+    if (!question || !reply) return;
+
+    setIsHomeChatActive(true);
+    setHomeChatMessages((messages) => [
+      ...messages.slice(-6),
+      { id: `${Date.now()}-user`, role: 'user', text: question },
+      { id: `${Date.now()}-bot`, role: 'bot', text: reply },
+    ]);
+    setAnswer('');
+  }
+
+  function handleOpenAttachmentSheet() {
+    setIsHomeChatActive(true);
+    setActiveHomePanel(null);
+    setShowAttachSheet((value) => !value);
+  }
+
   return (
     <>
-      <div className="home-content-pad">
-        <div className="home-bot-row">
-          <IconTile icon="bot" tone="blue" />
-          <Card className="bot-bubble-card">
-            <h2>你好呀！我是海纳AI入职Bot 👋</h2>
-            <p>我会陪你完成入职第一周：先知道今天做什么，再处理岗位权限，提交后我会在 4 个工作小时内回访。</p>
-          </Card>
+      {activeHomePanel === 'search' && (
+        <div className="home-search-screen">
+          <div className="home-search-shell">
+            <label>
+              <IconTile icon="search" tone="default" />
+              <input
+                autoFocus
+                value={homeSearchQuery}
+                placeholder="搜索消息、智能体"
+                onChange={(event) => setHomeSearchQuery(event.target.value)}
+              />
+            </label>
+            <button type="button" onClick={() => setActiveHomePanel(null)}>取消</button>
+          </div>
+          <div className="home-search-records">
+            {visibleHomeSearchRecords.map((item) => (
+              <div className="home-search-record-row" key={item.id}>
+                <button className="home-search-record-main" type="button" onClick={() => {
+                  setHomeSearchQuery('messages' in item ? item.messages[0]?.text ?? item.title : item.text);
+                }}>
+                  <span className="home-search-history-icon" aria-hidden="true" />
+                  <strong>{'title' in item ? item.title : item.text}</strong>
+                </button>
+                <button
+                  aria-label="删除历史搜索"
+                  className="home-search-record-remove"
+                  type="button"
+                  onClick={() => setDismissedHomeSearchRecordIds((ids) => [...ids, item.id])}
+                >
+                  <span aria-hidden="true">×</span>
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="home-shortcut-row">
-          {getHomeShortcutItems().map((item) => (
-            <button className={`home-shortcut-card home-shortcut-${item.tone}`} key={item.path} onClick={() => navigate(item.path)}>
-              <IconTile icon={item.icon} tone={item.tone} />
-              <strong>{item.label}</strong>
-              <span>{item.desc}</span>
-            </button>
-          ))}
+      )}
+      {activeHomePanel === 'history' && (
+        <div className="home-side-panel">
+          <div className="home-side-profile">
+            <span>{data.newcomer?.name?.slice(0, 1) ?? '海'}</span>
+            <div>
+              <strong>{data.newcomer?.name ?? 'Yan.'}</strong>
+              <p>入职助手 · 设置</p>
+            </div>
+            <button type="button" onClick={() => setActiveHomePanel(null)}>关闭</button>
+          </div>
+          <div className="home-side-shortcuts">
+            {homeShortcutItems.map((item) => (
+              <button type="button" key={item.path} onClick={() => {
+                setActiveHomePanel(null);
+                navigate(item.path);
+              }}>
+                <IconTile icon={item.icon} tone={item.tone} />
+                <strong>{item.label}</strong>
+              </button>
+            ))}
+          </div>
+          <div className="home-side-records">
+            <div className="home-side-record-title">
+              <strong>对话记录</strong>
+              <span>最近30天</span>
+            </div>
+            {homeHistoryItems.map((item) => (
+              <button type="button" key={item.id} onClick={() => setActiveHomePanel(null)}>
+                <strong className="home-side-record-main">{item.title}</strong>
+                <span className="home-side-record-meta">{item.time}</span>
+              </button>
+            ))}
+          </div>
         </div>
+      )}
+      <div className={`home-content-pad${isHomeChatActive ? ' home-content-pad-chatting' : ''}`}>
+        {!isHomeChatActive && (
+          <div className="home-bot-row">
+            <IconTile icon="bot" tone="blue" />
+            <Card className="bot-bubble-card">
+              <h2>你好呀！我是海纳AI入职Bot 👋</h2>
+              <p>我会陪你完成入职第一周：先知道今天做什么，再处理岗位权限，提交后我会在 4 个工作小时内回访。</p>
+            </Card>
+          </div>
+        )}
+        {!isHomeChatActive && (
+          <div className="home-shortcut-row">
+            {homeShortcutItems.map((item) => (
+              <button className={`home-shortcut-card home-shortcut-${item.tone}`} key={item.path} onClick={() => navigate(item.path)}>
+                <IconTile icon={item.icon} tone={item.tone} />
+                <strong>{item.label}</strong>
+                <span>{item.desc}</span>
+              </button>
+            ))}
+          </div>
+        )}
         <Card className="home-progress-card">
           <button className="home-progress-head" onClick={() => setProgressCollapsed((value) => !value)}>
             <h2>我的入职进度</h2>
@@ -120,25 +290,60 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
           )}
         </Card>
       </div>
-      <div className="home-fixed-chat">
-        <div className="quick-chip-row">
-          {getHomeQuickQuestions().map((question) => (
-            <button key={question} onClick={() => setAnswer(question)}>
-              {question}
-            </button>
-          ))}
-        </div>
+      <div className={`home-fixed-chat${isHomeChatActive ? ' home-fixed-chat-chatting' : ''}`}>
+        {visibleHomeChatMessages.length > 0 && (
+          <div className="home-chat-thread" aria-live="polite">
+            {visibleHomeChatMessages.map((message) => (
+              <div className={`home-chat-message home-chat-message-${message.role}`} key={message.id}>
+                <span className={`home-chat-avatar home-chat-avatar-${message.role}`} aria-hidden="true">
+                  {message.role === 'bot' ? '海' : '我'}
+                </span>
+                <div className="home-chat-message-bubble">{message.text}</div>
+              </div>
+            ))}
+            {isHomeChatActive && homeChatMessages.length === 0 && (
+              <div className="home-suggested-questions">
+                {getHomeQuickQuestions().map((question) => (
+                  <button className="home-suggested-question-card" type="button" key={question} onClick={() => setAnswer(question)}>
+                    <span aria-hidden="true">#</span>
+                    <strong>{question}</strong>
+                    <i aria-hidden="true" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         <div className="home-chat-input-row">
-          <button>＋</button>
-          <input readOnly value={answer} placeholder="请输入你的问题，例如：ChatGPT账号怎么申请？" />
-          <button onClick={() => setAnswer('ChatGPT账号怎么申请？')}>发送</button>
+          <button type="button" onClick={handleOpenAttachmentSheet}>＋</button>
+          <input
+            value={answer}
+            placeholder="请输入你的问题，例如：ChatGPT账号怎么申请？"
+            onChange={(event) => setAnswer(event.target.value)}
+            onFocus={() => setIsHomeChatActive(true)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') handleSendHomeChat();
+            }}
+          />
+          <button type="button" onClick={handleSendHomeChat}>发送</button>
         </div>
+        {showAttachSheet && (
+          <div className="home-attach-sheet home-attach-sheet-below">
+            <div className="home-panel-head">
+              <strong>添加内容</strong>
+              <button type="button" onClick={() => setShowAttachSheet(false)}>关闭</button>
+            </div>
+            <div className="home-attach-grid">
+              {homeAttachActions.map((item) => (
+                <button className="home-attach-option-icon" type="button" key={item.key} onClick={() => setShowAttachSheet(false)}>
+                  <IconTile icon={item.icon} tone={item.tone} />
+                  <strong>{item.label}</strong>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
-      {answer && (
-        <SectionCard title="ChatGPT账号申请方式">
-          <p>你需要在“权限申请”中进入对应权限详情，复制申请理由后提交审批。提交后回到详情页点击“我已提交”，首页进度会同步更新。</p>
-        </SectionCard>
-      )}
     </>
   );
 }

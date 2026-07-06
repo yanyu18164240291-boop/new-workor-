@@ -4,6 +4,7 @@ import {
   BarChart3,
   Bell,
   BookOpen,
+  Camera,
   Bot,
   CheckCircle2,
   ChevronLeft,
@@ -12,9 +13,11 @@ import {
   FileText,
   Grid3X3,
   Home,
+  Image as ImageIcon,
   Inbox,
   MessageCircle,
   MoreHorizontal,
+  Paperclip,
   Search,
   Settings,
   ShieldCheck,
@@ -35,15 +38,18 @@ export const icons = {
   bar: BarChart3,
   bell: Bell,
   book: BookOpen,
+  camera: Camera,
   bot: Bot,
   check: CheckCircle2,
   clip: ClipboardList,
   file: FileText,
   grid: Grid3X3,
   home: Home,
+  image: ImageIcon,
   inbox: Inbox,
   message: MessageCircle,
   more: MoreHorizontal,
+  paperclip: Paperclip,
   search: Search,
   settings: Settings,
   shield: ShieldCheck,
@@ -73,16 +79,19 @@ export function PhoneFrame({ children }: { children: ReactNode }) {
   );
 }
 
-export function StatusBar({ time = '09:41' }: { time?: string }) {
-  return (
-    <div className="status-bar" aria-hidden="true">
-      <span>{time}</span>
-      <span className="status-icons">▴ 5G 100%</span>
-    </div>
-  );
-}
-
-export function AppHeader({ route, subtitle, navigate }: { route: PageRoute; subtitle?: string; navigate: Navigate }) {
+export function AppHeader({
+  route,
+  subtitle,
+  navigate,
+  onHomeSearch,
+  onHomeHistory,
+}: {
+  route: PageRoute;
+  subtitle?: string;
+  navigate: Navigate;
+  onHomeSearch?: () => void;
+  onHomeHistory?: () => void;
+}) {
   if (route.pageNo === '01') {
     return (
       <header className="app-header app-header-home">
@@ -94,10 +103,10 @@ export function AppHeader({ route, subtitle, navigate }: { route: PageRoute; sub
           <p>{subtitle ?? route.purpose}</p>
         </div>
         <div className="header-actions">
-          <button className="plain-icon" aria-label="搜索">
+          <button className="plain-icon" aria-label="搜索" onClick={onHomeSearch}>
             <Search size={17} />
           </button>
-          <button className="plain-icon" aria-label="更多">
+          <button className="plain-icon" aria-label="更多" onClick={onHomeHistory}>
             <MoreHorizontal size={18} />
           </button>
         </div>
