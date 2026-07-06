@@ -2430,34 +2430,34 @@ button {
 
 .home-suggested-questions {
   display: grid;
-  gap: 10px;
-  margin: 34px 20px 0 34px;
+  gap: 8px;
+  margin: 18px 18px 0 34px;
 }
 
 .home-suggested-question-card {
-  min-height: 54px;
+  min-height: 46px;
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) 16px;
+  grid-template-columns: 28px minmax(0, 1fr) 14px;
   align-items: center;
-  gap: 10px;
-  border: 1px solid #e7eef8;
-  border-radius: 14px;
-  padding: 10px 12px;
+  gap: 9px;
+  border: 1px solid #dfe8f6;
+  border-radius: 12px;
+  padding: 8px 10px;
   color: #172033;
   text-align: left;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 10px 24px rgba(21, 43, 80, 0.07);
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(21, 43, 80, 0.04);
 }
 
 .home-suggested-question-card span {
-  width: 32px;
-  height: 32px;
+  width: 26px;
+  height: 26px;
   display: grid;
   place-items: center;
-  border-radius: 10px;
-  color: #ffffff;
-  background: #6b45d9;
-  font-size: 20px;
+  border-radius: 8px;
+  color: #3370ff;
+  background: #edf4ff;
+  font-size: 16px;
   font-weight: 950;
 }
 
@@ -2469,12 +2469,12 @@ button {
 }
 
 .home-suggested-question-card i {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   justify-self: end;
   transform: rotate(45deg);
-  border-top: 2px solid #a8b2c3;
-  border-right: 2px solid #a8b2c3;
+  border-top: 2px solid #b8c2d3;
+  border-right: 2px solid #b8c2d3;
 }
 
 .home-chat-avatar {

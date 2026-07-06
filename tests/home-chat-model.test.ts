@@ -110,5 +110,12 @@ describe('newcomer home chat input', () => {
     assert.match(page, /<span aria-hidden="true">#<\/span>/);
     assert.match(styles, /\.home-suggested-question-card\s*\{/);
     assert.match(styles, /\.home-suggested-question-card span\s*\{/);
+    assert.match(styles, /\.home-suggested-questions\s*\{[\s\S]*?margin:\s*18px 18px 0 34px/);
+    assert.match(styles, /\.home-suggested-question-card\s*\{[\s\S]*?min-height:\s*46px/);
+    assert.match(styles, /\.home-suggested-question-card\s*\{[\s\S]*?border:\s*1px solid #dfe8f6/);
+    assert.match(styles, /\.home-suggested-question-card span\s*\{[\s\S]*?color:\s*#3370ff/);
+    assert.match(styles, /\.home-suggested-question-card span\s*\{[\s\S]*?background:\s*#edf4ff/);
+    const suggestedHashStyle = styles.match(/\.home-suggested-question-card span\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    assert.doesNotMatch(suggestedHashStyle, /#6b45d9/);
   });
 });
