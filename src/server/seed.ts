@@ -315,7 +315,7 @@ export function seedWeeklyFeedbackConfig(db: Database): void {
       title: '目前主要卡点（可多选）',
       description: '帮助管理者判断哪里需要支持。',
       inputType: 'multi',
-      required: 1,
+      required: 0,
       maxLength: null,
       sortOrder: 2,
       options: [
@@ -332,7 +332,7 @@ export function seedWeeklyFeedbackConfig(db: Database): void {
       title: '希望管理者提供的支持（可多选）',
       description: '选择你希望管理者优先提供的支持。',
       inputType: 'multi',
-      required: 1,
+      required: 0,
       maxLength: null,
       sortOrder: 3,
       options: [
@@ -347,9 +347,9 @@ export function seedWeeklyFeedbackConfig(db: Database): void {
       id: 'wfq-message',
       questionKey: 'message',
       title: '新人想说的话',
-      description: '选填，最多 500 字。',
+      description: '必填，最多 500 字。',
       inputType: 'text',
-      required: 0,
+      required: 1,
       maxLength: 500,
       sortOrder: 4,
       options: [],
@@ -360,7 +360,7 @@ export function seedWeeklyFeedbackConfig(db: Database): void {
       title: '首周工作摘要',
       description: '记录本周完成的主要事项，供管理者查看和跟进。',
       inputType: 'text',
-      required: 0,
+      required: 1,
       maxLength: 500,
       sortOrder: 5,
       options: [],
@@ -400,6 +400,24 @@ export function seedWeeklyFeedbackConfig(db: Database): void {
     db.prepare("UPDATE weekly_feedback_questions SET enabled = 1, updatedAt = ? WHERE id IN ('wfq-overall', 'wfq-blockers', 'wfq-support', 'wfq-message', 'wfq-work-summary')").run(seedTime);
     db.prepare("UPDATE weekly_feedback_options SET enabled = 1, updatedAt = ? WHERE questionId IN ('wfq-overall', 'wfq-blockers', 'wfq-support')").run(seedTime);
   }
+
+  db.prepare(
+    `UPDATE weekly_feedback_questions
+     SET required = 1,
+         description = CASE
+           WHEN id = 'wfq-message' AND description = '选填，最多 500 字。' THEN '必填，最多 500 字。'
+           ELSE description
+         END,
+         updatedAt = ?
+     WHERE id IN ('wfq-overall', 'wfq-message', 'wfq-work-summary')
+       AND (required <> 1 OR (id = 'wfq-message' AND description = '选填，最多 500 字。'))`,
+  ).run(seedTime);
+  db.prepare(
+    "UPDATE weekly_feedback_questions SET required = 0, updatedAt = ? WHERE id IN ('wfq-blockers', 'wfq-support') AND required <> 0",
+  ).run(seedTime);
+  db.prepare(
+    "UPDATE weekly_feedback_questions SET enabled = 0, updatedAt = ?, updatedBy = 'demo-admin' WHERE id <> 'wfq-work-summary' AND questionKey <> 'work_summary' AND title = '首周工作摘要' AND enabled = 1",
+  ).run(seedTime);
 
   seedDemoWeeklyWorkSummaryAnswer(db);
 }

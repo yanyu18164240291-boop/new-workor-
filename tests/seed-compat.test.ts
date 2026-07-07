@@ -273,6 +273,45 @@ describe('seed compatibility helpers', () => {
     }
   });
 
+  it('repairs weekly feedback required flags for the accepted required newcomer questions', async () => {
+    const tempDir = await mkdtemp(path.join(tmpdir(), 'haina-seed-compat-'));
+    tempDirs.push(tempDir);
+    const db = createDatabase(path.join(tempDir, 'test.db'));
+    try {
+      runMigrations(db);
+      for (const [id, questionKey, title, description, inputType, required, enabled, sortOrder] of [
+        ['wfq-overall', 'overall_feeling', '首周整体感受', '', 'single', 0, 1, 1],
+        ['wfq-blockers', 'blockers', '目前主要卡点（可多选）', '', 'multi', 1, 1, 2],
+        ['wfq-support', 'support_needed', '希望管理者提供的支持（可多选）', '', 'multi', 1, 1, 3],
+        ['weekly-question-summary-duplicate', 'admin_summary', '首周工作摘要', '旧库重复题目', 'text', 1, 1, 4],
+        ['wfq-message', 'message', '新人想说的话', '选填，最多 500 字。', 'text', 0, 1, 5],
+        ['wfq-work-summary', 'work_summary', '首周工作摘要', '', 'text', 0, 1, 6],
+      ] as const) {
+        db.prepare(
+          `INSERT INTO weekly_feedback_questions
+           (id, questionKey, title, description, inputType, required, maxLength, enabled, sortOrder, createdAt, updatedAt)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ).run(id, questionKey, title, description, inputType, required, inputType === 'text' ? 500 : null, enabled, sortOrder, '2026-06-24T01:00:00.000Z', '2026-06-24T01:00:00.000Z');
+      }
+
+      seedWeeklyFeedbackConfig(db);
+
+      const rows = db
+        .prepare("SELECT id, required, enabled, description FROM weekly_feedback_questions WHERE id IN ('wfq-overall', 'wfq-blockers', 'wfq-support', 'weekly-question-summary-duplicate', 'wfq-message', 'wfq-work-summary') ORDER BY sortOrder")
+        .all() as Array<{ id: string; required: number; enabled: number; description: string }>;
+      assert.deepEqual(rows.map((row) => ({ ...row })), [
+        { id: 'wfq-overall', required: 1, enabled: 1, description: '' },
+        { id: 'wfq-blockers', required: 0, enabled: 1, description: '' },
+        { id: 'wfq-support', required: 0, enabled: 1, description: '' },
+        { id: 'weekly-question-summary-duplicate', required: 1, enabled: 0, description: '旧库重复题目' },
+        { id: 'wfq-message', required: 1, enabled: 1, description: '必填，最多 500 字。' },
+        { id: 'wfq-work-summary', required: 1, enabled: 1, description: '' },
+      ]);
+    } finally {
+      db.close();
+    }
+  });
+
   it('repairs the demo weekly work summary answer for existing databases', async () => {
     const tempDir = await mkdtemp(path.join(tmpdir(), 'haina-seed-compat-'));
     tempDirs.push(tempDir);
