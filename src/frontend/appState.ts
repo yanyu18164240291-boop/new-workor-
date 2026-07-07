@@ -145,6 +145,13 @@ async function loadDashboardDataForPage(pageNo: string, params: Record<string, s
   return {};
 }
 
+async function ensureFeishuAuth(): Promise<boolean> {
+  const session = await api.getAuthSession();
+  if (!session.enabled || session.authenticated) return true;
+  window.location.href = session.loginUrl ?? `/api/auth/feishu/start?returnTo=${encodeURIComponent(`${window.location.pathname}${window.location.search}`)}`;
+  return false;
+}
+
 export function useDashboardData(pageNo: string, params: Record<string, string> = {}) {
   const [data, setData] = useState<DashboardData>({});
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -166,6 +173,8 @@ export function useDashboardData(pageNo: string, params: Record<string, string> 
         setStatus('ready');
       }
       setError('');
+      const authenticated = await ensureFeishuAuth();
+      if (!authenticated) return;
       const nextData = nextPreviewRoleId
         ? await loadDashboardDataForPage(pageNo, params, nextPreviewRoleId)
         : await loadDashboardDataForPage(pageNo, params);

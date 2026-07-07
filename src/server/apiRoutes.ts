@@ -1,6 +1,7 @@
 import type { ApiContext, ApiResult, RouteMatch } from './routeKit.ts';
 import { forbidden, toApiError } from './errors.ts';
 import { adminRoutes } from './routes/adminRoutes.ts';
+import { authRoutes } from './routes/authRoutes.ts';
 import { managerRoutes } from './routes/managerRoutes.ts';
 import { newcomerRoutes } from './routes/newcomerRoutes.ts';
 import { reviewRoutes } from './routes/reviewRoutes.ts';
@@ -15,7 +16,7 @@ function mergeRoutes(...groups: Array<Record<string, RouteMatch[]>>): Record<str
   return merged;
 }
 
-const routes = mergeRoutes(newcomerRoutes, adminRoutes, managerRoutes, reviewRoutes);
+const routes = mergeRoutes(authRoutes, newcomerRoutes, adminRoutes, managerRoutes, reviewRoutes);
 
 function assertAdminRouteGuard(context: ApiContext): void {
   if (!context.pathname.startsWith('/api/admin/') && !context.pathname.startsWith('/api/admin-config/')) return;

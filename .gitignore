@@ -3,6 +3,9 @@ dist/
 data/
 *.log
 *.tsbuildinfo
+.env
+.env.*
+!.env.example
 .prototype-reference/
 .qa-screens/
 .worktrees/
