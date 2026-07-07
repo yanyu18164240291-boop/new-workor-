@@ -29,8 +29,11 @@ type FeishuUser = {
 type FeishuApiPayload<T> = {
   code?: number;
   msg?: string;
+  error?: string;
+  error_description?: string;
   data?: T;
   app_access_token?: string;
+  access_token?: string;
   expire?: number;
 };
 
@@ -110,31 +113,21 @@ async function feishuPost<T>(url: string, body: Record<string, unknown>, token?:
   return (await response.json()) as FeishuApiPayload<T>;
 }
 
-async function getAppAccessToken(config: FeishuAuthConfig): Promise<string> {
-  const payload = await feishuPost<never>('https://open.feishu.cn/open-apis/auth/v3/app_access_token/internal', {
-    app_id: config.appId,
-    app_secret: config.appSecret,
-  });
-  if (payload.code !== 0 || !payload.app_access_token) {
-    throw badRequest(`Feishu app token failed: ${payload.msg ?? 'unknown error'}`);
-  }
-  return payload.app_access_token;
+function feishuErrorMessage(payload: FeishuApiPayload<unknown>): string {
+  return payload.error_description ?? payload.error ?? payload.msg ?? 'unknown error';
 }
 
 async function getUserAccessToken(config: FeishuAuthConfig, code: string): Promise<string> {
-  const appAccessToken = await getAppAccessToken(config);
-  const payload = await feishuPost<{ access_token?: string }>(
-    'https://open.feishu.cn/open-apis/authen/v2/oauth/token',
-    {
-      grant_type: 'authorization_code',
-      code,
-      redirect_uri: config.redirectUri,
-    },
-    appAccessToken,
-  );
-  const accessToken = payload.data?.access_token;
+  const payload = await feishuPost<{ access_token?: string }>('https://open.feishu.cn/open-apis/authen/v2/oauth/token', {
+    grant_type: 'authorization_code',
+    client_id: config.appId,
+    client_secret: config.appSecret,
+    code,
+    redirect_uri: config.redirectUri,
+  });
+  const accessToken = payload.access_token ?? payload.data?.access_token;
   if (payload.code !== 0 || !accessToken) {
-    throw badRequest(`Feishu user token failed: ${payload.msg ?? 'unknown error'}`);
+    throw badRequest(`Feishu user token failed: ${feishuErrorMessage(payload)}`);
   }
   return accessToken;
 }

@@ -82,11 +82,8 @@ describe('Feishu OAuth login', () => {
     globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input);
       calls.push({ url, auth: init?.headers instanceof Headers ? init.headers.get('authorization') ?? undefined : (init?.headers as Record<string, string> | undefined)?.authorization });
-      if (url.includes('/auth/v3/app_access_token/internal')) {
-        return Response.json({ code: 0, msg: 'ok', app_access_token: 'app-token', expire: 7200 });
-      }
       if (url.includes('/authen/v2/oauth/token')) {
-        return Response.json({ code: 0, msg: 'ok', data: { access_token: 'user-token' } });
+        return Response.json({ code: 0, msg: 'ok', access_token: 'user-token' });
       }
       if (url.includes('/authen/v1/user_info')) {
         return Response.json({ code: 0, msg: 'ok', data: { open_id: 'ou_test', user_id: 'user_test', name: '燕余' } });
@@ -105,8 +102,7 @@ describe('Feishu OAuth login', () => {
       assert.equal(callback.status, 302);
       assert.equal(callback.headers.get('location'), '/');
       assert.match(cookie, /haina_feishu_session=/);
-      assert.ok(calls.some((call) => call.url.includes('/auth/v3/app_access_token/internal')));
-      assert.ok(calls.some((call) => call.url.includes('/authen/v2/oauth/token') && call.auth === 'Bearer app-token'));
+      assert.ok(calls.some((call) => call.url.includes('/authen/v2/oauth/token') && call.auth === undefined));
       assert.ok(calls.some((call) => call.url.includes('/authen/v1/user_info') && call.auth === 'Bearer user-token'));
 
       const session = await nativeFetch(`${server.baseUrl}/api/auth/session`, { headers: { cookie } });

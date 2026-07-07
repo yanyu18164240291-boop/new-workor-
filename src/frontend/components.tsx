@@ -257,16 +257,16 @@ export function LoadingState({ status, error }: { status: string; error: string 
   if (status === 'loading') {
     return (
       <Card className="quiet-card">
-        <p>正在从后端读取 P0 demo 数据...</p>
+        <p>正在加载入职数据...</p>
       </Card>
     );
   }
   if (status === 'error') {
     return (
       <Card className="error-card">
-        <strong>后端未连接</strong>
+        <strong>页面加载失败</strong>
         <p>{error}</p>
-        <p>请先运行 npm.cmd run dev:api，再打开 H5 页面。</p>
+        <p>请刷新页面重试；如果仍然失败，请联系管理员检查服务状态。</p>
       </Card>
     );
   }
