@@ -320,6 +320,22 @@ export type ApiErrorCode =
   | 'NETWORK_ERROR'
   | 'PARSE_ERROR';
 
+export type AuthSession = {
+  enabled: boolean;
+  authenticated: boolean;
+  loginUrl?: string;
+  user?: {
+    openId: string;
+    unionId?: string;
+    userId?: string;
+    name: string;
+    email?: string;
+    mobile?: string;
+    avatarUrl?: string;
+    newcomerId: string;
+  } | null;
+};
+
 type ApiPayload<T> = {
   data?: T;
   error?: string;
@@ -375,7 +391,7 @@ async function requestApi<T>(path: string, init?: RequestInit): Promise<T> {
     ...(init?.headers ?? {}),
   };
   try {
-    const response = await fetch(path, { ...init, headers });
+    const response = await fetch(path, { ...init, headers, credentials: 'include' });
     const payload = await readApiPayload<T>(response, path, method);
     if (!response.ok || payload.error) {
       throw new ApiClientError(payload.error ?? `Request failed: ${path}`, {
@@ -405,6 +421,8 @@ async function apiSend<T>(path: string, method: 'POST' | 'PATCH', body: Record<s
 }
 
 export const api = {
+  getAuthSession: (returnTo = `${window.location.pathname}${window.location.search}`) =>
+    apiGet<AuthSession>(`/api/auth/session?returnTo=${encodeURIComponent(returnTo)}`),
   getRoles: () => apiGet<Role[]>('/api/roles'),
   getNewcomer: (id: string) => apiGet<Newcomer>(`/api/newcomers/${id}`),
   getPermissionPackage: (roleId: string) => apiGet<PermissionPackage>(`/api/roles/${roleId}/permission-package`),

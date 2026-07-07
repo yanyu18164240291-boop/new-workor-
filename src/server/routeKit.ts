@@ -22,6 +22,7 @@ export type ApiResult = {
   data?: unknown;
   error?: string;
   errorCode?: ApiErrorCode;
+  handled?: boolean;
 };
 
 export type RouteMatch = {

@@ -86,6 +86,8 @@ export async function createApiServer(options: ApiServerOptions): Promise<{ base
       if (result.error) {
         const status = result.status ?? 400;
         writeJson(response, status, { error: result.error, code: result.errorCode ?? inferErrorCode(status) });
+      } else if (result.handled) {
+        return;
       } else {
         writeJson(response, result.status ?? 200, { data: result.data });
       }
