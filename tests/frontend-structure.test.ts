@@ -69,4 +69,20 @@ describe('newcomer page structure regressions', () => {
     assert.match(app, /const canRenderContent = status === 'ready' \|\| Boolean\(data\.__staleWhileRevalidate\)/);
     assert.match(app, /<LoadingState status=\{canRenderContent \? 'ready' : status\} error=\{error\} \/>/);
   });
+
+  it('marks required weekly feedback question titles with the same red star style as anonymous feedback', () => {
+    const pages = source('src/frontend/pages/newcomerPages.tsx');
+
+    assert.match(pages, /function weeklyQuestionTitle\(question: WeeklyFeedbackQuestion\)/);
+    assert.match(pages, /const weeklyRequiredStarQuestionKeys = new Set\(\['overall_feeling', 'message', 'work_summary'\]\)/);
+    assert.match(pages, /question\.required && weeklyRequiredStarQuestionKeys\.has\(question\.questionKey\) && <span className="required-star">\*<\/span>/);
+    assert.match(pages, /<SectionCard title=\{weeklyQuestionTitle\(question\)\} key=\{question\.id\}>/);
+  });
+
+  it('validates weekly feedback required text fields before submitting', () => {
+    const pages = source('src/frontend/pages/newcomerPages.tsx');
+
+    assert.match(pages, /findMissingWeeklyRequiredQuestion\(questions,\s*selectedByQuestion,\s*textByQuestion\)/);
+    assert.doesNotMatch(pages, /questions\.find\(\(question\) => question\.required && question\.inputType !== 'text'/);
+  });
 });

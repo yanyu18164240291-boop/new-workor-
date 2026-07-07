@@ -22,6 +22,9 @@ import {
   mapPermissionUiStatus,
   toggleApplySelection,
 } from '../permissionSelection.ts';
+import { findMissingWeeklyRequiredQuestion } from '../weeklyFeedbackFormModel.ts';
+
+const weeklyRequiredStarQuestionKeys = new Set(['overall_feeling', 'message', 'work_summary']);
 
 function formatHomeTime(value?: string) {
   if (!value) return '';
@@ -648,9 +651,9 @@ export function WeeklyFeedbackPage({ data, reload, toast }: { data: DashboardDat
 
   async function submit() {
     if (!data.newcomer) return;
-    const missing = questions.find((question) => question.required && question.inputType !== 'text' && (selectedByQuestion[question.id] ?? []).length === 0);
+    const missing = findMissingWeeklyRequiredQuestion(questions, selectedByQuestion, textByQuestion);
     if (missing) {
-      toast(`请先选择：${missing.title}`);
+      toast(`请先完成：${missing.title}`);
       return;
     }
     await api.submitWeeklyFeedback({
@@ -665,13 +668,23 @@ export function WeeklyFeedbackPage({ data, reload, toast }: { data: DashboardDat
     toast('已提交首周反馈');
     await reload();
   }
+
+  function weeklyQuestionTitle(question: WeeklyFeedbackQuestion) {
+    return (
+      <>
+        {question.title}
+        {question.required && weeklyRequiredStarQuestionKeys.has(question.questionKey) && <span className="required-star">*</span>}
+      </>
+    );
+  }
+
   return (
     <>
       <SectionCard title="填写给管理者看的首周反馈">
         <p>该反馈不匿名，由新人填写，提交后供管理者在页面 12 查看与跟进，不用于绩效评价。</p>
       </SectionCard>
       {questions.map((question) => (
-        <SectionCard title={question.title} key={question.id}>
+        <SectionCard title={weeklyQuestionTitle(question)} key={question.id}>
           {question.inputType === 'text' ? (
             <textarea
               value={textByQuestion[question.id] ?? ''}
