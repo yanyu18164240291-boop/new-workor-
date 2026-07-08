@@ -329,6 +329,8 @@ export type AuthSession = {
     unionId?: string;
     userId?: string;
     name: string;
+    departmentName?: string;
+    jobTitle?: string;
     email?: string;
     mobile?: string;
     avatarUrl?: string;

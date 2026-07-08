@@ -20,6 +20,8 @@ type FeishuUser = {
   unionId?: string;
   userId?: string;
   name: string;
+  departmentName?: string;
+  jobTitle?: string;
   email?: string;
   mobile?: string;
   avatarUrl?: string;
@@ -34,6 +36,7 @@ type FeishuApiPayload<T> = {
   data?: T;
   app_access_token?: string;
   access_token?: string;
+  tenant_access_token?: string;
   expire?: number;
 };
 
@@ -113,6 +116,13 @@ async function feishuPost<T>(url: string, body: Record<string, unknown>, token?:
   return (await response.json()) as FeishuApiPayload<T>;
 }
 
+async function feishuGet<T>(url: string, token: string): Promise<FeishuApiPayload<T>> {
+  const response = await fetch(url, {
+    headers: { authorization: `Bearer ${token}` },
+  });
+  return (await response.json()) as FeishuApiPayload<T>;
+}
+
 function feishuErrorMessage(payload: FeishuApiPayload<unknown>): string {
   return payload.error_description ?? payload.error ?? payload.msg ?? 'unknown error';
 }
@@ -132,6 +142,65 @@ async function getUserAccessToken(config: FeishuAuthConfig, code: string): Promi
   return accessToken;
 }
 
+async function getTenantAccessToken(config: FeishuAuthConfig): Promise<string | undefined> {
+  const payload = await feishuPost('https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal', {
+    app_id: config.appId,
+    app_secret: config.appSecret,
+  });
+  return payload.code === 0 ? payload.tenant_access_token : undefined;
+}
+
+async function getDepartmentName(token: string, departmentId: string): Promise<{ name?: string; parentId?: string } | undefined> {
+  const payload = await feishuGet<{
+    department?: {
+      name?: string;
+      parent_department_id?: string;
+    };
+  }>(
+    `https://open.feishu.cn/open-apis/contact/v3/departments/${encodeURIComponent(departmentId)}?department_id_type=open_department_id`,
+    token,
+  );
+  if (payload.code !== 0 || !payload.data?.department) return undefined;
+  return {
+    name: payload.data.department.name,
+    parentId: payload.data.department.parent_department_id,
+  };
+}
+
+async function buildDepartmentPath(token: string, firstDepartmentId?: string): Promise<string | undefined> {
+  if (!firstDepartmentId) return undefined;
+  const names: string[] = [];
+  let currentId: string | undefined = firstDepartmentId;
+  for (let depth = 0; currentId && currentId !== '0' && depth < 4; depth += 1) {
+    const department = await getDepartmentName(token, currentId);
+    if (!department?.name) break;
+    names.unshift(department.name);
+    currentId = department.parentId;
+  }
+  return names.length > 0 ? names.join('-') : undefined;
+}
+
+async function getFeishuContactProfile(config: FeishuAuthConfig, user: { openId: string; userId?: string }): Promise<{ departmentName?: string; jobTitle?: string }> {
+  const token = await getTenantAccessToken(config);
+  if (!token) return {};
+  const userIdType = user.userId ? 'user_id' : 'open_id';
+  const userId = user.userId ?? user.openId;
+  const payload = await feishuGet<{
+    user?: {
+      department_ids?: string[];
+      job_title?: string;
+    };
+  }>(
+    `https://open.feishu.cn/open-apis/contact/v3/users/${encodeURIComponent(userId)}?user_id_type=${userIdType}&department_id_type=open_department_id`,
+    token,
+  );
+  if (payload.code !== 0 || !payload.data?.user) return {};
+  return {
+    departmentName: await buildDepartmentPath(token, payload.data.user.department_ids?.[0]),
+    jobTitle: payload.data.user.job_title,
+  };
+}
+
 async function getFeishuUser(config: FeishuAuthConfig, userAccessToken: string): Promise<FeishuUser> {
   const response = await fetch('https://open.feishu.cn/open-apis/authen/v1/user_info', {
     headers: { authorization: `Bearer ${userAccessToken}` },
@@ -149,11 +218,17 @@ async function getFeishuUser(config: FeishuAuthConfig, userAccessToken: string):
   if (payload.code !== 0 || !payload.data?.open_id) {
     throw badRequest(`Feishu user info failed: ${payload.msg ?? 'unknown error'}`);
   }
+  const contactProfile: { departmentName?: string; jobTitle?: string } = await getFeishuContactProfile(config, {
+    openId: payload.data.open_id,
+    userId: payload.data.user_id,
+  }).catch(() => ({}));
   return {
     openId: payload.data.open_id,
     unionId: payload.data.union_id,
     userId: payload.data.user_id,
     name: payload.data.name || payload.data.en_name || 'Feishu User',
+    departmentName: contactProfile.departmentName,
+    jobTitle: contactProfile.jobTitle,
     email: payload.data.email,
     mobile: payload.data.mobile,
     avatarUrl: payload.data.avatar_url,

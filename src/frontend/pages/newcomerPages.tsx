@@ -92,6 +92,11 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
   });
   const progressByPermission = new Map((data.progress ?? []).map((item) => [item.permissionItemId, item]));
   const progressItems = [...(data.package?.requiredPermissions ?? []), ...(data.package?.optionalPermissions ?? [])].slice(0, 4);
+  const profileName = data.authSession?.user?.name?.trim() || data.newcomer?.name || '新同学';
+  const departmentName = data.authSession?.user?.departmentName?.trim() || data.newcomer?.department || '协同办公部门';
+  const roleName = data.authSession?.user?.jobTitle?.trim() || data.package?.role.name || '岗位新人';
+  const welcomeHeadline = `${profileName}您好呀！欢迎进入${departmentName}`;
+  const welcomeBody = `我是海纳AI入职Bot，会陪你完成入职第一周。你的岗位是${roleName}，我会先帮你完成 D1 引导，再处理岗位权限和回访。`;
   const [answer, setAnswer] = useState('');
   const [homeChatMessages, setHomeChatMessages] = useState<HomeChatMessage[]>([]);
   const [isHomeChatActive, setIsHomeChatActive] = useState(false);
@@ -103,7 +108,7 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
   const homeOpeningMessage: HomeChatMessage = {
     id: 'home-opening-message',
     role: 'bot',
-    text: '你好呀！我是海纳AI入职Bot 👋 我会陪你完成入职第一周：先知道今天做什么，再处理岗位权限，提交后我会在 4 个工作小时内回访。',
+    text: `${welcomeHeadline}。${welcomeBody}`,
   };
   const visibleHomeChatMessages = isHomeChatActive ? [homeOpeningMessage, ...homeChatMessages] : homeChatMessages;
   const searchableMessages = [homeOpeningMessage, ...homeChatMessages];
@@ -266,18 +271,17 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
           <div className="home-bot-row">
             <IconTile icon="bot" tone="blue" />
             <Card className="bot-bubble-card">
-              <h2>你好呀！我是海纳AI入职Bot 👋</h2>
-              <p>我会陪你完成入职第一周：先知道今天做什么，再处理岗位权限，提交后我会在 4 个工作小时内回访。</p>
+              <h2 className="home-greeting-line">{welcomeHeadline}</h2>
+              <p>{welcomeBody}</p>
             </Card>
           </div>
         )}
         {!isHomeChatActive && (
-          <div className="home-shortcut-row">
+          <div className="home-quick-nav" aria-label="新人首页导航">
             {homeShortcutItems.map((item) => (
-              <button className={`home-shortcut-card home-shortcut-${item.tone}`} key={item.path} onClick={() => navigate(item.path)}>
+              <button className={`home-quick-nav-item home-quick-nav-${item.tone}`} key={item.path} onClick={() => navigate(item.path)}>
                 <IconTile icon={item.icon} tone={item.tone} />
                 <strong>{item.label}</strong>
-                <span>{item.desc}</span>
               </button>
             ))}
           </div>
