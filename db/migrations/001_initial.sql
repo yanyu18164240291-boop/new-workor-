@@ -157,6 +157,24 @@ CREATE TABLE IF NOT EXISTS follow_up_message_cards (
   UNIQUE(followUpTaskId)
 );
 
+CREATE TABLE IF NOT EXISTS feishu_message_deliveries (
+  id TEXT PRIMARY KEY,
+  newcomerId TEXT NOT NULL REFERENCES newcomers(id) ON DELETE CASCADE,
+  recipientOpenId TEXT NOT NULL,
+  messageType TEXT NOT NULL,
+  deliveryStatus TEXT NOT NULL,
+  messageId TEXT,
+  requestPayload TEXT NOT NULL,
+  responsePayload TEXT NOT NULL,
+  errorMessage TEXT,
+  sentAt TEXT NOT NULL,
+  createdAt TEXT NOT NULL,
+  updatedAt TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_feishu_message_deliveries_newcomer_id ON feishu_message_deliveries(newcomerId);
+CREATE INDEX IF NOT EXISTS idx_feishu_message_deliveries_sent_at ON feishu_message_deliveries(sentAt);
+
 CREATE TABLE IF NOT EXISTS anonymous_feedbacks (
   id TEXT PRIMARY KEY,
   feedbackNo TEXT NOT NULL UNIQUE,

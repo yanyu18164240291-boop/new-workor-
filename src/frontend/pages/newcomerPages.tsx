@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { getAnonymousFeedbackFlow, toggleMultiChoice } from '../anonymousFeedbackModel.ts';
-import { api, type D1GuideConfigItem, type PermissionItem, type WeeklyFeedbackQuestion } from '../api.ts';
+import { api, formatApiErrorMessage, type D1GuideConfigItem, type PermissionItem, type WeeklyFeedbackQuestion } from '../api.ts';
 import {
   ActionButton,
   Card,
@@ -330,13 +330,35 @@ export function D1Page({
   onRoleChange?: (roleId: string) => Promise<void>;
 }) {
   const guide = data.d1GuideConfig;
+  const [messageSending, setMessageSending] = useState(false);
   const guideItems = (guide?.items?.length
     ? guide.items
     : [guide?.joinGroup, guide?.employeeGuide, guide?.permissionPackage].filter(Boolean)
   ) as D1GuideConfigItem[];
+  const selectedRoleId = data.selectedRoleId ?? data.package?.role.id ?? data.newcomer?.roleId;
   async function completeD1Guide() {
     if (!data.newcomer) return;
     await api.updateNewcomerTaskState(data.newcomer.id, 'd1_guide', 'completed');
+  }
+  async function sendD1GuideToFeishu() {
+    if (!data.authSession?.authenticated || !data.authSession.user?.openId) {
+      if (data.authSession?.loginUrl) {
+        window.location.href = data.authSession.loginUrl;
+        return;
+      }
+      toast('请先完成飞书登录');
+      return;
+    }
+    if (!data.newcomer) return;
+    setMessageSending(true);
+    try {
+      const result = await api.sendD1GuideMessage(data.newcomer.id, selectedRoleId);
+      toast(`已发送到飞书：${result.recipientName}`);
+    } catch (error) {
+      toast(formatApiErrorMessage(error, '飞书消息发送失败'));
+    } finally {
+      setMessageSending(false);
+    }
   }
   const actions = guideItems
     .filter((item) => item.enabled !== false)
@@ -367,7 +389,16 @@ export function D1Page({
     });
   return (
     <>
-      <SectionCard title="D1 到达引导包">
+      <SectionCard
+        title="D1 到达引导包"
+        action={
+          data.authSession?.enabled ? (
+            <button className="text-button d1-message-button" type="button" disabled={messageSending} onClick={sendD1GuideToFeishu}>
+              {messageSending ? '发送中' : '发送到飞书'}
+            </button>
+          ) : null
+        }
+      >
         <p>先完成今日岗位相关的关键任务：进部门群、查看员工指南册、查看岗位权限包。</p>
         <Card className="notice-card inner">
           <RolePreviewSelect data={data} />

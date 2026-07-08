@@ -201,6 +201,29 @@ export async function getFeishuDocumentTitle(documentUrl: string): Promise<strin
   return (meta?.title ?? meta?.name)?.trim() || undefined;
 }
 
+export async function sendFeishuTextMessage(
+  receiveId: string,
+  text: string,
+): Promise<{ messageId?: string; raw: FeishuApiPayload<{ message_id?: string }> }> {
+  const config = authConfig();
+  if (!config) throw badRequest('Feishu message is not configured');
+  const token = await getTenantAccessToken(config);
+  if (!token) throw badRequest('Feishu tenant token failed');
+  const payload = await feishuPost<{ message_id?: string }>(
+    'https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=open_id',
+    {
+      receive_id: receiveId,
+      msg_type: 'text',
+      content: JSON.stringify({ text }),
+    },
+    token,
+  );
+  if (payload.code !== 0) {
+    throw badRequest(`Feishu message send failed: ${feishuErrorMessage(payload)}`);
+  }
+  return { messageId: payload.data?.message_id, raw: payload };
+}
+
 async function getDepartmentName(token: string, departmentId: string): Promise<{ name?: string; parentId?: string } | undefined> {
   const payload = await feishuGet<{
     department?: {

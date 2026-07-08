@@ -1,4 +1,4 @@
-import type { RouteMatch } from '../routeKit.ts';
+import type { ApiContext, RouteMatch } from '../routeKit.ts';
 import {
   isSubmittedPermissionStatus,
   parseFollowUpStatus,
@@ -28,6 +28,100 @@ import {
   withAnonymousFeedbackDetail
 } from '../repositories/feedbackRepository.ts';
 import { getPermission } from '../repositories/permissionRepository.ts';
+import { getFeishuSessionUser, sendFeishuTextMessage } from './feishuAuthService.ts';
+
+function publicBaseUrl(request: ApiContext['request']): string {
+  const configured = process.env.PUBLIC_H5_BASE_URL?.trim() || process.env.RENDER_EXTERNAL_URL?.trim();
+  if (configured) return configured.replace(/\/$/, '');
+  const forwardedProto = String(request.headers['x-forwarded-proto'] ?? '').split(',')[0].trim();
+  const forwardedHost = String(request.headers['x-forwarded-host'] ?? '').split(',')[0].trim();
+  const proto = forwardedProto || 'http';
+  const host = forwardedHost || request.headers.host || '127.0.0.1:4000';
+  return `${proto}://${host}`.replace(/\/$/, '');
+}
+
+function absoluteUrl(value: unknown, baseUrl: string): string | undefined {
+  if (typeof value !== 'string' || !value.trim() || value.startsWith('mock-feishu://')) return undefined;
+  const target = value.trim();
+  if (/^https?:\/\//.test(target) || /^feishu:\/\//.test(target) || /^https:\/\/applink\.feishu\.cn\//.test(target)) return target;
+  if (target.startsWith('/')) return `${baseUrl}${target}`;
+  return target;
+}
+
+function resourceLines(item: Record<string, unknown>, baseUrl: string): string[] {
+  const links = Array.isArray(item.resourceLinks) ? item.resourceLinks : [];
+  return links
+    .map((link) => {
+      if (!link || typeof link !== 'object') return '';
+      const record = link as Record<string, unknown>;
+      const name = typeof record.name === 'string' && record.name.trim() ? record.name.trim() : '入口';
+      const url = absoluteUrl(record.url, baseUrl);
+      const qrCodeUrl = absoluteUrl(record.qrCodeUrl, baseUrl);
+      const chatId = typeof record.chatId === 'string' && record.chatId.trim() ? record.chatId.trim() : '';
+      if (url) return `   - ${name}：${url}`;
+      if (qrCodeUrl) return `   - ${name}二维码：${qrCodeUrl}`;
+      if (chatId) return `   - ${name}群 ID：${chatId}`;
+      return '';
+    })
+    .filter(Boolean);
+}
+
+function guideItemLines(item: Record<string, unknown>, index: number, baseUrl: string): string[] {
+  const title = String(item.title ?? `D1 任务 ${index + 1}`);
+  const taskType = String(item.taskType ?? item.actionKey ?? '');
+  const lines = [`${index + 1}. ${title}`];
+  const resources = resourceLines(item, baseUrl);
+  if (resources.length > 0) return [...lines, ...resources];
+  const link =
+    absoluteUrl(item.applyUrl, baseUrl) ||
+    absoluteUrl(item.documentUrl, baseUrl) ||
+    absoluteUrl(taskType === 'permission_package' ? item.routePath || '/permissions' : item.routePath, baseUrl);
+  if (link) lines.push(`   - 入口：${link}`);
+  const description = typeof item.description === 'string' ? item.description.trim() : '';
+  if (description) lines.push(`   - 说明：${description}`);
+  return lines;
+}
+
+function buildD1GuideMessage(userName: string, guideItems: Array<Record<string, unknown>>, baseUrl: string): string {
+  return [
+    `${userName}您好呀！这是你的 D1 到达引导：`,
+    ...guideItems.flatMap((item, index) => guideItemLines(item, index, baseUrl)),
+    '完成后回到海纳 AI 入职 Bot，我会继续跟进权限和回访进度。',
+  ].join('\n');
+}
+
+function writeFeishuDelivery(
+  db: Parameters<RouteMatch['handler']>[0]['db'],
+  row: {
+    newcomerId: string;
+    recipientOpenId: string;
+    status: 'sent' | 'failed';
+    messageId?: string;
+    requestPayload: Record<string, unknown>;
+    responsePayload: unknown;
+    errorMessage?: string;
+    time: string;
+  },
+) {
+  db.prepare(
+    `INSERT INTO feishu_message_deliveries
+     (id, newcomerId, recipientOpenId, messageType, deliveryStatus, messageId, requestPayload, responsePayload, errorMessage, sentAt, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    createdId('feishu-message'),
+    row.newcomerId,
+    row.recipientOpenId,
+    'd1_guide',
+    row.status,
+    row.messageId ?? null,
+    JSON.stringify(row.requestPayload),
+    JSON.stringify(row.responsePayload),
+    row.errorMessage ?? null,
+    row.time,
+    row.time,
+    row.time,
+  );
+}
 
 export const listRoles: RouteMatch['handler'] = ({ db }) => ({
         data: normalizeRows(db.prepare('SELECT * FROM roles WHERE enabled = 1 ORDER BY createdAt').all() as Array<Record<string, unknown>>),
@@ -130,6 +224,72 @@ export const listFollowUpMessageCards: RouteMatch['handler'] = ({ db }, match) =
 export const loadD1GuideConfig: RouteMatch['handler'] = ({ db, request }) => {
   const url = new URL(request.url ?? '/', 'http://127.0.0.1');
   return { data: getD1GuideConfig(db, url.searchParams.get('roleId')) };
+};
+
+export const sendD1GuideMessage: RouteMatch['handler'] = async (context, match) => {
+  const { db, request } = context;
+  const newcomerId = decodeURIComponent(match[1]);
+  const user = getFeishuSessionUser(context);
+  if (!user?.openId) {
+    return { status: 403, error: '请先完成飞书登录后再发送 D1 引导消息' };
+  }
+  if (user.newcomerId !== newcomerId) {
+    return { status: 403, error: '当前飞书登录用户与新人档案不一致，已阻止发送' };
+  }
+  const newcomer = normalizeRow(db.prepare('SELECT * FROM newcomers WHERE id = ?').get(newcomerId) as Record<string, unknown> | undefined);
+  if (!newcomer) return { status: 404, error: 'Newcomer not found' };
+
+  const body = await readBody(request);
+  const roleId = typeof body.roleId === 'string' && body.roleId.trim() ? body.roleId.trim() : String(newcomer.roleId);
+  const guide = getD1GuideConfig(db, roleId) as { items?: Array<Record<string, unknown>> };
+  const guideItems = (guide.items ?? []).filter((item) => item.enabled !== false);
+  if (guideItems.length === 0) {
+    return { status: 400, error: 'D1 引导任务未配置，无法发送真实飞书消息' };
+  }
+
+  const baseUrl = publicBaseUrl(request);
+  const text = buildD1GuideMessage(user.name || String(newcomer.name), guideItems, baseUrl);
+  const time = nowIso();
+  const requestPayload = {
+    receiveId: user.openId,
+    roleId,
+    itemCount: guideItems.length,
+    text,
+  };
+
+  try {
+    const result = await sendFeishuTextMessage(user.openId, text);
+    writeFeishuDelivery(db, {
+      newcomerId,
+      recipientOpenId: user.openId,
+      status: 'sent',
+      messageId: result.messageId,
+      requestPayload,
+      responsePayload: result.raw,
+      time,
+    });
+    return {
+      data: {
+        deliveryStatus: 'sent',
+        messageId: result.messageId,
+        recipientName: user.name,
+        itemCount: guideItems.length,
+        sentAt: time,
+      },
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Feishu message send failed';
+    writeFeishuDelivery(db, {
+      newcomerId,
+      recipientOpenId: user.openId,
+      status: 'failed',
+      requestPayload,
+      responsePayload: { error: message },
+      errorMessage: message,
+      time,
+    });
+    throw error;
+  }
 };
 
 export const loadWeeklyFeedbackConfig: RouteMatch['handler'] = ({ db }) => ({ data: getWeeklyFeedbackConfig(db) });
