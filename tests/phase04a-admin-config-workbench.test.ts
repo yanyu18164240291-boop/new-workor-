@@ -252,6 +252,23 @@ describe('Phase 04A admin config workbench contract', () => {
     assert.match(knowledgeTab, /title=\{getKnowledgeEnableHint\(doc\)\}/);
   });
 
+  it('renders knowledge content fields used by the backend RAG answer flow', () => {
+    const knowledgeTab = readFileSync('src/frontend/pages/AdminConfig/KnowledgeTab.tsx', 'utf8');
+    const uploadModal = readFileSync('src/frontend/components/admin-config/UploadKnowledgeModal.tsx', 'utf8');
+    const service = readFileSync('src/frontend/services/adminConfigApi.ts', 'utf8');
+    const apiClient = readFileSync('src/frontend/api.ts', 'utf8');
+
+    assert.match(uploadModal, /contentText/);
+    assert.match(uploadModal, /retrievalKeywords/);
+    assert.match(uploadModal, /知识正文/);
+    assert.match(uploadModal, /检索关键词/);
+    assert.match(knowledgeTab, /doc\.contentText/);
+    assert.match(service, /contentText/);
+    assert.match(service, /retrievalKeywords/);
+    assert.match(apiClient, /contentText/);
+    assert.match(apiClient, /retrievalKeywords/);
+  });
+
   it('renders anonymous feedback pool processing fields and status mapping', () => {
     const poolTab = readFileSync('src/frontend/pages/AdminConfig/FeedbackPoolTab.tsx', 'utf8');
     const service = readFileSync('src/frontend/services/adminConfigApi.ts', 'utf8');

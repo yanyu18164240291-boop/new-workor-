@@ -333,6 +333,8 @@ CREATE TABLE IF NOT EXISTS knowledge_base_docs (
   fileSize INTEGER NOT NULL DEFAULT 0,
   fileHash TEXT NOT NULL DEFAULT 'mock-md5-pending',
   filePath TEXT NOT NULL DEFAULT 'mock-file://selected-admin-doc.pdf',
+  contentText TEXT NOT NULL DEFAULT '',
+  retrievalKeywords TEXT NOT NULL DEFAULT '',
   ownerName TEXT NOT NULL,
   status TEXT NOT NULL,
   parseStatus TEXT NOT NULL,

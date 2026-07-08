@@ -25,6 +25,7 @@ function validateDraft(draft: KnowledgeUploadDraft): string {
     ['适用岗位', draft.applicableRole],
     ['适用阶段', draft.applicableStage],
     ['Owner', draft.ownerName],
+    ['知识正文', draft.contentText],
   ];
   const missing = requiredFields.find(([, value]) => !value.trim());
   if (missing) return `${missing[0]}不能为空`;
@@ -91,8 +92,10 @@ export function KnowledgeTab({ data, filters, toast, reload }: KnowledgeTabProps
         applicableStage: draft.applicableStage.trim(),
         ownerName: draft.ownerName.trim(),
         sourceUrl: draft.sourceUrl.trim() || 'mock-drive://admin-upload',
+        contentText: draft.contentText.trim(),
+        retrievalKeywords: draft.retrievalKeywords.trim(),
       });
-      toast('已保存知识库资料元数据，解析和向量化仍为模拟状态');
+      toast('已保存知识库资料和 RAG 检索正文，解析和向量化状态需后台显式触发');
       setModalOpen(false);
       await reload();
     } catch (error) {
@@ -138,6 +141,7 @@ export function KnowledgeTab({ data, filters, toast, reload }: KnowledgeTabProps
     { key: 'parseStatus', title: '解析状态', render: (doc) => <StatusTag tone={statusTone(doc.parseStatus)}>{doc.parseStatus}</StatusTag> },
     { key: 'vectorStatus', title: '向量化状态', render: (doc) => <StatusTag tone={statusTone(doc.vectorStatus)}>{doc.vectorStatus}</StatusTag> },
     { key: 'hitCount', title: '命中次数', render: (doc) => doc.hitCount },
+    { key: 'content', title: '知识正文', render: (doc) => <span>{doc.contentText ? `${doc.contentText.slice(0, 24)}...` : '-'}</span> },
     { key: 'updatedBy', title: 'updatedBy', render: (doc) => doc.updatedBy ?? 'demo-admin' },
     { key: 'updatedAt', title: 'updatedAt', render: (doc) => doc.updatedAt ?? '-' },
     {

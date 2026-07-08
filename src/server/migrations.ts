@@ -44,6 +44,8 @@ function ensureAuditColumns(db: Database): void {
   addColumnIfMissing(db, 'knowledge_base_docs', 'fileSize', 'INTEGER NOT NULL DEFAULT 0');
   addColumnIfMissing(db, 'knowledge_base_docs', 'fileHash', "TEXT NOT NULL DEFAULT 'mock-md5-pending'");
   addColumnIfMissing(db, 'knowledge_base_docs', 'filePath', "TEXT NOT NULL DEFAULT 'mock-file://selected-admin-doc.pdf'");
+  addColumnIfMissing(db, 'knowledge_base_docs', 'contentText', "TEXT NOT NULL DEFAULT ''");
+  addColumnIfMissing(db, 'knowledge_base_docs', 'retrievalKeywords', "TEXT NOT NULL DEFAULT ''");
   addColumnIfMissing(db, 'd1_guide_configs', 'taskType', "TEXT NOT NULL DEFAULT 'custom_link'");
   addColumnIfMissing(db, 'd1_guide_configs', 'organizationPath', "TEXT NOT NULL DEFAULT '海底捞国际控股有限公司-集团总部-中台业务-技术管理中心-信息技术部-运维与网安组-安全与合规组'");
   addColumnIfMissing(db, 'd1_guide_configs', 'departmentId', "TEXT NOT NULL DEFAULT 'dept-collaboration-office'");

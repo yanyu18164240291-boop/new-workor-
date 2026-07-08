@@ -23,8 +23,19 @@ describe('newcomer home chat input', () => {
     assert.doesNotMatch(chatInputRow, /readOnly/);
     assert.match(chatInputRow, /onChange=\{[\s\S]*setAnswer/);
     assert.match(chatInputRow, /onKeyDown=\{[\s\S]*handleSendHomeChat/);
-    assert.match(chatInputRow, /onClick=\{handleSendHomeChat\}/);
+    assert.match(chatInputRow, /onClick=\{\(\) => void handleSendHomeChat\(\)\}/);
     assert.match(page, /home-chat-thread/);
+  });
+
+  it('sends home AI questions to the backend RAG endpoint before falling back locally', () => {
+    const page = source('src/frontend/pages/newcomerPages.tsx');
+    const apiClient = source('src/frontend/api.ts');
+
+    assert.match(apiClient, /askHomeAi/);
+    assert.match(apiClient, /\/api\/newcomers\/\$\{newcomerId\}\/ai-chat/);
+    assert.match(page, /await api\.askHomeAi\(data\.newcomer\.id,\s*\{\s*question\s*\}\)/);
+    assert.match(page, /formatHomeAiReply/);
+    assert.match(page, /buildHomeBotReply\(question\)/);
   });
 
   it('expands the home page into a focused chat mode after input focus', () => {

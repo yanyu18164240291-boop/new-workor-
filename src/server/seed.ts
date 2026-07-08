@@ -881,6 +881,8 @@ export function seedDatabase(db: Database): void {
       fileSize: 0,
       fileHash: `mock-md5-${doc[0]}`,
       filePath: `mock-file://${doc[0]}.pdf`,
+      contentText: doc[10] ?? `${doc[1]}：适用于${doc[4]}阶段，Owner 为${doc[6]}。`,
+      retrievalKeywords: doc[11] ?? `${doc[1]},${doc[2]},${doc[4]}`,
       ownerName: doc[6],
       status: doc[7],
       parseStatus: doc[8],

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { getAnonymousFeedbackFlow, toggleMultiChoice } from '../anonymousFeedbackModel.ts';
-import { api, formatApiErrorMessage, type D1GuideConfigItem, type PermissionItem, type WeeklyFeedbackQuestion } from '../api.ts';
+import { api, formatApiErrorMessage, type D1GuideConfigItem, type HomeAiAnswer, type PermissionItem, type WeeklyFeedbackQuestion } from '../api.ts';
 import {
   ActionButton,
   Card,
@@ -38,6 +38,12 @@ function formatHomeTime(value?: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function formatHomeAiReply(answer: HomeAiAnswer): string {
+  if (answer.citations.length === 0) return answer.answer;
+  const sources = answer.citations.map((citation) => `${citation.title}（${citation.ownerName}）`).join('、');
+  return `${answer.answer}\n\n引用：${sources}`;
 }
 
 function RolePreviewSelect({
@@ -150,18 +156,26 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
     };
   }, []);
 
-  function handleSendHomeChat() {
+  async function handleSendHomeChat() {
     const question = answer.trim();
-    const reply = buildHomeBotReply(question);
-    if (!question || !reply) return;
+    if (!question) return;
 
     setIsHomeChatActive(true);
+    setAnswer('');
+    const userMessage: HomeChatMessage = { id: `${Date.now()}-user`, role: 'user', text: question };
+    setHomeChatMessages((messages) => [...messages.slice(-6), userMessage]);
+    let reply = buildHomeBotReply(question);
+    if (data.newcomer?.id) {
+      try {
+        reply = formatHomeAiReply(await api.askHomeAi(data.newcomer.id, { question }));
+      } catch {
+        reply = buildHomeBotReply(question) || '后端问答暂时不可用，请稍后重试。';
+      }
+    }
     setHomeChatMessages((messages) => [
       ...messages.slice(-6),
-      { id: `${Date.now()}-user`, role: 'user', text: question },
       { id: `${Date.now()}-bot`, role: 'bot', text: reply },
     ]);
-    setAnswer('');
   }
 
   function handleOpenAttachmentSheet() {
@@ -292,10 +306,10 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
             onChange={(event) => setAnswer(event.target.value)}
             onFocus={() => setIsHomeChatActive(true)}
             onKeyDown={(event) => {
-              if (event.key === 'Enter') handleSendHomeChat();
+              if (event.key === 'Enter') void handleSendHomeChat();
             }}
           />
-          <button type="button" onClick={handleSendHomeChat}>发送</button>
+          <button type="button" onClick={() => void handleSendHomeChat()}>发送</button>
         </div>
         {showAttachSheet && (
           <div className="home-attach-sheet home-attach-sheet-below">

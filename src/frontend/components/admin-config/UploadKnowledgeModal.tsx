@@ -13,6 +13,8 @@ export type KnowledgeUploadDraft = {
   applicableStage: string;
   ownerName: string;
   sourceUrl: string;
+  contentText: string;
+  retrievalKeywords: string;
 };
 
 type UploadKnowledgeModalProps = {
@@ -32,6 +34,8 @@ const initialDraft: KnowledgeUploadDraft = {
   applicableStage: 'D1',
   ownerName: '',
   sourceUrl: 'mock-drive://admin-upload',
+  contentText: '',
+  retrievalKeywords: '',
 };
 
 export function UploadKnowledgeModal({ open, saving, error, roles, onClose, onSubmit }: UploadKnowledgeModalProps) {
@@ -109,7 +113,15 @@ export function UploadKnowledgeModal({ open, saving, error, roles, onClose, onSu
             来源链接
             <input value={draft.sourceUrl} onChange={(event) => patchDraft({ sourceUrl: event.target.value })} />
           </label>
-          <p className="admin-muted-line">点击开始上传时只保存知识库资料元数据，解析和向量化仍为模拟状态。</p>
+          <label>
+            知识正文 <b>*</b>
+            <textarea value={draft.contentText} onChange={(event) => patchDraft({ contentText: event.target.value })} />
+          </label>
+          <label>
+            检索关键词
+            <input value={draft.retrievalKeywords} onChange={(event) => patchDraft({ retrievalKeywords: event.target.value })} />
+          </label>
+          <p className="admin-muted-line">点击开始上传时保存知识库资料和 RAG 检索正文；解析和向量化仍为模拟状态，由后台显式触发。</p>
         </div>
         <div className="admin-modal-footer">
           <button className="admin-secondary-action" type="button" onClick={onClose}>

@@ -171,6 +171,8 @@ export type KnowledgeDoc = {
   fileSize?: number;
   fileHash?: string;
   filePath?: string;
+  contentText?: string;
+  retrievalKeywords?: string;
   status: string;
   parseStatus: string;
   vectorStatus: string;
@@ -219,6 +221,17 @@ export type D1GuideMessageDelivery = {
   recipientName: string;
   itemCount: number;
   sentAt: string;
+};
+
+export type HomeAiAnswer = {
+  mode: 'local_rag' | 'no_match';
+  answer: string;
+  citations: Array<{
+    docId: string;
+    title: string;
+    ownerName: string;
+    sourceUrl?: string;
+  }>;
 };
 
 export type WeeklyFeedback = {
@@ -464,6 +477,8 @@ export const api = {
     fileSize?: number;
     fileHash?: string;
     filePath?: string;
+    contentText?: string;
+    retrievalKeywords?: string;
     ownerName: string;
     updatedBy?: string;
   }) => apiSend<KnowledgeDoc>('/api/admin/knowledge-base-docs', 'POST', body),
@@ -589,6 +604,8 @@ export const api = {
     options?: { roleId?: string; force?: boolean; triggerSource?: 'd1_auto' | 'admin_resend' | string },
   ) =>
     apiSend<D1GuideMessageDelivery>(`/api/newcomers/${newcomerId}/d1-guide-message`, 'POST', options ?? {}),
+  askHomeAi: (newcomerId: string, body: { question: string }) =>
+    apiSend<HomeAiAnswer>(`/api/newcomers/${newcomerId}/ai-chat`, 'POST', body),
   submitAnonymousFeedback: (body: {
     type?: string;
     module?: string;
