@@ -549,6 +549,12 @@ export const api = {
       'PATCH',
       { selectedPermissionItemIds, scopePermissionItemIds },
     ),
+  updateNewcomerTaskState: (newcomerId: string, taskKey: string, status: 'pending' | 'in_progress' | 'completed') =>
+    apiSend<{ taskKey: string; status: string; completedAt?: string | null }>(
+      `/api/newcomers/${newcomerId}/task-states/${taskKey}`,
+      'PATCH',
+      { status },
+    ),
   submitPermissionProgress: (newcomerId: string, permissionItemId: string) =>
     apiSend<{
       progress: { id: string; status: string; submittedAt: string };

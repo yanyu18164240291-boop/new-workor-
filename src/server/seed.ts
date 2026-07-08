@@ -3,6 +3,9 @@ import type { SQLInputValue } from 'node:sqlite';
 import type { Database } from './db.ts';
 
 const seedTime = '2026-06-24T01:00:00.000Z';
+const realFeishuDepartmentChatUrl = 'https://applink.feishu.cn/client/chat/open?openChatId=oc_e558991e19bf2e476fbd51f4691f3bb4';
+const realEmployeeGuideUrl = 'https://haidilao.feishu.cn/docx/YB37dnzemobXxMxGiuycsFHvnlv';
+const realChatgptApprovalUrl = 'https://applink.feishu.cn/T97PFtN6Wdeo';
 
 const tables = [
   'manager_feedback_actions',
@@ -116,7 +119,7 @@ const d1GuideDefaults = [
     title: '加入飞书部门群',
     description: '进入新人群，导师会在群内同步安排。',
     targetGroupName: '协同办公部门新人群',
-    applyUrl: 'mock-feishu://chat/cooffice-newcomer',
+    applyUrl: realFeishuDepartmentChatUrl,
     sendToEmployeeName: '刘长省',
     sendToEmployeeContact: 'liuchangsheng@haina.example',
     documentTitle: null,
@@ -138,7 +141,7 @@ const d1GuideDefaults = [
     sendToEmployeeName: null,
     sendToEmployeeContact: null,
     documentTitle: '协同办公部门员工指南册',
-    documentUrl: 'mock-feishu://doc/cooffice-employee-guide',
+    documentUrl: realEmployeeGuideUrl,
     routePath: null,
     label: '查看员工指南册',
     ownerName: '协同办公内容 Owner',
@@ -181,13 +184,35 @@ function needsD1FieldRepair(actionKey: string, key: string, existing: Record<str
   if (['title', 'description', 'label', 'ownerName'].includes(key)) return isCorruptedSeedText(existing[key]);
   if (key === 'sortOrder') return Number(existing.sortOrder) !== Number(d1GuideDefaults.find((item) => item.actionKey === actionKey)?.sortOrder);
   if (actionKey === 'join_group') {
-    return ['targetGroupName', 'applyUrl', 'sendToEmployeeName', 'sendToEmployeeContact'].includes(key) && isCorruptedSeedText(existing[key]);
+    if (key === 'applyUrl') {
+      const value = typeof existing.applyUrl === 'string' ? existing.applyUrl.trim() : '';
+      return isCorruptedSeedText(value) || value.startsWith('mock-feishu://');
+    }
+    return ['targetGroupName', 'sendToEmployeeName', 'sendToEmployeeContact'].includes(key) && isCorruptedSeedText(existing[key]);
   }
   if (actionKey === 'employee_guide') {
-    return ['documentTitle', 'documentUrl'].includes(key) && isCorruptedSeedText(existing[key]);
+    if (key === 'documentUrl') {
+      const value = typeof existing.documentUrl === 'string' ? existing.documentUrl.trim() : '';
+      return isCorruptedSeedText(value) || value.startsWith('mock-feishu://');
+    }
+    return ['documentTitle'].includes(key) && isCorruptedSeedText(existing[key]);
   }
   if (actionKey === 'permission_package' && key === 'routePath') return existing.routePath !== '/permissions';
   return false;
+}
+
+export function seedRealFeishuFlowConfig(db: Database): void {
+  db.prepare(
+    `UPDATE permission_items
+     SET applyUrl = '', updatedAt = ?, updatedBy = ?
+     WHERE id <> ? AND applyUrl LIKE 'mock-feishu://%'`,
+  ).run(seedTime, 'demo-admin', 'perm-chatgpt');
+  db.prepare(
+    `UPDATE permission_items
+     SET applyUrl = ?, updatedAt = ?, updatedBy = ?
+     WHERE id = ?
+       AND (applyUrl IS NULL OR applyUrl = '' OR applyUrl LIKE 'mock-feishu://%' OR applyUrl = 'approval.haina-ai.com/v1/tools/chatgpt-access')`,
+  ).run(realChatgptApprovalUrl, seedTime, 'demo-admin', 'perm-chatgpt');
 }
 
 export function seedD1GuideConfig(db: Database): void {
@@ -580,7 +605,7 @@ export function seedDatabase(db: Database): void {
       ownerName: '刘长省',
       ownerContact: 'IT 支持群',
       applyEntryName: 'OA 系统权限申请表',
-      applyUrl: 'mock-feishu://approval/oa',
+      applyUrl: '',
       reasonTemplate: '新人入职 D1 需要 OA 系统用于查看制度与提交基础流程。',
       approverName: '刘长省（协同办公组）',
       commonWaitingReasons: JSON.stringify(['审批人在会议中', '账号同步存在 10-20 分钟延迟']),
@@ -598,7 +623,7 @@ export function seedDatabase(db: Database): void {
       ownerName: 'IT 支持群',
       ownerContact: 'it-help@haina.example',
       applyEntryName: '邮箱账号申请表',
-      applyUrl: 'mock-feishu://approval/mail',
+      applyUrl: '',
       reasonTemplate: '新人入职需要邮箱接收会议、文档和系统通知。',
       approverName: 'IT 服务台',
       commonWaitingReasons: JSON.stringify(['邮箱账号创建排队中', '需要确认手机号绑定']),
@@ -616,7 +641,7 @@ export function seedDatabase(db: Database): void {
       ownerName: 'BPM Owner',
       ownerContact: 'bpm-owner@haina.example',
       applyEntryName: 'BPM 系统申请入口',
-      applyUrl: 'mock-feishu://approval/bpm',
+      applyUrl: '',
       reasonTemplate: '产品实习生需要查看流程样例并跟进试点需求。',
       approverName: '流程平台 Owner',
       commonWaitingReasons: JSON.stringify(['Owner 需确认项目参与范围']),
@@ -634,7 +659,7 @@ export function seedDatabase(db: Database): void {
       ownerName: '刘长省',
       ownerContact: 'IT 支持群',
       applyEntryName: 'ChatGPT 账号申请表',
-      applyUrl: 'approval.haina-ai.com/v1/tools/chatgpt-access',
+      applyUrl: realChatgptApprovalUrl,
       reasonTemplate: '本人为协同办公组新入职产品实习生，需申请 ChatGPT 账号用于 PRD 编写、资料整理、测试用例生成，提升办公效率。',
       approverName: '刘长省（协同办公组）',
       commonWaitingReasons: JSON.stringify(['需确认业务用途', '许可证名额每周统一处理']),
@@ -652,7 +677,7 @@ export function seedDatabase(db: Database): void {
       ownerName: 'QoderWork 对接人',
       ownerContact: 'qoderwork-owner@haina.example',
       applyEntryName: 'QoderWork 空间权限申请',
-      applyUrl: 'mock-feishu://approval/qoderwork',
+      applyUrl: '',
       reasonTemplate: '用于查看 H5 原型任务、需求文档和技术方案。',
       approverName: '研发协作平台 Owner',
       commonWaitingReasons: JSON.stringify(['项目空间管理员需拉入成员']),

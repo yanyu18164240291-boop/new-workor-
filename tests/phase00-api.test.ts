@@ -74,12 +74,12 @@ describe('Phase 00 backend MVP APIs', () => {
 
     const route = await requestJson<{
       data: { applyUrl: string; reasonTemplate: string; approverName: string; commonWaitingReasons: string[] };
-    }>(`/api/permission-items/${pkg.body.data.requiredPermissions[0].name === 'OA 系统' ? 'perm-oa' : 'missing'}/route`);
+    }>(`/api/permission-items/${pkg.body.data.optionalPermissions.some((item) => item.name === 'ChatGPT 账号') ? 'perm-chatgpt' : 'missing'}/route`);
     assert.equal(route.status, 200);
-    assert.match(route.body.data.applyUrl, /^mock-feishu:\/\/approval\//);
+    assert.equal(route.body.data.applyUrl, 'https://applink.feishu.cn/T97PFtN6Wdeo');
   });
 
-  it('serves backend-configured D1 guide targets for simulated Feishu actions', async () => {
+  it('serves backend-configured D1 guide targets for real Feishu actions', async () => {
     const config = await requestJson<{
       data: {
         joinGroup: { targetGroupName: string; applyUrl: string; sendToEmployeeName: string; sendToEmployeeContact: string };
@@ -90,9 +90,9 @@ describe('Phase 00 backend MVP APIs', () => {
 
     assert.equal(config.status, 200);
     assert.equal(config.body.data.joinGroup.targetGroupName, '协同办公部门新人群');
-    assert.match(config.body.data.joinGroup.applyUrl, /^mock-feishu:\/\/chat\//);
+    assert.equal(config.body.data.joinGroup.applyUrl, 'https://applink.feishu.cn/client/chat/open?openChatId=oc_e558991e19bf2e476fbd51f4691f3bb4');
     assert.equal(config.body.data.joinGroup.sendToEmployeeName, '刘长省');
-    assert.match(config.body.data.employeeGuide.documentUrl, /^mock-feishu:\/\/doc\//);
+    assert.equal(config.body.data.employeeGuide.documentUrl, 'https://haidilao.feishu.cn/docx/YB37dnzemobXxMxGiuycsFHvnlv');
     assert.equal(config.body.data.permissionPackage.routePath, '/permissions');
     assert.equal(config.body.data.permissionPackage.label, '开通岗位权限包');
   });

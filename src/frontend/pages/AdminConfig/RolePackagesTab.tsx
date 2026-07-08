@@ -40,7 +40,7 @@ const blankPermissionDraft: PermissionDraft = {
   ownerName: '',
   ownerContact: '',
   applyEntryName: '',
-  applyUrl: 'mock-feishu://approval/',
+  applyUrl: 'https://applink.feishu.cn/T97PFtN6Wdeo',
   reasonTemplate: '',
   approverName: '',
   commonWaitingReasons: [''],
@@ -72,14 +72,13 @@ function validatePermissionDraft(draft: PermissionDraft): string {
     ['Owner 名称', draft.ownerName],
     ['Owner 联系方式', draft.ownerContact],
     ['申请入口名称', draft.applyEntryName],
-    ['申请入口 URL', draft.applyUrl],
     ['审批人', draft.approverName],
     ['理由模板', draft.reasonTemplate],
   ];
   const missing = requiredFields.find(([, value]) => !value?.trim());
   if (missing) return `${missing[0]}不能为空`;
-  if (!['mock-feishu://', 'http://', 'https://'].some((scheme) => draft.applyUrl.trim().startsWith(scheme))) {
-    return '申请入口 URL 仅支持 mock-feishu://、http://、https://';
+  if (draft.applyUrl.trim() && !['http://', 'https://'].some((scheme) => draft.applyUrl.trim().startsWith(scheme))) {
+    return '申请入口 URL 必须是真实 HTTP/HTTPS 地址';
   }
   if (draft.permissionType === 'required' && !draft.enabled) {
     return '必开权限必须保持启用，如需暂停请先调整为可选权限。';

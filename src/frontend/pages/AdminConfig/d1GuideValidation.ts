@@ -9,7 +9,7 @@ export function validateD1GuideDraft(draft: Partial<D1GuideConfigItem> & { actio
 
   if (draft.enabled && draft.actionKey === 'join_group') {
     if (!draft.targetGroupName?.trim()) return '飞书部门群名称不能为空';
-    if (!draft.applyUrl?.trim()) return '模拟进群链接不能为空';
+    if (!draft.applyUrl?.trim()) return '真实进群链接不能为空';
     if (!draft.sendToEmployeeName?.trim()) return '发送对象姓名不能为空';
     if (!draft.sendToEmployeeContact?.trim()) return '发送对象联系方式不能为空';
   }
@@ -19,12 +19,12 @@ export function validateD1GuideDraft(draft: Partial<D1GuideConfigItem> & { actio
     if (!draft.documentUrl?.trim()) return '指南册链接不能为空';
   }
 
-  if (draft.actionKey === 'join_group' && draft.applyUrl?.trim() && !isValidExternalUrl(draft.applyUrl, ['mock-feishu:', 'http:', 'https:'])) {
-    return '模拟进群链接格式不合法';
+  if (draft.actionKey === 'join_group' && draft.applyUrl?.trim() && !isValidExternalUrl(draft.applyUrl, ['http:', 'https:'])) {
+    return '真实进群链接必须是 HTTP/HTTPS URL';
   }
 
-  if (draft.actionKey === 'employee_guide' && draft.documentUrl?.trim() && !isValidExternalUrl(draft.documentUrl, ['mock-feishu:', 'http:', 'https:'])) {
-    return '指南册链接格式不合法';
+  if (draft.actionKey === 'employee_guide' && draft.documentUrl?.trim() && !isValidExternalUrl(draft.documentUrl, ['http:', 'https:'])) {
+    return '指南册链接必须是 HTTP/HTTPS URL';
   }
 
   if (draft.actionKey === 'permission_package') {
