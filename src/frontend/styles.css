@@ -2893,6 +2893,15 @@ button {
   cursor: pointer;
 }
 
+.d1-message-button {
+  white-space: nowrap;
+}
+
+.d1-message-button:disabled {
+  color: #94a3b8;
+  cursor: wait;
+}
+
 .review-note {
   margin: 10px 0 0;
   color: #667085;

@@ -9,6 +9,7 @@ import {
   listFollowUpTasks,
   listFollowUpMessageCards,
   loadD1GuideConfig,
+  sendD1GuideMessage,
   loadWeeklyFeedbackConfig,
   loadAnonymousFeedbackConfig,
   getFollowUpTask,
@@ -94,6 +95,10 @@ export const newcomerRoutes: Record<string, RouteMatch[]> = {
     {
       pattern: /^\/api\/follow-up-message-cards\/dispatch$/,
       handler: dispatchFollowUpMessageCards,
+    },
+    {
+      pattern: /^\/api\/newcomers\/([^/]+)\/d1-guide-message$/,
+      handler: sendD1GuideMessage,
     }
   ],
   PATCH: [

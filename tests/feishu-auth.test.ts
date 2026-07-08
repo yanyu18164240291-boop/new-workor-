@@ -91,6 +91,15 @@ describe('Feishu OAuth login', () => {
       if (url.includes('/auth/v3/tenant_access_token/internal')) {
         return Response.json({ code: 0, msg: 'ok', tenant_access_token: 'tenant-token' });
       }
+      if (url.includes('/im/v1/messages')) {
+        const body = JSON.parse(String(init?.body ?? '{}')) as { receive_id?: string; msg_type?: string; content?: string };
+        const content = JSON.parse(body.content ?? '{}') as { text?: string };
+        assert.equal(body.receive_id, 'ou_test');
+        assert.equal(body.msg_type, 'text');
+        assert.match(content.text ?? '', /燕余您好呀！这是你的 D1 到达引导/);
+        assert.match(content.text ?? '', /飞书管理员保存的权限包/);
+        return Response.json({ code: 0, msg: 'ok', data: { message_id: 'om_d1_guide' } });
+      }
       if (url.includes('/contact/v3/users/user_test')) {
         return Response.json({ code: 0, msg: 'ok', data: { user: { department_ids: ['od_child'], job_title: '产品实习生' } } });
       }
@@ -149,6 +158,20 @@ describe('Feishu OAuth login', () => {
       const adminSaveBody = (await adminSave.json()) as { data: { permissionPackage: { updatedBy: string } } };
       assert.equal(adminSave.status, 200);
       assert.equal(adminSaveBody.data.permissionPackage.updatedBy, '燕余');
+
+      const d1Push = await nativeFetch(`${server.baseUrl}/api/newcomers/newcomer-yanyu/d1-guide-message`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie },
+        body: JSON.stringify({ roleId: 'role-product-intern' }),
+      });
+      const d1PushBody = (await d1Push.json()) as {
+        data: { deliveryStatus: string; messageId: string; recipientName: string; itemCount: number };
+      };
+      assert.equal(d1Push.status, 200);
+      assert.equal(d1PushBody.data.deliveryStatus, 'sent');
+      assert.equal(d1PushBody.data.messageId, 'om_d1_guide');
+      assert.equal(d1PushBody.data.recipientName, '燕余');
+      assert.ok(calls.some((call) => call.url.includes('/im/v1/messages') && call.auth === 'Bearer tenant-token'));
     } finally {
       await server.close();
     }

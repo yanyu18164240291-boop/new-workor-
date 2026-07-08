@@ -212,6 +212,14 @@ export type D1GuideConfig = {
   permissionPackage: D1GuideConfigItem | null;
 };
 
+export type D1GuideMessageDelivery = {
+  deliveryStatus: 'sent' | 'failed';
+  messageId?: string;
+  recipientName: string;
+  itemCount: number;
+  sentAt: string;
+};
+
 export type WeeklyFeedback = {
   id: string;
   newcomerId: string;
@@ -575,6 +583,8 @@ export const api = {
       permissionItemId,
       status: 'submitted',
     }),
+  sendD1GuideMessage: (newcomerId: string, roleId?: string) =>
+    apiSend<D1GuideMessageDelivery>(`/api/newcomers/${newcomerId}/d1-guide-message`, 'POST', { roleId }),
   submitAnonymousFeedback: (body: {
     type?: string;
     module?: string;

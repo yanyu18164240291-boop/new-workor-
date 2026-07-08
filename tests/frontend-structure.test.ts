@@ -42,6 +42,9 @@ describe('newcomer page structure regressions', () => {
     const components = source('src/frontend/components.tsx');
 
     assert.match(pages, /<StepList showArrow hideStatus/);
+    assert.match(pages, /sendD1GuideToFeishu/);
+    assert.match(pages, /api\.sendD1GuideMessage/);
+    assert.match(pages, /发送到飞书/);
     assert.doesNotMatch(pages, /className="d1-action-list"/);
     assert.match(components, /showArrow/);
     assert.match(components, /className="step-arrow"/);
