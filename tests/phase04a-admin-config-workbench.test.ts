@@ -141,6 +141,10 @@ describe('Phase 04A admin config workbench contract', () => {
     assert.match(d1Tab, /departmentName/);
     assert.match(d1Tab, /roleName/);
     assert.match(d1Tab, /resourceLinks/);
+    assert.match(d1Tab, /useCurrentUserAsOwner/);
+    assert.match(d1Tab, /useCurrentUserAsSendTarget/);
+    assert.match(d1Tab, /contactFromSessionUser/);
+    assert.match(d1Tab, /inferFeishuDocumentTitle/);
     assert.match(d1Tab, /删除/);
     assert.match(d1Tab, /启用/);
   });

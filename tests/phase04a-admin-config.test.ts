@@ -433,6 +433,60 @@ describe('Phase 04A writable admin configuration', () => {
     assert.ok(created.body.data.items.some((item) => item.actionKey === 'join_group_store_ops' && item.resourceLinks[0].chatId === 'oc_store_ops'));
   });
 
+  it('fills employee guide title from Feishu document metadata when the admin leaves it empty', async () => {
+    const previousEnv = {
+      appId: process.env.FEISHU_APP_ID,
+      appSecret: process.env.FEISHU_APP_SECRET,
+      redirectUri: process.env.FEISHU_REDIRECT_URI,
+    };
+    process.env.FEISHU_APP_ID = 'cli_test';
+    process.env.FEISHU_APP_SECRET = 'test-secret';
+    process.env.FEISHU_REDIRECT_URI = `${baseUrl}/api/auth/feishu/callback`;
+    globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/auth/v3/tenant_access_token/internal')) {
+        return Response.json({ code: 0, msg: 'ok', tenant_access_token: 'tenant-token' });
+      }
+      if (url.includes('/drive/v1/metas/batch_query')) {
+        const auth = init?.headers instanceof Headers ? init.headers.get('authorization') : (init?.headers as Record<string, string> | undefined)?.authorization;
+        assert.equal(auth, 'Bearer tenant-token');
+        return Response.json({ code: 0, msg: 'ok', data: { metas: [{ title: '真实员工指南册标题' }] } });
+      }
+      return nativeFetch(input, init);
+    }) as typeof fetch;
+
+    try {
+      const saved = await requestJson<{ data: { employeeGuide: { documentTitle: string; documentUrl: string } } }>('/api/admin/d1-guide-config', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          items: [
+            {
+              actionKey: 'employee_guide',
+              taskType: 'employee_guide',
+              title: '查看员工指南册',
+              description: '查看真实飞书员工指南册。',
+              documentTitle: '',
+              documentUrl: 'https://haidilao.feishu.cn/docx/YB37dnzemobXxMxGiuycsFHvnlv',
+              label: '查看指南册',
+              ownerName: 'Content Admin',
+              enabled: true,
+            },
+          ],
+        }),
+      });
+      assert.equal(saved.status, 200);
+      assert.equal(saved.body.data.employeeGuide.documentTitle, '真实员工指南册标题');
+    } finally {
+      globalThis.fetch = nativeFetch;
+      if (previousEnv.appId === undefined) delete process.env.FEISHU_APP_ID;
+      else process.env.FEISHU_APP_ID = previousEnv.appId;
+      if (previousEnv.appSecret === undefined) delete process.env.FEISHU_APP_SECRET;
+      else process.env.FEISHU_APP_SECRET = previousEnv.appSecret;
+      if (previousEnv.redirectUri === undefined) delete process.env.FEISHU_REDIRECT_URI;
+      else process.env.FEISHU_REDIRECT_URI = previousEnv.redirectUri;
+    }
+  });
+
   it('keeps disabled D1 guide items editable in admin while hiding them from newcomer pages', async () => {
     const disabled = await requestJson<{
       data: { permissionPackage: { actionKey: string; label: string; enabled: boolean; updatedBy: string } };

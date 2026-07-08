@@ -15,7 +15,7 @@ type FeishuAuthConfig = {
   testNewcomerId: string;
 };
 
-type FeishuUser = {
+export type FeishuUser = {
   openId: string;
   unionId?: string;
   userId?: string;
@@ -86,6 +86,10 @@ function currentSession(context: ApiContext): { user: FeishuUser } | undefined {
     return undefined;
   }
   return { user: session.user };
+}
+
+export function getFeishuSessionUser(context: ApiContext): FeishuUser | undefined {
+  return currentSession(context)?.user;
 }
 
 export function isFeishuAdminSession(context: ApiContext): boolean {
@@ -163,6 +167,38 @@ async function getTenantAccessToken(config: FeishuAuthConfig): Promise<string | 
     app_secret: config.appSecret,
   });
   return payload.code === 0 ? payload.tenant_access_token : undefined;
+}
+
+function parseFeishuDocumentUrl(documentUrl: string): { token: string; type: string } | undefined {
+  try {
+    const url = new URL(documentUrl);
+    if (!url.hostname.endsWith('feishu.cn') && !url.hostname.endsWith('larksuite.com')) return undefined;
+    const [, docType, token] = url.pathname.split('/');
+    if (!token) return undefined;
+    if (!['docx', 'doc', 'wiki', 'sheets', 'base', 'bitable'].includes(docType)) return undefined;
+    return { token, type: docType };
+  } catch {
+    return undefined;
+  }
+}
+
+export async function getFeishuDocumentTitle(documentUrl: string): Promise<string | undefined> {
+  const config = authConfig();
+  const document = parseFeishuDocumentUrl(documentUrl);
+  if (!config || !document) return undefined;
+  const token = await getTenantAccessToken(config);
+  if (!token) return undefined;
+  const payload = await feishuPost<{
+    metas?: Array<{ title?: string; name?: string }>;
+    docs?: Array<{ title?: string; name?: string }>;
+  }>(
+    'https://open.feishu.cn/open-apis/drive/v1/metas/batch_query',
+    { request_docs: [{ doc_token: document.token, doc_type: document.type }] },
+    token,
+  );
+  if (payload.code !== 0) return undefined;
+  const meta = payload.data?.metas?.[0] ?? payload.data?.docs?.[0];
+  return (meta?.title ?? meta?.name)?.trim() || undefined;
 }
 
 async function getDepartmentName(token: string, departmentId: string): Promise<{ name?: string; parentId?: string } | undefined> {
