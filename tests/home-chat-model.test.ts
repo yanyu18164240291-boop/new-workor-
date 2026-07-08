@@ -86,7 +86,8 @@ describe('newcomer home chat input', () => {
     assert.match(page, /home-search-records/);
     assert.match(page, /home-side-panel/);
     assert.match(page, /home-side-profile/);
-    assert.match(page, /home-side-shortcuts/);
+    assert.doesNotMatch(page, /home-side-shortcuts/);
+    assert.doesNotMatch(styles, /\.home-side-shortcuts/);
     assert.match(page, /home-side-records/);
     assert.match(page, /home-attach-sheet-below/);
     assert.match(page, /home-attach-option-icon/);
