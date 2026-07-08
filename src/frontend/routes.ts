@@ -17,14 +17,6 @@ export type BottomNavItem = {
   pages: string[];
 };
 
-export type HomeShortcutItem = {
-  path: string;
-  label: string;
-  desc: string;
-  icon: 'book' | 'message' | 'shield' | 'sparkles' | 'user';
-  tone: 'blue' | 'success' | 'warning' | 'ai';
-};
-
 export type ShellKind = 'mobile' | 'desktop';
 
 export const pageRoutes: PageRoute[] = [
@@ -142,15 +134,6 @@ export function getOwnerHomePath(owner: PageRoute['owner']): string {
 
 export function getShellKind(route: PageRoute): ShellKind {
   return route.owner === 'admin' ? 'desktop' : 'mobile';
-}
-
-export function getHomeShortcutItems(): HomeShortcutItem[] {
-  return [
-    { path: '/d1', label: 'D1引导', desc: 'D1引导，一步步完成入职', icon: 'book', tone: 'blue' },
-    { path: '/permissions', label: '权限申请', desc: '岗位权限包、进度登记', icon: 'shield', tone: 'success' },
-    { path: '/weekly-feedback', label: '首周反馈', desc: '写给管理者的支持诉求', icon: 'user', tone: 'ai' },
-    { path: '/anonymous-feedback', label: '匿名反馈', desc: '匿名反馈、流程优化', icon: 'message', tone: 'warning' },
-  ];
 }
 
 export function getHomeQuickQuestions(): string[] {

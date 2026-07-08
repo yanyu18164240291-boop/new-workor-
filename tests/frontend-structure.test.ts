@@ -2,8 +2,6 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
-import { getHomeShortcutItems } from '../src/frontend/routes.ts';
-
 function source(path: string): string {
   return readFileSync(path, 'utf8');
 }
@@ -23,7 +21,6 @@ describe('newcomer page structure regressions', () => {
     assert.doesNotMatch(pages, /home-shortcut-card/);
     assert.match(pages, /className="home-progress-card"/);
     assert.match(pages, /className="home-progress-head"/);
-    assert.equal(getHomeShortcutItems().length, 4);
   });
 
   it('builds the home greeting from Feishu session first and newcomer data as fallback', () => {

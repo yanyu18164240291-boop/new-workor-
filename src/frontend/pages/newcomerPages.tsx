@@ -16,7 +16,7 @@ import {
 import type { DashboardData } from '../dashboardData.ts';
 import { buildHomeBotReply, type HomeChatMessage } from '../homeChatModel.ts';
 import { buildHomeProgressStats } from '../homeProgress.ts';
-import { getHomeQuickQuestions, getHomeShortcutItems } from '../routes.ts';
+import { getHomeQuickQuestions } from '../routes.ts';
 import {
   createInitialApplySelection,
   mapPermissionUiStatus,
@@ -142,7 +142,6 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
       ] as HomeChatMessage[],
     },
   ];
-  const homeShortcutItems = getHomeShortcutItems();
   const homeSearchRecordItems = homeHistoryItems.filter((item) => item.id !== 'current');
   const visibleHomeSearchRecords = (homeSearchQuery ? homeSearchResults : homeSearchRecordItems).filter(
     (item) => !dismissedHomeSearchRecordIds.includes(item.id),
@@ -240,17 +239,6 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
               <p>入职助手 · 设置</p>
             </div>
             <button type="button" onClick={() => setActiveHomePanel(null)}>关闭</button>
-          </div>
-          <div className="home-side-shortcuts">
-            {homeShortcutItems.map((item) => (
-              <button type="button" key={item.path} onClick={() => {
-                setActiveHomePanel(null);
-                navigate(item.path);
-              }}>
-                <IconTile icon={item.icon} tone={item.tone} />
-                <strong>{item.label}</strong>
-              </button>
-            ))}
           </div>
           <div className="home-side-records">
             <div className="home-side-record-title">

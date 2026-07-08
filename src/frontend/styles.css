@@ -2168,33 +2168,6 @@ button {
   font-weight: 800;
 }
 
-.home-side-shortcuts {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.home-side-shortcuts button {
-  min-height: 80px;
-  display: grid;
-  grid-template-columns: 38px minmax(0, 1fr);
-  align-items: center;
-  gap: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.86);
-  border-radius: 18px;
-  padding: 12px;
-  color: #172033;
-  text-align: left;
-  background: rgba(255, 255, 255, 0.76);
-  box-shadow: 0 10px 24px rgba(21, 43, 80, 0.08);
-}
-
-.home-side-shortcuts strong {
-  min-width: 0;
-  font-size: 15px;
-  line-height: 1.25;
-}
-
 .home-side-records {
   min-height: 0;
   display: grid;

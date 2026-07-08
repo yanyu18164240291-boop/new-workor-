@@ -4,13 +4,12 @@ import { describe, it } from 'node:test';
 import * as routes from '../src/frontend/routes.ts';
 
 describe('newcomer home page model', () => {
-  it('defines four ordered homepage shortcuts that route to the expected surfaces', () => {
-    assert.equal(typeof routes.getHomeShortcutItems, 'function');
-
-    const shortcuts = routes.getHomeShortcutItems();
+  it('uses the unified bottom navigation for the home surface', () => {
+    const navItems = routes.getBottomNavItems('01');
     assert.deepEqual(
-      shortcuts.map((item) => [item.label, item.path]),
+      navItems.map((item) => [item.label, item.path]),
       [
+        ['首页', '/'],
         ['D1引导', '/d1'],
         ['权限申请', '/permissions'],
         ['首周反馈', '/weekly-feedback'],
