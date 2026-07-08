@@ -1917,58 +1917,6 @@ button {
   line-height: 1.35;
 }
 
-.home-quick-nav {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
-  margin: 0 0 10px 50px;
-}
-
-.home-quick-nav-item {
-  min-width: 0;
-  min-height: 62px;
-  display: grid;
-  justify-items: center;
-  align-content: center;
-  gap: 5px;
-  padding: 7px 3px;
-  border: 1px solid #dce8f8;
-  border-radius: 14px;
-  color: #172033;
-  text-align: center;
-  background: #ffffff;
-}
-
-.home-quick-nav-item .icon-tile {
-  width: 28px;
-  height: 28px;
-  border-radius: 10px;
-}
-
-.home-quick-nav-item strong {
-  max-width: 100%;
-  color: #172033;
-  font-size: 10px;
-  line-height: 1.15;
-  overflow-wrap: anywhere;
-}
-
-.home-quick-nav-blue {
-  border-color: #cfe0ff;
-}
-
-.home-quick-nav-success {
-  border-color: #cbeedd;
-}
-
-.home-quick-nav-ai {
-  border-color: #ded6ff;
-}
-
-.home-quick-nav-warning {
-  border-color: #ffdca7;
-}
-
 .home-progress-card {
   padding: 0;
   overflow: hidden;
@@ -2304,7 +2252,7 @@ button {
   position: absolute;
   left: 12px;
   right: 12px;
-  bottom: 8px;
+  bottom: 70px;
   z-index: 6;
   padding-top: 8px;
   background: linear-gradient(180deg, rgba(243, 246, 251, 0), #f3f6fb 28%);

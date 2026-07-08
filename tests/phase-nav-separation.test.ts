@@ -8,7 +8,8 @@ import { DEMO_NEWCOMER_ID } from '../src/frontend/demoConfig.ts';
 describe('role navigation separation', () => {
   it('keeps newcomer, admin, and manager bottom navigation inside their own surface', () => {
     const newcomerHomePaths = getBottomNavItems('01').map((item) => item.path);
-    assert.deepEqual(newcomerHomePaths, []);
+    assert.deepEqual(newcomerHomePaths, ['/', '/d1', '/permissions', '/weekly-feedback', '/anonymous-feedback']);
+    assert.equal(getBottomNavItems('01')[0].label, '首页');
 
     const newcomerPaths = getBottomNavItems('02').map((item) => item.path);
     assert.deepEqual(newcomerPaths, ['/', '/d1', '/permissions', '/weekly-feedback', '/anonymous-feedback']);

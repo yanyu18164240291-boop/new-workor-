@@ -160,10 +160,6 @@ export function getHomeQuickQuestions(): string[] {
 export function getBottomNavItems(currentPage: string): BottomNavItem[] {
   const page = pageRoutes.find((route) => route.pageNo === currentPage);
 
-  if (currentPage === '01') {
-    return [];
-  }
-
   if (page?.owner === 'manager') {
     return [
       { path: '/manager', label: '总览', icon: 'grid', pages: ['10'] },
