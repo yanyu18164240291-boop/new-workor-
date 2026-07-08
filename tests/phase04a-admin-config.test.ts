@@ -350,6 +350,7 @@ describe('Phase 04A writable admin configuration', () => {
             description: 'Should be rejected before it reaches newcomer pages',
             targetGroupName: 'Configured newcomer group',
             applyUrl: '',
+            resourceLinks: [],
             sendToEmployeeName: 'Configured HR',
             sendToEmployeeContact: 'hr@example.com',
             label: 'Join group',
@@ -402,6 +403,34 @@ describe('Phase 04A writable admin configuration', () => {
     );
     assert.equal(reloaded.body.data.joinGroup.targetGroupName, 'Configured newcomer group');
     assert.equal(reloaded.body.data.permissionPackage.label, 'Open permissions');
+
+    const created = await requestJson<{
+      data: { items: Array<{ actionKey: string; taskType: string; roleId: string; resourceLinks: Array<{ name: string; url: string; chatId: string }> }> };
+    }>('/api/admin/d1-guide-config', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        items: [
+          {
+            actionKey: 'join_group_store_ops',
+            taskType: 'join_group',
+            organizationPath: '海底捞国际控股有限公司-集团总部-门店运营',
+            departmentId: 'dept-store-ops',
+            departmentName: '门店运营部',
+            roleId: 'role-store-ops',
+            roleName: '门店运营实习生',
+            title: '加入门店运营新人群',
+            description: '进入门店运营新人群完成 D1 对接。',
+            targetGroupName: '门店运营新人群',
+            resourceLinks: [{ name: '门店运营新人群', url: 'https://applink.feishu.cn/client/chat/open?openChatId=oc_store_ops', chatId: 'oc_store_ops' }],
+            label: '加入新人群',
+            ownerName: '门店运营 Owner',
+            enabled: true,
+          },
+        ],
+      }),
+    });
+    assert.equal(created.status, 200);
+    assert.ok(created.body.data.items.some((item) => item.actionKey === 'join_group_store_ops' && item.resourceLinks[0].chatId === 'oc_store_ops'));
   });
 
   it('keeps disabled D1 guide items editable in admin while hiding them from newcomer pages', async () => {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { getAnonymousFeedbackFlow, toggleMultiChoice } from '../anonymousFeedbackModel.ts';
-import { api, type PermissionItem, type WeeklyFeedbackQuestion } from '../api.ts';
+import { api, type D1GuideConfigItem, type PermissionItem, type WeeklyFeedbackQuestion } from '../api.ts';
 import {
   ActionButton,
   Card,
@@ -42,43 +42,21 @@ function formatHomeTime(value?: string) {
 
 function RolePreviewSelect({
   data,
-  onRoleChange,
   variant = 'card',
 }: {
   data: DashboardData;
-  onRoleChange?: (roleId: string) => Promise<void>;
   variant?: 'card' | 'inline';
 }) {
-  const [switching, setSwitching] = useState(false);
   const roles = data.roles ?? [];
   const selectedRoleId = data.selectedRoleId ?? data.package?.role.id ?? data.newcomer?.roleId ?? '';
   const selectedRoleName = data.package?.role.name ?? roles.find((role) => role.id === selectedRoleId)?.name ?? '协同办公产品实习生';
-
-  async function handleChange(roleId: string) {
-    if (!roleId || roleId === selectedRoleId || !onRoleChange) return;
-    try {
-      setSwitching(true);
-      await onRoleChange(roleId);
-    } finally {
-      setSwitching(false);
-    }
-  }
+  const departmentName = data.authSession?.user?.departmentName ?? data.newcomer?.department ?? data.package?.role.department ?? '';
 
   return (
     <div className={`role-preview-select role-preview-select-${variant}`}>
-      <span>当前位置</span>
-      {roles.length > 0 ? (
-        <select value={selectedRoleId} disabled={switching} onChange={(event) => void handleChange(event.target.value)}>
-          {roles.map((role) => (
-            <option key={role.id} value={role.id}>
-              {role.name}
-            </option>
-          ))}
-        </select>
-      ) : (
-        <strong>{selectedRoleName}</strong>
-      )}
-      {switching && <small>正在切换</small>}
+      <span>当前岗位</span>
+      <strong>{selectedRoleName}</strong>
+      {departmentName && <small>{departmentName}</small>}
     </div>
   );
 }
@@ -352,62 +330,51 @@ export function D1Page({
   onRoleChange?: (roleId: string) => Promise<void>;
 }) {
   const guide = data.d1GuideConfig;
+  const guideItems = (guide?.items?.length
+    ? guide.items
+    : [guide?.joinGroup, guide?.employeeGuide, guide?.permissionPackage].filter(Boolean)
+  ) as D1GuideConfigItem[];
   async function completeD1Guide() {
     if (!data.newcomer) return;
     await api.updateNewcomerTaskState(data.newcomer.id, 'd1_guide', 'completed');
   }
-  const actions = [
-    guide?.joinGroup
-      ? {
-          no: '1',
-          title: guide.joinGroup.title,
-          desc: `进入 ${guide.joinGroup.targetGroupName}，申请会发送给 ${guide.joinGroup.sendToEmployeeName}`,
-          status: '已完成',
-          label: '已完成',
-          onClick: () => {
-            if (!openExternalUrl(guide.joinGroup.applyUrl)) toast('飞书部门群链接暂未配置，请联系管理员');
-          },
-        }
-      : null,
-    guide?.employeeGuide
-      ? {
-          no: '2',
-          title: guide.employeeGuide.title,
-          desc: guide.employeeGuide.documentTitle ?? '办公规范、门禁、餐饮、常见问题',
-          status: '进行中',
-          label: '进行中',
-          onClick: () => {
-            if (!openExternalUrl(guide.employeeGuide.documentUrl)) toast('员工指南册链接暂未配置，请联系管理员');
-          },
-        }
-      : null,
-    guide?.permissionPackage
-      ? {
-          no: '3',
-          title: guide.permissionPackage.title,
-          desc: guide.permissionPackage.description,
-          status: '下一步',
-          label: '下一步',
-          onClick: async () => {
+  const actions = guideItems
+    .filter((item) => item.enabled !== false)
+    .sort((left, right) => Number(left.sortOrder ?? 99) - Number(right.sortOrder ?? 99))
+    .map((item, index) => {
+      const firstResource = item.resourceLinks?.find((link) => link.url?.trim());
+      const taskType = item.taskType ?? item.actionKey;
+      const groupNames = item.resourceLinks?.map((link) => link.name).filter(Boolean).join('、');
+      const externalUrl = firstResource?.url || item.applyUrl || item.documentUrl || '';
+      return {
+        no: String(index + 1),
+        title: item.title,
+        desc:
+          taskType === 'join_group'
+            ? `进入 ${groupNames || item.targetGroupName || '飞书部门群'}${item.sendToEmployeeName ? `，负责人 ${item.sendToEmployeeName}` : ''}`
+            : item.documentTitle || item.description,
+        status: index === 0 ? '进行中' : '下一步',
+        label: item.label,
+        onClick: async () => {
+          if (taskType === 'permission_package') {
             await completeD1Guide();
-            navigate(guide.permissionPackage.routePath ?? '/permissions');
-          },
-        }
-      : null,
-  ].filter(Boolean) as Array<{ no: string; title: string; desc: string; status: string; label: string; onClick: () => void }>;
+            navigate(item.routePath ?? '/permissions');
+            return;
+          }
+          if (!openExternalUrl(externalUrl)) toast(`${item.title} 暂未配置真实链接，请联系管理员`);
+        },
+      };
+    });
   return (
     <>
       <SectionCard title="D1 到达引导包">
-        <p>先完成 3 个关键动作：进部门群、查看员工指南册、查看岗位权限包。</p>
+        <p>先完成今日岗位相关的关键任务：进部门群、查看员工指南册、查看岗位权限包。</p>
         <Card className="notice-card inner">
-          <RolePreviewSelect data={data} onRoleChange={onRoleChange} />
+          <RolePreviewSelect data={data} />
         </Card>
       </SectionCard>
       <SectionCard title="今日关键路径" action={<span className="time-hint">预计 20-30 分钟</span>}>
         <StepList showArrow hideStatus steps={actions.map((item) => ({ no: item.no, title: item.title, desc: item.desc, status: item.status, onClick: item.onClick }))} />
-      </SectionCard>
-      <SectionCard title="Bot 提醒">
-        <p>部门群、员工指南册和权限申请入口已接入真实飞书资源。完成 D1 引导后，我会继续帮你跟进权限开通进度。</p>
       </SectionCard>
     </>
   );
@@ -434,7 +401,7 @@ export function PermissionPage({
         <div>
           <h2>{data.package?.role.name ?? '协同办公产品实习生'}权限包</h2>
           <p>适用于入职第一周 · D1-D7</p>
-          <RolePreviewSelect data={data} onRoleChange={onRoleChange} variant="inline" />
+          <RolePreviewSelect data={data} variant="inline" />
         </div>
         <StatusChip tone="blue">岗位默认推荐</StatusChip>
       </Card>

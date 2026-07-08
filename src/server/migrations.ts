@@ -44,6 +44,23 @@ function ensureAuditColumns(db: Database): void {
   addColumnIfMissing(db, 'knowledge_base_docs', 'fileSize', 'INTEGER NOT NULL DEFAULT 0');
   addColumnIfMissing(db, 'knowledge_base_docs', 'fileHash', "TEXT NOT NULL DEFAULT 'mock-md5-pending'");
   addColumnIfMissing(db, 'knowledge_base_docs', 'filePath', "TEXT NOT NULL DEFAULT 'mock-file://selected-admin-doc.pdf'");
+  addColumnIfMissing(db, 'd1_guide_configs', 'taskType', "TEXT NOT NULL DEFAULT 'custom_link'");
+  addColumnIfMissing(db, 'd1_guide_configs', 'organizationPath', "TEXT NOT NULL DEFAULT '海底捞国际控股有限公司-集团总部-中台业务-技术管理中心-信息技术部-运维与网安组-安全与合规组'");
+  addColumnIfMissing(db, 'd1_guide_configs', 'departmentId', "TEXT NOT NULL DEFAULT 'dept-collaboration-office'");
+  addColumnIfMissing(db, 'd1_guide_configs', 'departmentName', "TEXT NOT NULL DEFAULT '协同办公部门'");
+  addColumnIfMissing(db, 'd1_guide_configs', 'roleId', "TEXT NOT NULL DEFAULT 'role-product-intern'");
+  addColumnIfMissing(db, 'd1_guide_configs', 'roleName', "TEXT NOT NULL DEFAULT '协同办公产品实习生'");
+  addColumnIfMissing(db, 'd1_guide_configs', 'resourceLinks', "TEXT NOT NULL DEFAULT '[]'");
+  db.exec(
+    `UPDATE d1_guide_configs
+     SET taskType = CASE actionKey
+       WHEN 'join_group' THEN 'join_group'
+       WHEN 'employee_guide' THEN 'employee_guide'
+       WHEN 'permission_package' THEN 'permission_package'
+       ELSE COALESCE(NULLIF(taskType, ''), 'custom_link')
+     END
+     WHERE taskType = 'custom_link' OR taskType IS NULL OR taskType = '';`,
+  );
 }
 
 function addColumnIfMissing(db: Database, table: string, column: string, definition: string): void {

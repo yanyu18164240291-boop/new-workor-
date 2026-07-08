@@ -54,7 +54,7 @@ export function AdminConfigPage({ data, search, toast, reload, navigate }: Admin
   const [filters, setFilters] = useState<AdminConfigFilters>(defaultAdminConfigFilters);
 
   return (
-    <AdminConfigLayout activeTab={activeTab} filters={filters} onFiltersChange={setFilters} navigate={navigate} reload={reload}>
+    <AdminConfigLayout activeTab={activeTab} filters={filters} onFiltersChange={setFilters} navigate={navigate} reload={reload} data={data}>
       {activeTab === 'overview' && <OverviewTab data={data} filters={filters} navigate={navigate} />}
       {activeTab === 'role-packages' && <RolePackagesTab data={data} filters={filters} search={search} toast={toast} reload={reload} />}
       {activeTab === 'd1-guide' && <D1GuideTab data={data} toast={toast} reload={reload} />}

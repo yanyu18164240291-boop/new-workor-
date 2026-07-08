@@ -14,7 +14,6 @@ import {
   PermissionPage,
   WeeklyFeedbackPage,
 } from './pages/newcomerPages.tsx';
-import { currentAdminUser } from './types/adminConfig.ts';
 
 export function AppContent({
   pageNo,
@@ -40,7 +39,15 @@ export function AppContent({
   openOwnerModal: () => void;
 }) {
   function renderAdminGuard(children: ReactNode) {
-    if (canAccessAdminConfig(currentAdminUser)) return children;
+    const adminUser = data.authSession?.user
+      ? {
+          name: data.authSession.user.name,
+          role: data.authSession.user.jobTitle ?? '后台管理员',
+          departmentName: data.authSession.user.departmentName,
+          jobTitle: data.authSession.user.jobTitle,
+        }
+      : { name: 'demo-admin', role: '后台管理员' };
+    if (canAccessAdminConfig(adminUser)) return children;
     return (
       <div className="admin-workbench-panel">
         <section className="admin-card admin-access-denied">

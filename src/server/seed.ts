@@ -6,6 +6,7 @@ const seedTime = '2026-06-24T01:00:00.000Z';
 const realFeishuDepartmentChatUrl = 'https://applink.feishu.cn/client/chat/open?openChatId=oc_e558991e19bf2e476fbd51f4691f3bb4';
 const realEmployeeGuideUrl = 'https://haidilao.feishu.cn/docx/YB37dnzemobXxMxGiuycsFHvnlv';
 const realChatgptApprovalUrl = 'https://applink.feishu.cn/T97PFtN6Wdeo';
+const collaborationOrgPath = '海底捞国际控股有限公司-集团总部-中台业务-技术管理中心-信息技术部-运维与网安组-安全与合规组';
 
 const tables = [
   'manager_feedback_actions',
@@ -116,6 +117,12 @@ function demoFeishuJoinCompletedAt(newcomerId: string, fallback: string): string
 const d1GuideDefaults = [
   {
     actionKey: 'join_group',
+    taskType: 'join_group',
+    organizationPath: collaborationOrgPath,
+    departmentId: 'dept-collaboration-office',
+    departmentName: '协同办公部门',
+    roleId: 'role-product-intern',
+    roleName: '协同办公产品实习生',
     title: '加入飞书部门群',
     description: '进入新人群，导师会在群内同步安排。',
     targetGroupName: '协同办公部门新人群',
@@ -124,6 +131,14 @@ const d1GuideDefaults = [
     sendToEmployeeContact: 'liuchangsheng@haina.example',
     documentTitle: null,
     documentUrl: null,
+    resourceLinks: JSON.stringify([
+      {
+        name: '协同办公部门新人群',
+        url: realFeishuDepartmentChatUrl,
+        chatId: 'oc_e558991e19bf2e476fbd51f4691f3bb4',
+        qrCodeUrl: '',
+      },
+    ]),
     routePath: null,
     label: '加入飞书部门群',
     ownerName: '协同办公部门',
@@ -134,6 +149,12 @@ const d1GuideDefaults = [
   },
   {
     actionKey: 'employee_guide',
+    taskType: 'employee_guide',
+    organizationPath: collaborationOrgPath,
+    departmentId: 'dept-collaboration-office',
+    departmentName: '协同办公部门',
+    roleId: 'role-product-intern',
+    roleName: '协同办公产品实习生',
     title: '查看员工指南册',
     description: '办公规范、门禁、餐饮、常见问题。',
     targetGroupName: null,
@@ -142,6 +163,7 @@ const d1GuideDefaults = [
     sendToEmployeeContact: null,
     documentTitle: '协同办公部门员工指南册',
     documentUrl: realEmployeeGuideUrl,
+    resourceLinks: JSON.stringify([]),
     routePath: null,
     label: '查看员工指南册',
     ownerName: '协同办公内容 Owner',
@@ -152,6 +174,12 @@ const d1GuideDefaults = [
   },
   {
     actionKey: 'permission_package',
+    taskType: 'permission_package',
+    organizationPath: collaborationOrgPath,
+    departmentId: 'dept-collaboration-office',
+    departmentName: '协同办公部门',
+    roleId: 'role-product-intern',
+    roleName: '协同办公产品实习生',
     title: '开通岗位权限包',
     description: '查看并申请岗位必开权限与可选权限。',
     targetGroupName: null,
@@ -160,6 +188,7 @@ const d1GuideDefaults = [
     sendToEmployeeContact: null,
     documentTitle: null,
     documentUrl: null,
+    resourceLinks: JSON.stringify([]),
     routePath: '/permissions',
     label: '开通岗位权限包',
     ownerName: '协同办公权限 Owner',
@@ -182,8 +211,13 @@ function needsD1FieldRepair(actionKey: string, key: string, existing: Record<str
     if (value === '打开岗位权限包' || value === '申请岗位权限') return true;
   }
   if (['title', 'description', 'label', 'ownerName'].includes(key)) return isCorruptedSeedText(existing[key]);
+  if (['taskType', 'organizationPath', 'departmentId', 'departmentName', 'roleId', 'roleName'].includes(key)) return isCorruptedSeedText(existing[key]);
   if (key === 'sortOrder') return Number(existing.sortOrder) !== Number(d1GuideDefaults.find((item) => item.actionKey === actionKey)?.sortOrder);
   if (actionKey === 'join_group') {
+    if (key === 'resourceLinks') {
+      const value = typeof existing.resourceLinks === 'string' ? existing.resourceLinks.trim() : '';
+      return value === '' || value === '[]' || value.startsWith('mock-feishu://');
+    }
     if (key === 'applyUrl') {
       const value = typeof existing.applyUrl === 'string' ? existing.applyUrl.trim() : '';
       return isCorruptedSeedText(value) || value.startsWith('mock-feishu://');
@@ -191,6 +225,7 @@ function needsD1FieldRepair(actionKey: string, key: string, existing: Record<str
     return ['targetGroupName', 'sendToEmployeeName', 'sendToEmployeeContact'].includes(key) && isCorruptedSeedText(existing[key]);
   }
   if (actionKey === 'employee_guide') {
+    if (key === 'resourceLinks') return false;
     if (key === 'documentUrl') {
       const value = typeof existing.documentUrl === 'string' ? existing.documentUrl.trim() : '';
       return isCorruptedSeedText(value) || value.startsWith('mock-feishu://');

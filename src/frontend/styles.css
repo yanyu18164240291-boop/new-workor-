@@ -307,6 +307,13 @@ button {
   font-size: 14px;
 }
 
+.admin-page-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
 .admin-placeholder-card {
   width: min(760px, 100%);
   display: grid;

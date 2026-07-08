@@ -81,6 +81,12 @@ CREATE INDEX IF NOT EXISTS idx_newcomer_task_states_newcomer_id ON newcomer_task
 
 CREATE TABLE IF NOT EXISTS d1_guide_configs (
   actionKey TEXT PRIMARY KEY,
+  taskType TEXT NOT NULL DEFAULT 'custom_link',
+  organizationPath TEXT NOT NULL DEFAULT '海底捞国际控股有限公司-集团总部-中台业务-技术管理中心-信息技术部-运维与网安组-安全与合规组',
+  departmentId TEXT NOT NULL DEFAULT 'dept-collaboration-office',
+  departmentName TEXT NOT NULL DEFAULT '协同办公部门',
+  roleId TEXT NOT NULL DEFAULT 'role-product-intern',
+  roleName TEXT NOT NULL DEFAULT '协同办公产品实习生',
   title TEXT NOT NULL,
   description TEXT NOT NULL,
   targetGroupName TEXT,
@@ -89,6 +95,7 @@ CREATE TABLE IF NOT EXISTS d1_guide_configs (
   sendToEmployeeContact TEXT,
   documentTitle TEXT,
   documentUrl TEXT,
+  resourceLinks TEXT NOT NULL DEFAULT '[]',
   routePath TEXT,
   label TEXT NOT NULL,
   ownerName TEXT NOT NULL,

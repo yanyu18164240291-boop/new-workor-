@@ -42,7 +42,7 @@ async function loadNewcomerSurfaceData(previewRoleId?: string): Promise<Dashboar
     api.getPermissionPackage(selectedRoleId),
     api.getPermissionProgress(newcomer.id),
     api.getFollowUpTasks(newcomer.id),
-    api.getD1GuideConfig(),
+    api.getD1GuideConfig(selectedRoleId),
     api.getWeeklyFeedbackConfig(),
     api.getAnonymousFeedbackConfig(),
     api.getWeeklyFeedback(newcomer.id),
@@ -63,13 +63,14 @@ async function loadNewcomerSurfaceData(previewRoleId?: string): Promise<Dashboar
 }
 
 async function loadAdminConfigSurfaceData(): Promise<DashboardData> {
-  const [admin, adminD1GuideConfig, knowledgeDocs, metrics, weeklyAnalysis, anonymous] = await Promise.all([
+  const [admin, adminD1GuideConfig, knowledgeDocs, metrics, weeklyAnalysis, anonymous, authSession] = await Promise.all([
     api.getAdminConfig(),
     api.getAdminD1GuideConfig(),
     api.getKnowledgeDocs(),
     api.getReviewMetrics(),
     api.getWeeklyFeedbackAnalysis(),
     api.getAnonymousFeedbacks(),
+    api.getAuthSession(),
   ]);
   const adminConfig = { ...admin, d1GuideConfig: adminD1GuideConfig };
   return {
@@ -78,6 +79,7 @@ async function loadAdminConfigSurfaceData(): Promise<DashboardData> {
     metrics,
     weeklyAnalysis,
     anonymous,
+    authSession,
     d1GuideConfig: adminD1GuideConfig,
     weeklyConfig: admin.weeklyFeedbackConfig,
     anonymousConfig: admin.anonymousFeedbackConfig,

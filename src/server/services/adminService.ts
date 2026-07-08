@@ -111,6 +111,24 @@ function optionalNullableString(body: Record<string, unknown>, key: string, fall
   return fallback === null || fallback === undefined ? null : String(fallback);
 }
 
+function optionalJsonString(body: Record<string, unknown>, key: string, fallback: unknown): string {
+  const value = body[key];
+  if (!(key in body)) {
+    if (typeof fallback === 'string') return fallback;
+    return JSON.stringify(Array.isArray(fallback) ? fallback : []);
+  }
+  if (!Array.isArray(value)) throw badRequest(`${key} must be a list`);
+  return JSON.stringify(value);
+}
+
+function d1TaskType(actionKey: string, item: Record<string, unknown>): string {
+  if (typeof item.taskType === 'string' && item.taskType.trim()) return item.taskType.trim();
+  if (actionKey === 'join_group') return 'join_group';
+  if (actionKey === 'employee_guide') return 'employee_guide';
+  if (actionKey === 'permission_package') return 'permission_package';
+  return 'custom_link';
+}
+
 function parseCommonWaitingReasons(value: unknown, fallback: unknown): string {
   if (Array.isArray(value)) {
     const reasons = value.filter((item): item is string => typeof item === 'string' && item.trim() !== '').map((item) => item.trim());
@@ -176,30 +194,42 @@ function assertRequiredPermissionCanStayEnabled(
 
 function assertD1GuideItem(actionKey: string, item: Record<string, unknown>): void {
   const enabled = !('enabled' in item) || Boolean(item.enabled);
-  if (enabled && actionKey === 'join_group') {
+  const taskType = d1TaskType(actionKey, item);
+  requiredString(item, 'title');
+  requiredString(item, 'description');
+  requiredString(item, 'label');
+  requiredString(item, 'ownerName');
+  if (enabled && taskType === 'join_group') {
     requiredString(item, 'targetGroupName');
-    requiredString(item, 'applyUrl');
-    requiredString(item, 'sendToEmployeeName');
-    requiredString(item, 'sendToEmployeeContact');
+    const hasDirectLink = typeof item.applyUrl === 'string' && item.applyUrl.trim();
+    const hasResourceLinks = Array.isArray(item.resourceLinks) && item.resourceLinks.some((link) => typeof link === 'object' && link && typeof (link as Record<string, unknown>).url === 'string' && String((link as Record<string, unknown>).url).trim());
+    if (!hasDirectLink && !hasResourceLinks) throw badRequest('join_group applyUrl is required');
   }
-  if (enabled && actionKey === 'employee_guide') {
+  if (enabled && taskType === 'employee_guide') {
     requiredString(item, 'documentTitle');
     requiredString(item, 'documentUrl');
   }
-  if (enabled && actionKey === 'permission_package') {
+  if (enabled && taskType === 'permission_package') {
     requiredString(item, 'routePath');
   }
-  if (actionKey === 'join_group') {
+  if (taskType === 'join_group') {
     if (typeof item.applyUrl === 'string' && item.applyUrl.trim() && !isValidExternalUrl(item.applyUrl, ['http:', 'https:'])) {
       throw badRequest('join_group applyUrl is invalid');
     }
+    if (Array.isArray(item.resourceLinks)) {
+      for (const link of item.resourceLinks) {
+        if (!link || typeof link !== 'object') throw badRequest('join_group resourceLinks is invalid');
+        const url = typeof (link as Record<string, unknown>).url === 'string' ? String((link as Record<string, unknown>).url).trim() : '';
+        if (url && !isValidExternalUrl(url, ['http:', 'https:'])) throw badRequest('join_group resource link url is invalid');
+      }
+    }
   }
-  if (actionKey === 'employee_guide') {
+  if (taskType === 'employee_guide') {
     if (typeof item.documentUrl === 'string' && item.documentUrl.trim() && !isValidExternalUrl(item.documentUrl, ['http:', 'https:'])) {
       throw badRequest('employee_guide documentUrl is invalid');
     }
   }
-  if (actionKey === 'permission_package') {
+  if (taskType === 'permission_package') {
     const routePath = typeof item.routePath === 'string' ? item.routePath.trim() : '';
     if (routePath && !isAllowedPageRoutePath(routePath)) throw badRequest('permission_package routePath must match a known page route');
     if (routePath && routePath !== '/permissions') throw badRequest('permission_package routePath must stay /permissions');
@@ -660,30 +690,79 @@ export const updateD1GuideConfig: RouteMatch['handler'] = async ({ db, request }
         for (const item of items) {
           const actionKey = requiredString(item, 'actionKey');
           const existing = normalizeRow(db.prepare('SELECT * FROM d1_guide_configs WHERE actionKey = ?').get(actionKey) as Record<string, unknown> | undefined);
-          if (!existing) return { status: 404, error: 'D1 guide config not found' };
-          assertD1GuideItem(actionKey, { ...existing, ...item });
-          db.prepare(
-            `UPDATE d1_guide_configs
-             SET title = ?, description = ?, targetGroupName = ?, applyUrl = ?, sendToEmployeeName = ?, sendToEmployeeContact = ?,
-                 documentTitle = ?, documentUrl = ?, routePath = ?, label = ?, ownerName = ?, enabled = ?, updatedAt = ?, updatedBy = ?
-             WHERE actionKey = ?`,
-          ).run(
-            sqlValue(optionalString(item, 'title', existing.title)),
-            sqlValue(optionalString(item, 'description', existing.description)),
-            sqlValue(optionalNullableString(item, 'targetGroupName', existing.targetGroupName)),
-            sqlValue(optionalNullableString(item, 'applyUrl', existing.applyUrl)),
-            sqlValue(optionalNullableString(item, 'sendToEmployeeName', existing.sendToEmployeeName)),
-            sqlValue(optionalNullableString(item, 'sendToEmployeeContact', existing.sendToEmployeeContact)),
-            sqlValue(optionalNullableString(item, 'documentTitle', existing.documentTitle)),
-            sqlValue(optionalNullableString(item, 'documentUrl', existing.documentUrl)),
-            sqlValue(optionalNullableString(item, 'routePath', existing.routePath)),
-            sqlValue(optionalString(item, 'label', existing.label)),
-            sqlValue(optionalString(item, 'ownerName', existing.ownerName)),
-            'enabled' in item ? boolToDb(item.enabled) : boolToDb(existing.enabled),
-            time,
-            adminActor(body),
-            actionKey,
-          );
+          const merged = existing ? { ...existing, ...item } : item;
+          assertD1GuideItem(actionKey, merged);
+          const sortOrder =
+            'sortOrder' in item && Number.isFinite(Number(item.sortOrder))
+              ? Number(item.sortOrder)
+              : existing
+                ? Number(existing.sortOrder ?? 99)
+                : Number((db.prepare('SELECT COALESCE(MAX(sortOrder), 0) + 1 AS nextSortOrder FROM d1_guide_configs').get() as { nextSortOrder: number }).nextSortOrder);
+          if (!existing) {
+            db.prepare(
+              `INSERT INTO d1_guide_configs
+               (actionKey, taskType, organizationPath, departmentId, departmentName, roleId, roleName, title, description, targetGroupName, applyUrl, sendToEmployeeName,
+                sendToEmployeeContact, documentTitle, documentUrl, resourceLinks, routePath, label, ownerName, enabled, sortOrder, createdAt, updatedAt, updatedBy)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            ).run(
+              actionKey,
+              d1TaskType(actionKey, item),
+              sqlValue(optionalString(item, 'organizationPath', '海底捞国际控股有限公司-集团总部-中台业务-技术管理中心-信息技术部-运维与网安组-安全与合规组')),
+              sqlValue(optionalString(item, 'departmentId', 'dept-collaboration-office')),
+              sqlValue(optionalString(item, 'departmentName', '协同办公部门')),
+              sqlValue(optionalString(item, 'roleId', 'role-product-intern')),
+              sqlValue(optionalString(item, 'roleName', '协同办公产品实习生')),
+              sqlValue(optionalString(item, 'title', '新增 D1 引导任务')),
+              sqlValue(optionalString(item, 'description', '请补充任务说明。')),
+              sqlValue(optionalNullableString(item, 'targetGroupName', null)),
+              sqlValue(optionalNullableString(item, 'applyUrl', null)),
+              sqlValue(optionalNullableString(item, 'sendToEmployeeName', null)),
+              sqlValue(optionalNullableString(item, 'sendToEmployeeContact', null)),
+              sqlValue(optionalNullableString(item, 'documentTitle', null)),
+              sqlValue(optionalNullableString(item, 'documentUrl', null)),
+              optionalJsonString(item, 'resourceLinks', []),
+              sqlValue(optionalNullableString(item, 'routePath', null)),
+              sqlValue(optionalString(item, 'label', '打开')),
+              sqlValue(optionalString(item, 'ownerName', '后台管理员')),
+              'enabled' in item ? boolToDb(item.enabled) : 1,
+              sortOrder,
+              time,
+              time,
+              adminActor(body),
+            );
+          } else {
+            db.prepare(
+              `UPDATE d1_guide_configs
+               SET taskType = ?, organizationPath = ?, departmentId = ?, departmentName = ?, roleId = ?, roleName = ?,
+                   title = ?, description = ?, targetGroupName = ?, applyUrl = ?, sendToEmployeeName = ?, sendToEmployeeContact = ?,
+                   documentTitle = ?, documentUrl = ?, resourceLinks = ?, routePath = ?, label = ?, ownerName = ?, enabled = ?, sortOrder = ?, updatedAt = ?, updatedBy = ?
+               WHERE actionKey = ?`,
+            ).run(
+              d1TaskType(actionKey, { ...existing, ...item }),
+              sqlValue(optionalString(item, 'organizationPath', existing.organizationPath)),
+              sqlValue(optionalString(item, 'departmentId', existing.departmentId)),
+              sqlValue(optionalString(item, 'departmentName', existing.departmentName)),
+              sqlValue(optionalString(item, 'roleId', existing.roleId)),
+              sqlValue(optionalString(item, 'roleName', existing.roleName)),
+              sqlValue(optionalString(item, 'title', existing.title)),
+              sqlValue(optionalString(item, 'description', existing.description)),
+              sqlValue(optionalNullableString(item, 'targetGroupName', existing.targetGroupName)),
+              sqlValue(optionalNullableString(item, 'applyUrl', existing.applyUrl)),
+              sqlValue(optionalNullableString(item, 'sendToEmployeeName', existing.sendToEmployeeName)),
+              sqlValue(optionalNullableString(item, 'sendToEmployeeContact', existing.sendToEmployeeContact)),
+              sqlValue(optionalNullableString(item, 'documentTitle', existing.documentTitle)),
+              sqlValue(optionalNullableString(item, 'documentUrl', existing.documentUrl)),
+              optionalJsonString(item, 'resourceLinks', existing.resourceLinks),
+              sqlValue(optionalNullableString(item, 'routePath', existing.routePath)),
+              sqlValue(optionalString(item, 'label', existing.label)),
+              sqlValue(optionalString(item, 'ownerName', existing.ownerName)),
+              'enabled' in item ? boolToDb(item.enabled) : boolToDb(existing.enabled),
+              sortOrder,
+              time,
+              adminActor(body),
+              actionKey,
+            );
+          }
         }
         return { data: getAdminD1GuideConfig(db) };
       };

@@ -2,6 +2,7 @@ import type { ApiContext, ApiResult, RouteMatch } from './routeKit.ts';
 import { forbidden, toApiError } from './errors.ts';
 import { adminRoutes } from './routes/adminRoutes.ts';
 import { authRoutes } from './routes/authRoutes.ts';
+import { isFeishuAdminSession } from './services/feishuAuthService.ts';
 import { managerRoutes } from './routes/managerRoutes.ts';
 import { newcomerRoutes } from './routes/newcomerRoutes.ts';
 import { reviewRoutes } from './routes/reviewRoutes.ts';
@@ -22,6 +23,7 @@ function assertAdminRouteGuard(context: ApiContext): void {
   if (!context.pathname.startsWith('/api/admin/') && !context.pathname.startsWith('/api/admin-config/')) return;
   const role = String(context.request.headers['x-haina-role'] ?? '').trim().toLowerCase();
   const actor = String(context.request.headers['x-haina-actor'] ?? '').trim();
+  if (isFeishuAdminSession(context)) return;
   if (role !== 'admin' || actor !== 'demo-admin') {
     throw forbidden('Admin role is required for admin API access');
   }
