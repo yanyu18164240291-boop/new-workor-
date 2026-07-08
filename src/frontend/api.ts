@@ -181,6 +181,12 @@ export type KnowledgeDoc = {
 
 export type D1GuideConfigItem = {
   actionKey: string;
+  taskType?: 'join_group' | 'employee_guide' | 'permission_package' | 'custom_link' | string;
+  organizationPath?: string;
+  departmentId?: string;
+  departmentName?: string;
+  roleId?: string;
+  roleName?: string;
   title: string;
   description: string;
   targetGroupName?: string | null;
@@ -189,17 +195,21 @@ export type D1GuideConfigItem = {
   sendToEmployeeContact?: string | null;
   documentTitle?: string | null;
   documentUrl?: string | null;
+  resourceLinks?: Array<{ name?: string; url?: string; chatId?: string; qrCodeUrl?: string }>;
   routePath?: string | null;
   label: string;
   ownerName: string;
   enabled: boolean;
   updatedBy?: string;
+  updatedAt?: string;
+  sortOrder?: number;
 };
 
 export type D1GuideConfig = {
-  joinGroup: D1GuideConfigItem;
-  employeeGuide: D1GuideConfigItem;
-  permissionPackage: D1GuideConfigItem;
+  items?: D1GuideConfigItem[];
+  joinGroup: D1GuideConfigItem | null;
+  employeeGuide: D1GuideConfigItem | null;
+  permissionPackage: D1GuideConfigItem | null;
 };
 
 export type WeeklyFeedback = {
@@ -430,7 +440,7 @@ export const api = {
   getPermissionPackage: (roleId: string) => apiGet<PermissionPackage>(`/api/roles/${roleId}/permission-package`),
   getPermissionProgress: (newcomerId: string) => apiGet<PermissionProgress[]>(`/api/newcomers/${newcomerId}/permission-progress`),
   getFollowUpTasks: (newcomerId: string) => apiGet<FollowUpTask[]>(`/api/newcomers/${newcomerId}/follow-up-tasks`),
-  getD1GuideConfig: () => apiGet<D1GuideConfig>('/api/d1-guide-config'),
+  getD1GuideConfig: (roleId?: string) => apiGet<D1GuideConfig>(`/api/d1-guide-config${roleId ? `?roleId=${encodeURIComponent(roleId)}` : ''}`),
   getAdminD1GuideConfig: () => apiGet<D1GuideConfig>('/api/admin/d1-guide-config'),
   getAdminConfig: () => apiGet<AdminConfig>('/api/admin/config'),
   getAnonymousFeedbacks: () => apiGet<AnonymousFeedback[]>('/api/admin/anonymous-feedbacks'),

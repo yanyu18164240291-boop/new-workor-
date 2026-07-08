@@ -132,14 +132,16 @@ describe('Phase 04A admin config workbench contract', () => {
     assert.doesNotMatch(roleTab, /rolePermissionIds\.size\s*>\s*0\s*\?/);
   });
 
-  it('renders fixed D1 guide actions without physical delete semantics', () => {
+  it('renders department and role scoped D1 guide tasks with editable real resources', () => {
     const d1Tab = readFileSync('src/frontend/pages/AdminConfig/D1GuideTab.tsx', 'utf8');
-    for (const label of ['D1 引导配置', '加入飞书部门群', '查看员工指南册', '开通岗位权限包', '编辑 / 启用 / 停用', '/permissions']) {
+    for (const label of ['D1 引导配置', '加入飞书部门群', '查看员工指南册', '开通岗位权限包', '新增引导任务', '引导任务', '多群资源列表', '/permissions']) {
       assert.match(d1Tab, new RegExp(label));
     }
-    assert.equal(d1Tab.includes('删除'), false);
-    assert.equal(d1Tab.includes('新增 D1'), false);
-    assert.equal(d1Tab.includes('新增引导'), false);
+    assert.match(d1Tab, /organizationPath/);
+    assert.match(d1Tab, /departmentName/);
+    assert.match(d1Tab, /roleName/);
+    assert.match(d1Tab, /resourceLinks/);
+    assert.match(d1Tab, /删除/);
     assert.match(d1Tab, /启用/);
   });
 

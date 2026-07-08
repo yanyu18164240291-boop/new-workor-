@@ -127,7 +127,10 @@ export const listFollowUpMessageCards: RouteMatch['handler'] = ({ db }, match) =
         ),
       });
 
-export const loadD1GuideConfig: RouteMatch['handler'] = ({ db }) => ({ data: getD1GuideConfig(db) });
+export const loadD1GuideConfig: RouteMatch['handler'] = ({ db, request }) => {
+  const url = new URL(request.url ?? '/', 'http://127.0.0.1');
+  return { data: getD1GuideConfig(db, url.searchParams.get('roleId')) };
+};
 
 export const loadWeeklyFeedbackConfig: RouteMatch['handler'] = ({ db }) => ({ data: getWeeklyFeedbackConfig(db) });
 

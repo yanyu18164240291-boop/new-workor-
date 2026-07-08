@@ -76,7 +76,9 @@ export function OverviewTab({ data, filters, navigate }: OverviewTabProps) {
   const knowledgeDocs = data.knowledgeDocs ?? [];
   const anonymousFeedbacks = data.anonymous ?? [];
   const d1Config = data.admin?.d1GuideConfig ?? data.d1GuideConfig;
-  const d1Items = [d1Config?.joinGroup, d1Config?.employeeGuide, d1Config?.permissionPackage].filter(Boolean);
+  const d1Items = d1Config?.items?.length
+    ? d1Config.items
+    : [d1Config?.joinGroup, d1Config?.employeeGuide, d1Config?.permissionPackage].filter(Boolean);
   const weeklyQuestions = data.weeklyConfig?.questions ?? [];
   const anonymousModules = data.anonymousConfig?.modules ?? [];
   const pendingAnonymous = anonymousFeedbacks.filter((item) => ['pending', 'open', 'in_progress'].includes(item.status)).length;
@@ -84,7 +86,7 @@ export function OverviewTab({ data, filters, navigate }: OverviewTabProps) {
 
   const completenessRows = [
     { label: '岗位权限包', done: countEnabled(permissions), total: Math.max(permissions.length, 1), path: '/admin-config?tab=role-packages' },
-    { label: 'D1 引导配置', done: d1Items.filter((item) => item?.enabled !== false).length, total: 3, path: '/admin-config?tab=d1-guide' },
+    { label: 'D1 引导配置', done: d1Items.filter((item) => item?.enabled !== false).length, total: Math.max(d1Items.length, 1), path: '/admin-config?tab=d1-guide' },
     { label: '首周反馈表', done: countEnabled(weeklyQuestions), total: Math.max(weeklyQuestions.length, 1), path: '/admin-config?tab=weekly-feedback' },
     { label: '匿名反馈配置', done: countEnabled(anonymousModules), total: Math.max(anonymousModules.length, 1), path: '/admin-config?tab=anonymous-config' },
     { label: '知识库管理', done: knowledgeDocs.filter((item) => item.status !== 'offline').length, total: Math.max(knowledgeDocs.length, 1), path: '/admin-config?tab=knowledge' },
@@ -100,7 +102,7 @@ export function OverviewTab({ data, filters, navigate }: OverviewTabProps) {
       path: '/admin-config?tab=knowledge',
     },
     { type: '首周反馈', desc: `${weeklyQuestions.filter((item) => !item.enabled).length} 个问题处于停用状态`, tone: 'blue' as const, path: '/admin-config?tab=weekly-feedback' },
-    { type: 'D1 引导', desc: `${3 - d1Items.filter((item) => item?.enabled !== false).length} 个入口未启用`, tone: 'ai' as const, path: '/admin-config?tab=d1-guide' },
+    { type: 'D1 引导', desc: `${d1Items.filter((item) => item?.enabled === false).length} 个任务未启用`, tone: 'ai' as const, path: '/admin-config?tab=d1-guide' },
   ];
 
   const quickActions = [

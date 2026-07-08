@@ -1,17 +1,28 @@
 import { CalendarDays, ChevronDown, RefreshCw, Search } from 'lucide-react';
 
-import { currentAdminUser, type AdminConfigFilters } from '../../types/adminConfig.ts';
+import type { DashboardData } from '../../dashboardData.ts';
+import { type AdminConfigFilters } from '../../types/adminConfig.ts';
 
 type AdminTopbarProps = {
   filters: AdminConfigFilters;
   onFiltersChange: (filters: AdminConfigFilters) => void;
   reload: () => Promise<void>;
+  data: DashboardData;
 };
 
-export function AdminTopbar({ filters, onFiltersChange, reload }: AdminTopbarProps) {
+const organizationOptions = [
+  '全部组织',
+  '海底捞国际控股有限公司-集团总部-中台业务-技术管理中心-信息技术部-运维与网安组-安全与合规组',
+  '协同办公部门',
+];
+
+export function AdminTopbar({ filters, onFiltersChange, reload, data }: AdminTopbarProps) {
   function updateFilter(key: keyof AdminConfigFilters, value: string) {
     onFiltersChange({ ...filters, [key]: value });
   }
+  const adminName = data.authSession?.user?.name ?? 'demo-admin';
+  const adminRole = data.authSession?.user?.jobTitle ?? '后台管理员';
+  const avatarText = adminName.slice(0, 1).toUpperCase();
 
   return (
     <header className="admin-workbench-topbar">
@@ -29,8 +40,9 @@ export function AdminTopbar({ filters, onFiltersChange, reload }: AdminTopbarPro
         <label className="admin-workbench-select-filter">
           组织：
           <select className="admin-workbench-compact-select" value={filters.organization} onChange={(event) => updateFilter('organization', event.target.value)}>
-            <option>全部组织</option>
-            <option>协同办公部门</option>
+            {organizationOptions.map((item) => (
+              <option key={item}>{item}</option>
+            ))}
           </select>
           <ChevronDown size={14} />
         </label>
@@ -52,10 +64,10 @@ export function AdminTopbar({ filters, onFiltersChange, reload }: AdminTopbarPro
       </div>
 
       <div className="admin-workbench-user">
-        <span>D</span>
+        <span>{avatarText}</span>
         <div>
-          <strong>demo-admin</strong>
-          <small>{currentAdminUser.role}</small>
+          <strong>{adminName}</strong>
+          <small>{adminRole}</small>
         </div>
         <ChevronDown size={14} />
       </div>

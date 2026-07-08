@@ -88,6 +88,21 @@ function currentSession(context: ApiContext): { user: FeishuUser } | undefined {
   return { user: session.user };
 }
 
+export function isFeishuAdminSession(context: ApiContext): boolean {
+  if (!authConfig()) return false;
+  const session = currentSession(context);
+  if (!session?.user) return false;
+  const department = session.user.departmentName ?? '';
+  const jobTitle = session.user.jobTitle ?? '';
+  return (
+    department.includes('信息技术部') ||
+    department.includes('协同办公') ||
+    department.includes('技术管理中心') ||
+    jobTitle.includes('管理员') ||
+    jobTitle.includes('产品')
+  );
+}
+
 function sessionCookie(token: string, config: FeishuAuthConfig): string {
   const secure = config.redirectUri.startsWith('https://') ? '; Secure' : '';
   return `${sessionCookieName}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${sessionMaxAgeSeconds}${secure}`;

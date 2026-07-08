@@ -48,6 +48,18 @@ export function normalizeRow<T extends Record<string, unknown>>(row: T | undefin
   }
   if ('commonWaitingReasons' in next) next.commonWaitingReasons = parseJsonArray(next.commonWaitingReasons);
   if ('expectedActionKeys' in next) next.expectedActionKeys = parseJsonArray(next.expectedActionKeys);
+  if ('resourceLinks' in next) {
+    if (typeof next.resourceLinks !== 'string') {
+      next.resourceLinks = [];
+    } else {
+      try {
+        const parsed = JSON.parse(next.resourceLinks);
+        next.resourceLinks = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        next.resourceLinks = [];
+      }
+    }
+  }
   return next;
 }
 
