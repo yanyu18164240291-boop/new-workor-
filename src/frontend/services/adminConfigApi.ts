@@ -118,7 +118,10 @@ export function saveAnonymousFeedbackConfig(body: Parameters<typeof api.updateAn
 }
 
 export function uploadKnowledgeMetadata(
-  body: Pick<KnowledgeDoc, 'title' | 'category' | 'applicableRoleId' | 'applicableRole' | 'applicableStage' | 'ownerName'> & { sourceUrl?: string },
+  body: Pick<
+    KnowledgeDoc,
+    'title' | 'category' | 'applicableRoleId' | 'applicableRole' | 'applicableStage' | 'ownerName'
+  > & { sourceUrl?: string; contentText?: string; retrievalKeywords?: string },
 ) {
   return api.createKnowledgeDoc({
     ...body,

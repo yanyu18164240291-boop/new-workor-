@@ -500,6 +500,8 @@ export const createKnowledgeBaseDoc: RouteMatch['handler'] = async ({ db, reques
           fileSize: Number(body.fileSize ?? 0),
           fileHash: typeof body.fileHash === 'string' && body.fileHash.trim() ? body.fileHash.trim() : 'mock-md5-pending',
           filePath,
+          contentText: typeof body.contentText === 'string' ? body.contentText.trim() : '',
+          retrievalKeywords: typeof body.retrievalKeywords === 'string' ? body.retrievalKeywords.trim() : '',
           ownerName: requiredString(body, 'ownerName'),
           updatedBy: adminActor(body),
         });

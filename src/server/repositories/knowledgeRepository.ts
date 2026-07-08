@@ -12,6 +12,8 @@ export type CreateKnowledgeDocInput = {
   fileSize: number;
   fileHash: string;
   filePath: string;
+  contentText: string;
+  retrievalKeywords: string;
   ownerName: string;
   updatedBy: string;
 };
@@ -30,8 +32,8 @@ export function createKnowledgeDoc(db: Database, input: CreateKnowledgeDocInput)
   db.prepare(
     `INSERT INTO knowledge_base_docs
      (id, title, category, applicableRoleId, applicableRole, applicableStage, sourceUrl, fileSize, fileHash, filePath,
-      ownerName, status, parseStatus, vectorStatus, hitCount, updatedAt, createdAt, updatedBy)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      contentText, retrievalKeywords, ownerName, status, parseStatus, vectorStatus, hitCount, updatedAt, createdAt, updatedBy)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sqlValue(input.title),
@@ -43,6 +45,8 @@ export function createKnowledgeDoc(db: Database, input: CreateKnowledgeDocInput)
     input.fileSize,
     sqlValue(input.fileHash),
     sqlValue(input.filePath),
+    sqlValue(input.contentText),
+    sqlValue(input.retrievalKeywords),
     sqlValue(input.ownerName),
     'disabled',
     'pending',
@@ -53,6 +57,31 @@ export function createKnowledgeDoc(db: Database, input: CreateKnowledgeDocInput)
     sqlValue(input.updatedBy),
   );
   return getKnowledgeDoc(db, id)!;
+}
+
+export function listRagReadyKnowledgeDocs(db: Database, roleId: string): Array<Record<string, unknown>> {
+  return normalizeRows(
+    db
+      .prepare(
+        `SELECT *
+         FROM knowledge_base_docs
+         WHERE status = 'enabled'
+           AND parseStatus = 'parsed'
+           AND vectorStatus = 'ready'
+           AND (applicableRoleId = ? OR applicableRoleId = '')
+         ORDER BY hitCount DESC, updatedAt DESC`,
+      )
+      .all(roleId) as Array<Record<string, unknown>>,
+  );
+}
+
+export function incrementKnowledgeDocHitCounts(db: Database, ids: string[]): void {
+  if (ids.length === 0) return;
+  const update = db.prepare('UPDATE knowledge_base_docs SET hitCount = hitCount + 1, updatedAt = ? WHERE id = ?');
+  const time = nowIso();
+  for (const id of ids) {
+    update.run(time, id);
+  }
 }
 
 export function markKnowledgeDocParsed(db: Database, id: string, updatedBy: string): Record<string, unknown> | undefined {

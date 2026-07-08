@@ -1,5 +1,8 @@
 import type { RouteMatch } from '../routeKit.ts';
 import {
+  answerNewcomerAiChat,
+} from '../services/aiQaService.ts';
+import {
   listRoles,
   getRolePermissionPackage,
   getPermissionItem,
@@ -99,6 +102,10 @@ export const newcomerRoutes: Record<string, RouteMatch[]> = {
     {
       pattern: /^\/api\/newcomers\/([^/]+)\/d1-guide-message$/,
       handler: sendD1GuideMessage,
+    },
+    {
+      pattern: /^\/api\/newcomers\/([^/]+)\/ai-chat$/,
+      handler: answerNewcomerAiChat,
     }
   ],
   PATCH: [
