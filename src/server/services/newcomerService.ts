@@ -28,7 +28,7 @@ import {
   withAnonymousFeedbackDetail
 } from '../repositories/feedbackRepository.ts';
 import { getPermission } from '../repositories/permissionRepository.ts';
-import { getFeishuSessionUser, sendFeishuTextMessage } from './feishuAuthService.ts';
+import { getFeishuSessionUser, isFeishuAdminSession, sendFeishuTextMessage } from './feishuAuthService.ts';
 
 function publicBaseUrl(request: ApiContext['request']): string {
   const configured = process.env.PUBLIC_H5_BASE_URL?.trim() || process.env.RENDER_EXTERNAL_URL?.trim();
@@ -121,6 +121,17 @@ function writeFeishuDelivery(
     row.time,
     row.time,
   );
+}
+
+function latestSentD1Guide(db: Parameters<RouteMatch['handler']>[0]['db'], newcomerId: string, recipientOpenId: string): Record<string, unknown> | undefined {
+  return db
+    .prepare(
+      `SELECT * FROM feishu_message_deliveries
+       WHERE newcomerId = ? AND recipientOpenId = ? AND messageType = 'd1_guide' AND deliveryStatus = 'sent'
+       ORDER BY sentAt DESC
+       LIMIT 1`,
+    )
+    .get(newcomerId, recipientOpenId) as Record<string, unknown> | undefined;
 }
 
 export const listRoles: RouteMatch['handler'] = ({ db }) => ({
@@ -230,8 +241,14 @@ export const sendD1GuideMessage: RouteMatch['handler'] = async (context, match) 
   const { db, request } = context;
   const newcomerId = decodeURIComponent(match[1]);
   const user = getFeishuSessionUser(context);
+  const body = await readBody(request);
+  const force = body.force === true;
+  const triggerSource = typeof body.triggerSource === 'string' && body.triggerSource.trim() ? body.triggerSource.trim() : 'd1_auto';
   if (!user?.openId) {
     return { status: 403, error: '请先完成飞书登录后再发送 D1 引导消息' };
+  }
+  if (force && !isFeishuAdminSession(context)) {
+    return { status: 403, error: '只有后台管理员可以补发 D1 引导消息' };
   }
   if (user.newcomerId !== newcomerId) {
     return { status: 403, error: '当前飞书登录用户与新人档案不一致，已阻止发送' };
@@ -239,7 +256,6 @@ export const sendD1GuideMessage: RouteMatch['handler'] = async (context, match) 
   const newcomer = normalizeRow(db.prepare('SELECT * FROM newcomers WHERE id = ?').get(newcomerId) as Record<string, unknown> | undefined);
   if (!newcomer) return { status: 404, error: 'Newcomer not found' };
 
-  const body = await readBody(request);
   const roleId = typeof body.roleId === 'string' && body.roleId.trim() ? body.roleId.trim() : String(newcomer.roleId);
   const guide = getD1GuideConfig(db, roleId) as { items?: Array<Record<string, unknown>> };
   const guideItems = (guide.items ?? []).filter((item) => item.enabled !== false);
@@ -249,11 +265,26 @@ export const sendD1GuideMessage: RouteMatch['handler'] = async (context, match) 
 
   const baseUrl = publicBaseUrl(request);
   const text = buildD1GuideMessage(user.name || String(newcomer.name), guideItems, baseUrl);
+  const existingSent = latestSentD1Guide(db, newcomerId, user.openId);
+  if (existingSent && !force) {
+    return {
+      data: {
+        deliveryStatus: 'skipped',
+        alreadySent: true,
+        messageId: existingSent.messageId ?? undefined,
+        recipientName: user.name,
+        itemCount: guideItems.length,
+        sentAt: typeof existingSent.sentAt === 'string' ? existingSent.sentAt : undefined,
+      },
+    };
+  }
   const time = nowIso();
   const requestPayload = {
     receiveId: user.openId,
     roleId,
     itemCount: guideItems.length,
+    triggerSource,
+    force,
     text,
   };
 

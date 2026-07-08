@@ -4,8 +4,9 @@ import { DataTable, type DataTableColumn } from '../../components/admin-config/D
 import { FieldError } from '../../components/admin-config/FieldError.tsx';
 import { RightDrawer } from '../../components/admin-config/RightDrawer.tsx';
 import { StatusTag } from '../../components/admin-config/StatusTag.tsx';
-import { formatApiErrorMessage, type AuthSession, type D1GuideConfigItem, type Role } from '../../api.ts';
+import { api, formatApiErrorMessage, type AuthSession, type D1GuideConfigItem, type Role } from '../../api.ts';
 import type { DashboardData } from '../../dashboardData.ts';
+import { DEMO_NEWCOMER_ID } from '../../demoConfig.ts';
 import { saveD1GuideItem } from '../../services/adminConfigApi.ts';
 import { validateD1GuideDraft } from './d1GuideValidation.ts';
 
@@ -119,6 +120,7 @@ export function D1GuideTab({ data, toast, reload }: D1GuideTabProps) {
   const [resourceText, setResourceText] = useState('');
   const [fieldError, setFieldError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [resending, setResending] = useState(false);
 
   function openEdit(item: D1GuideConfigItem) {
     setDraft(item);
@@ -217,6 +219,23 @@ export function D1GuideTab({ data, toast, reload }: D1GuideTabProps) {
     }
   }
 
+  async function resendD1GuideMessage() {
+    const roleId = items.find((item) => item.enabled !== false)?.roleId ?? roles[0]?.id;
+    setResending(true);
+    try {
+      const result = await api.sendD1GuideMessage(DEMO_NEWCOMER_ID, {
+        roleId,
+        force: true,
+        triggerSource: 'admin_resend',
+      });
+      toast(`已补发 D1 引导给 ${result.recipientName}`);
+    } catch (error) {
+      toast(formatApiErrorMessage(error, 'D1 引导补发失败'));
+    } finally {
+      setResending(false);
+    }
+  }
+
   const columns: Array<DataTableColumn<D1GuideConfigItem>> = [
     { key: 'task', title: '引导任务', render: (item) => taskTypeLabels[item.taskType ?? item.actionKey] ?? item.title },
     { key: 'title', title: '标题', render: (item) => item.title },
@@ -251,9 +270,14 @@ export function D1GuideTab({ data, toast, reload }: D1GuideTabProps) {
           <h1>D1 引导配置</h1>
           <p>按组织、部门、岗位配置新人第一天的真实引导任务，新人端会按当前岗位自动读取。</p>
         </div>
-        <button className="admin-primary-action" type="button" onClick={openCreate}>
-          新增引导任务
-        </button>
+        <div className="admin-page-actions">
+          <button className="admin-secondary-action" type="button" disabled={resending} onClick={() => void resendD1GuideMessage()}>
+            {resending ? '补发中' : '补发 D1 引导'}
+          </button>
+          <button className="admin-primary-action" type="button" onClick={openCreate}>
+            新增引导任务
+          </button>
+        </div>
       </div>
 
       <div className="admin-metric-grid admin-metric-grid-three admin-compact-summary-grid">

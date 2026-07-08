@@ -162,16 +162,43 @@ describe('Feishu OAuth login', () => {
       const d1Push = await nativeFetch(`${server.baseUrl}/api/newcomers/newcomer-yanyu/d1-guide-message`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', cookie },
-        body: JSON.stringify({ roleId: 'role-product-intern' }),
+        body: JSON.stringify({ roleId: 'role-product-intern', triggerSource: 'd1_auto' }),
       });
       const d1PushBody = (await d1Push.json()) as {
-        data: { deliveryStatus: string; messageId: string; recipientName: string; itemCount: number };
+        data: { deliveryStatus: string; messageId: string; recipientName: string; itemCount: number; alreadySent?: boolean };
       };
       assert.equal(d1Push.status, 200);
       assert.equal(d1PushBody.data.deliveryStatus, 'sent');
       assert.equal(d1PushBody.data.messageId, 'om_d1_guide');
       assert.equal(d1PushBody.data.recipientName, '燕余');
       assert.ok(calls.some((call) => call.url.includes('/im/v1/messages') && call.auth === 'Bearer tenant-token'));
+
+      const sentMessageCalls = () => calls.filter((call) => call.url.includes('/im/v1/messages')).length;
+      const sentCountAfterFirstPush = sentMessageCalls();
+      const d1Repeat = await nativeFetch(`${server.baseUrl}/api/newcomers/newcomer-yanyu/d1-guide-message`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie },
+        body: JSON.stringify({ roleId: 'role-product-intern', triggerSource: 'd1_auto' }),
+      });
+      const d1RepeatBody = (await d1Repeat.json()) as {
+        data: { deliveryStatus: string; alreadySent?: boolean; messageId?: string };
+      };
+      assert.equal(d1Repeat.status, 200);
+      assert.equal(d1RepeatBody.data.deliveryStatus, 'skipped');
+      assert.equal(d1RepeatBody.data.alreadySent, true);
+      assert.equal(d1RepeatBody.data.messageId, 'om_d1_guide');
+      assert.equal(sentMessageCalls(), sentCountAfterFirstPush);
+
+      const d1AdminResend = await nativeFetch(`${server.baseUrl}/api/newcomers/newcomer-yanyu/d1-guide-message`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie },
+        body: JSON.stringify({ roleId: 'role-product-intern', force: true, triggerSource: 'admin_resend' }),
+      });
+      const d1AdminResendBody = (await d1AdminResend.json()) as { data: { deliveryStatus: string; messageId: string } };
+      assert.equal(d1AdminResend.status, 200);
+      assert.equal(d1AdminResendBody.data.deliveryStatus, 'sent');
+      assert.equal(d1AdminResendBody.data.messageId, 'om_d1_guide');
+      assert.equal(sentMessageCalls(), sentCountAfterFirstPush + 1);
     } finally {
       await server.close();
     }
