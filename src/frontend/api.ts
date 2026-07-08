@@ -213,7 +213,8 @@ export type D1GuideConfig = {
 };
 
 export type D1GuideMessageDelivery = {
-  deliveryStatus: 'sent' | 'failed';
+  deliveryStatus: 'sent' | 'failed' | 'skipped';
+  alreadySent?: boolean;
   messageId?: string;
   recipientName: string;
   itemCount: number;
@@ -583,8 +584,11 @@ export const api = {
       permissionItemId,
       status: 'submitted',
     }),
-  sendD1GuideMessage: (newcomerId: string, roleId?: string) =>
-    apiSend<D1GuideMessageDelivery>(`/api/newcomers/${newcomerId}/d1-guide-message`, 'POST', { roleId }),
+  sendD1GuideMessage: (
+    newcomerId: string,
+    options?: { roleId?: string; force?: boolean; triggerSource?: 'd1_auto' | 'admin_resend' | string },
+  ) =>
+    apiSend<D1GuideMessageDelivery>(`/api/newcomers/${newcomerId}/d1-guide-message`, 'POST', options ?? {}),
   submitAnonymousFeedback: (body: {
     type?: string;
     module?: string;

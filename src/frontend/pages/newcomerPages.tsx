@@ -330,35 +330,24 @@ export function D1Page({
   onRoleChange?: (roleId: string) => Promise<void>;
 }) {
   const guide = data.d1GuideConfig;
-  const [messageSending, setMessageSending] = useState(false);
+  const [autoPushKey, setAutoPushKey] = useState('');
   const guideItems = (guide?.items?.length
     ? guide.items
     : [guide?.joinGroup, guide?.employeeGuide, guide?.permissionPackage].filter(Boolean)
   ) as D1GuideConfigItem[];
   const selectedRoleId = data.selectedRoleId ?? data.package?.role.id ?? data.newcomer?.roleId;
+  useEffect(() => {
+    const key = data.newcomer?.id && selectedRoleId ? `${data.newcomer.id}:${selectedRoleId}` : '';
+    if (!key || autoPushKey === key) return;
+    if (!data.authSession?.enabled || !data.authSession.authenticated || !data.authSession.user?.openId) return;
+    setAutoPushKey(key);
+    api
+      .sendD1GuideMessage(data.newcomer!.id, { roleId: selectedRoleId, triggerSource: 'd1_auto' })
+      .catch((error) => toast(formatApiErrorMessage(error, 'D1 飞书消息自动推送失败')));
+  }, [autoPushKey, data.authSession?.authenticated, data.authSession?.enabled, data.authSession?.user?.openId, data.newcomer?.id, selectedRoleId, toast]);
   async function completeD1Guide() {
     if (!data.newcomer) return;
     await api.updateNewcomerTaskState(data.newcomer.id, 'd1_guide', 'completed');
-  }
-  async function sendD1GuideToFeishu() {
-    if (!data.authSession?.authenticated || !data.authSession.user?.openId) {
-      if (data.authSession?.loginUrl) {
-        window.location.href = data.authSession.loginUrl;
-        return;
-      }
-      toast('请先完成飞书登录');
-      return;
-    }
-    if (!data.newcomer) return;
-    setMessageSending(true);
-    try {
-      const result = await api.sendD1GuideMessage(data.newcomer.id, selectedRoleId);
-      toast(`已发送到飞书：${result.recipientName}`);
-    } catch (error) {
-      toast(formatApiErrorMessage(error, '飞书消息发送失败'));
-    } finally {
-      setMessageSending(false);
-    }
   }
   const actions = guideItems
     .filter((item) => item.enabled !== false)
@@ -389,16 +378,7 @@ export function D1Page({
     });
   return (
     <>
-      <SectionCard
-        title="D1 到达引导包"
-        action={
-          data.authSession?.enabled ? (
-            <button className="text-button d1-message-button" type="button" disabled={messageSending} onClick={sendD1GuideToFeishu}>
-              {messageSending ? '发送中' : '发送到飞书'}
-            </button>
-          ) : null
-        }
-      >
+      <SectionCard title="D1 到达引导包">
         <p>先完成今日岗位相关的关键任务：进部门群、查看员工指南册、查看岗位权限包。</p>
         <Card className="notice-card inner">
           <RolePreviewSelect data={data} />
@@ -458,7 +438,7 @@ export function PermissionPage({
         })}
       </SectionCard>
       <Card className="notice-card">
-        BPM 系统等敏感权限需导师或权限 Owner 确认后再申请。真实审批入口在权限详情页打开；批量登记用于同步已提交状态并进入 4 小时回访。
+        BPM 系统等敏感权限需导师或权限 Owner 确认后再申请。当前阶段暂不进入真实审批流程；先在系统内登记提交状态并进入 4 小时回访。
       </Card>
     </>
   );
@@ -503,7 +483,7 @@ export function PermissionDetailPage({
         </div>
       </Card>
       <SectionCard title="申请入口">
-        <p className="link-text">{item?.applyUrl?.trim() || '待配置真实审批入口'}</p>
+        <p className="link-text">真实审批暂未启用，当前仅保留申请信息和提交登记。</p>
       </SectionCard>
       <SectionCard title="申请理由模板">
         <p>{item?.reasonTemplate ?? '本人为协同办公组新入职产品实习生，需申请 ChatGPT 账号用于 PRD 编写、资料整理、测试用例生成，提升办公效率。'}</p>
@@ -521,8 +501,8 @@ export function PermissionDetailPage({
       <SectionCard title="申请进度追踪">
         <StepList
           steps={[
-            { no: '1', title: '待提交申请', desc: '复制理由并打开审批入口', status: isSubmitted ? '已完成' : '进行中' },
-            { no: '2', title: '等待审批中', desc: '提交后等待审批人与系统开通', status: isSubmitted ? '进行中' : '下一步' },
+            { no: '1', title: '待登记申请', desc: '复制理由，按当前试点流程线下确认', status: isSubmitted ? '已完成' : '进行中' },
+            { no: '2', title: '等待 Owner 跟进', desc: '登记后进入回访，不跳转真实审批', status: isSubmitted ? '进行中' : '下一步' },
             { no: '3', title: '完成开通', desc: '确认账号可登录后结束提醒', status: '下一步' },
           ]}
         />
@@ -532,14 +512,10 @@ export function PermissionDetailPage({
           tone="secondary"
           hideIcon
           onClick={() => {
-            if (!openExternalUrl(item?.applyUrl)) {
-              toast('审批入口暂未配置，请联系管理员');
-              return;
-            }
-            toast('已打开真实审批入口');
+            toast('当前阶段暂不进入真实审批流程，请先复制理由并登记提交状态');
           }}
         >
-          打开入口
+          暂不打开审批
         </ActionButton>
         <ActionButton
           tone="secondary"
@@ -605,7 +581,7 @@ export function FollowUpPage({ navigate, toast, openOwner }: { navigate: (path: 
         </SectionCard>
       )}
       <SectionCard title="流程修正说明">
-        <p>真实审批请在权限详情页打开飞书审批入口；批量登记只用于同步已提交状态并生成 4 小时回访。</p>
+        <p>权限申请暂不进入真实审批流程；批量登记只用于同步已提交状态并生成 4 小时回访。</p>
       </SectionCard>
     </>
   );

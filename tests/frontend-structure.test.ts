@@ -42,9 +42,10 @@ describe('newcomer page structure regressions', () => {
     const components = source('src/frontend/components.tsx');
 
     assert.match(pages, /<StepList showArrow hideStatus/);
-    assert.match(pages, /sendD1GuideToFeishu/);
-    assert.match(pages, /api\.sendD1GuideMessage/);
-    assert.match(pages, /发送到飞书/);
+    assert.match(pages, /triggerSource:\s*'d1_auto'/);
+    assert.match(pages, /api\s*\.\s*sendD1GuideMessage/);
+    assert.doesNotMatch(pages, /发送到飞书/);
+    assert.doesNotMatch(pages, /d1-message-button/);
     assert.doesNotMatch(pages, /className="d1-action-list"/);
     assert.match(components, /showArrow/);
     assert.match(components, /className="step-arrow"/);
@@ -56,6 +57,24 @@ describe('newcomer page structure regressions', () => {
 
     assert.match(components, /const rowKey = `\$\{step\.no\}-\$\{step\.title\}`/);
     assert.doesNotMatch(components, /key=\{step\.no\}/);
+  });
+
+  it('keeps real Feishu D1 push controlled from admin instead of a newcomer test button', () => {
+    const d1Tab = source('src/frontend/pages/AdminConfig/D1GuideTab.tsx');
+
+    assert.match(d1Tab, /补发 D1 引导/);
+    assert.match(d1Tab, /triggerSource:\s*'admin_resend'/);
+    assert.match(d1Tab, /force:\s*true/);
+  });
+
+  it('keeps permission application out of the real approval flow for the current pilot', () => {
+    const pages = source('src/frontend/pages/newcomerPages.tsx');
+    const permissionDetail = pages.slice(pages.indexOf('export function PermissionDetailPage'), pages.indexOf('export function FollowUpPage'));
+
+    assert.match(permissionDetail, /暂不打开审批/);
+    assert.match(permissionDetail, /暂不进入真实审批流程/);
+    assert.doesNotMatch(permissionDetail, /openExternalUrl\(item\?\.applyUrl\)/);
+    assert.doesNotMatch(permissionDetail, /已打开真实审批入口/);
   });
 
   it('keeps admin date and weekly sort controls visibly labeled', () => {

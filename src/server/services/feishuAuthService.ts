@@ -30,9 +30,9 @@ export type FeishuUser = {
 
 type FeishuApiPayload<T> = {
   code?: number;
-  msg?: string;
-  error?: string;
-  error_description?: string;
+  msg?: unknown;
+  error?: unknown;
+  error_description?: unknown;
   data?: T;
   app_access_token?: string;
   access_token?: string;
@@ -142,8 +142,24 @@ async function feishuGet<T>(url: string, token: string): Promise<FeishuApiPayloa
   return (await response.json()) as FeishuApiPayload<T>;
 }
 
+function stringifyFeishuError(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
 function feishuErrorMessage(payload: FeishuApiPayload<unknown>): string {
-  return payload.error_description ?? payload.error ?? payload.msg ?? 'unknown error';
+  const parts = [
+    payload.code !== undefined ? `code=${payload.code}` : undefined,
+    stringifyFeishuError(payload.error_description),
+    stringifyFeishuError(payload.error),
+    stringifyFeishuError(payload.msg),
+  ].filter(Boolean);
+  return parts.join(', ') || 'unknown error';
 }
 
 async function getUserAccessToken(config: FeishuAuthConfig, code: string): Promise<string> {
@@ -290,7 +306,7 @@ async function getFeishuUser(config: FeishuAuthConfig, userAccessToken: string):
     avatar_url?: string;
   }>;
   if (payload.code !== 0 || !payload.data?.open_id) {
-    throw badRequest(`Feishu user info failed: ${payload.msg ?? 'unknown error'}`);
+    throw badRequest(`Feishu user info failed: ${feishuErrorMessage(payload)}`);
   }
   const contactProfile: { departmentName?: string; jobTitle?: string } = await getFeishuContactProfile(config, {
     openId: payload.data.open_id,
