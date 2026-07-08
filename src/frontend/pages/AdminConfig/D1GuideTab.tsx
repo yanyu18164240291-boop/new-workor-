@@ -4,7 +4,7 @@ import { DataTable, type DataTableColumn } from '../../components/admin-config/D
 import { FieldError } from '../../components/admin-config/FieldError.tsx';
 import { RightDrawer } from '../../components/admin-config/RightDrawer.tsx';
 import { StatusTag } from '../../components/admin-config/StatusTag.tsx';
-import { formatApiErrorMessage, type D1GuideConfigItem, type Role } from '../../api.ts';
+import { formatApiErrorMessage, type AuthSession, type D1GuideConfigItem, type Role } from '../../api.ts';
 import type { DashboardData } from '../../dashboardData.ts';
 import { saveD1GuideItem } from '../../services/adminConfigApi.ts';
 import { validateD1GuideDraft } from './d1GuideValidation.ts';
@@ -14,6 +14,8 @@ type D1GuideTabProps = {
   toast: (message: string) => void;
   reload: () => Promise<void>;
 };
+
+type FeishuSessionUser = NonNullable<AuthSession['user']>;
 
 const defaultOrganizationPath = '海底捞国际控股有限公司-集团总部-中台业务-技术管理中心-信息技术部-运维与网安组-安全与合规组';
 
@@ -61,7 +63,23 @@ function parseResourceLinks(value: string): D1GuideConfigItem['resourceLinks'] {
     });
 }
 
-function newD1Draft(role?: Role): D1GuideConfigItem {
+function contactFromSessionUser(user?: FeishuSessionUser | null): string {
+  return user?.email?.trim() || user?.mobile?.trim() || user?.userId?.trim() || user?.openId?.trim() || '';
+}
+
+function inferFeishuDocumentTitle(documentUrl?: string | null, currentTitle?: string | null): string | null | undefined {
+  if (currentTitle?.trim()) return currentTitle;
+  if (!documentUrl?.trim()) return currentTitle;
+  try {
+    const url = new URL(documentUrl);
+    if (url.hostname.includes('feishu.cn') || url.hostname.includes('larksuite.com')) return '飞书员工指南册';
+  } catch {
+    return currentTitle;
+  }
+  return currentTitle;
+}
+
+function newD1Draft(role?: Role, user?: FeishuSessionUser | null): D1GuideConfigItem {
   return {
     actionKey: `custom_${Date.now()}`,
     taskType: 'custom_link',
@@ -77,7 +95,7 @@ function newD1Draft(role?: Role): D1GuideConfigItem {
     resourceLinks: [],
     routePath: '',
     label: '打开',
-    ownerName: '后台管理员',
+    ownerName: user?.name ?? '后台管理员',
     enabled: true,
     sortOrder: 99,
   };
@@ -95,6 +113,7 @@ export function D1GuideTab({ data, toast, reload }: D1GuideTabProps) {
       ?.replace('T', ' ')
       .slice(0, 16) ?? '-';
   const adminName = data.authSession?.user?.name ?? 'demo-admin';
+  const adminUser = data.authSession?.user ?? null;
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [draft, setDraft] = useState<D1GuideConfigItem | null>(null);
   const [resourceText, setResourceText] = useState('');
@@ -109,7 +128,7 @@ export function D1GuideTab({ data, toast, reload }: D1GuideTabProps) {
   }
 
   function openCreate() {
-    const next = newD1Draft(roles[0]);
+    const next = newD1Draft(roles[0], adminUser);
     setDraft(next);
     setResourceText('');
     setFieldError('');
@@ -125,10 +144,21 @@ export function D1GuideTab({ data, toast, reload }: D1GuideTabProps) {
     patchDraft(draftFromRole(role));
   }
 
+  function useCurrentUserAsOwner() {
+    if (!adminUser) return;
+    patchDraft({ ownerName: adminUser.name });
+  }
+
+  function useCurrentUserAsSendTarget() {
+    if (!adminUser) return;
+    patchDraft({ sendToEmployeeName: adminUser.name, sendToEmployeeContact: contactFromSessionUser(adminUser) });
+  }
+
   async function saveDraft(nextDraft = draft) {
     if (!nextDraft) return;
     const prepared = {
       ...nextDraft,
+      documentTitle: nextDraft.taskType === 'employee_guide' ? inferFeishuDocumentTitle(nextDraft.documentUrl, nextDraft.documentTitle) : nextDraft.documentTitle,
       resourceLinks: parseResourceLinks(resourceText),
       routePath: nextDraft.taskType === 'permission_package' ? '/permissions' : nextDraft.routePath,
     };
@@ -307,6 +337,11 @@ export function D1GuideTab({ data, toast, reload }: D1GuideTabProps) {
               Owner <b>*</b>
               <input value={draft.ownerName} onChange={(event) => patchDraft({ ownerName: event.target.value })} />
             </label>
+            {adminUser && (
+              <button className="admin-secondary-action" type="button" onClick={useCurrentUserAsOwner}>
+                使用当前登录人为 Owner
+              </button>
+            )}
             <label className="admin-switch-row">
               启用状态
               <input type="checkbox" checked={draft.enabled} onChange={(event) => patchDraft({ enabled: event.target.checked })} />
@@ -338,6 +373,11 @@ export function D1GuideTab({ data, toast, reload }: D1GuideTabProps) {
                   发送对象联系方式
                   <input value={draft.sendToEmployeeContact ?? ''} onChange={(event) => patchDraft({ sendToEmployeeContact: event.target.value })} />
                 </label>
+                {adminUser && (
+                  <button className="admin-secondary-action" type="button" onClick={useCurrentUserAsSendTarget}>
+                    使用当前登录人为发送对象
+                  </button>
+                )}
               </>
             )}
 

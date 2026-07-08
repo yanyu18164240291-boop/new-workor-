@@ -28,6 +28,7 @@ import {
 } from '../repositories/knowledgeRepository.ts';
 import { count } from '../repositories/metricsRepository.ts';
 import { getPermission } from '../repositories/permissionRepository.ts';
+import { getFeishuDocumentTitle, getFeishuSessionUser } from './feishuAuthService.ts';
 import { createPosition as insertPosition, findPositionByName } from '../repositories/positionRepository.ts';
 
 const demoAdmin = 'demo-admin';
@@ -146,6 +147,16 @@ function parseCommonWaitingReasons(value: unknown, fallback: unknown): string {
 
 function adminActor(_body: Record<string, unknown>): string {
   return demoAdmin;
+}
+
+function inferDocumentTitleFromUrl(documentUrl: string): string {
+  try {
+    const url = new URL(documentUrl);
+    if (url.hostname.includes('feishu.cn') || url.hostname.includes('larksuite.com')) return '飞书员工指南册';
+  } catch {
+    // Keep the generic fallback below for malformed optional URLs.
+  }
+  return '员工指南册';
 }
 
 function assertAdminUrl(value: string, key: string, allowedSchemes: string[]): void {
@@ -683,12 +694,19 @@ export const updateWeeklyFeedbackConfig: RouteMatch['handler'] = async ({ db, re
         return { data: getAdminWeeklyFeedbackConfig(db) };
       };
 
-export const updateD1GuideConfig: RouteMatch['handler'] = async ({ db, request }) => {
+export const updateD1GuideConfig: RouteMatch['handler'] = async (context) => {
+        const { db, request } = context;
         const body = await readBody(request);
         const items = Array.isArray(body.items) ? (body.items as Array<Record<string, unknown>>) : [];
+        const actor = getFeishuSessionUser(context)?.name ?? adminActor(body);
         const time = nowIso();
-        for (const item of items) {
+        for (const rawItem of items) {
+          const item = { ...rawItem };
           const actionKey = requiredString(item, 'actionKey');
+          const taskType = d1TaskType(actionKey, item);
+          if (taskType === 'employee_guide' && typeof item.documentUrl === 'string' && item.documentUrl.trim() && !optionalNullableString(item, 'documentTitle', null)) {
+            item.documentTitle = (await getFeishuDocumentTitle(item.documentUrl).catch(() => undefined)) ?? inferDocumentTitleFromUrl(item.documentUrl);
+          }
           const existing = normalizeRow(db.prepare('SELECT * FROM d1_guide_configs WHERE actionKey = ?').get(actionKey) as Record<string, unknown> | undefined);
           const merged = existing ? { ...existing, ...item } : item;
           assertD1GuideItem(actionKey, merged);
@@ -728,7 +746,7 @@ export const updateD1GuideConfig: RouteMatch['handler'] = async ({ db, request }
               sortOrder,
               time,
               time,
-              adminActor(body),
+              actor,
             );
           } else {
             db.prepare(
@@ -759,7 +777,7 @@ export const updateD1GuideConfig: RouteMatch['handler'] = async ({ db, request }
               'enabled' in item ? boolToDb(item.enabled) : boolToDb(existing.enabled),
               sortOrder,
               time,
-              adminActor(body),
+              actor,
               actionKey,
             );
           }

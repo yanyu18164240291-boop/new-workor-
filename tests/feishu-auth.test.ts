@@ -127,6 +127,28 @@ describe('Feishu OAuth login', () => {
       assert.equal(sessionBody.data.user.departmentName, '信息技术部-协同办公组');
       assert.equal(sessionBody.data.user.jobTitle, '产品实习生');
       assert.equal(sessionBody.data.user.newcomerId, 'newcomer-yanyu');
+
+      const adminSave = await nativeFetch(`${server.baseUrl}/api/admin/d1-guide-config`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', cookie },
+        body: JSON.stringify({
+          items: [
+            {
+              actionKey: 'permission_package',
+              taskType: 'permission_package',
+              title: '飞书管理员保存的权限包',
+              description: '通过飞书登录用户保存。',
+              routePath: '/permissions',
+              label: '开通权限',
+              ownerName: '燕余',
+              enabled: true,
+            },
+          ],
+        }),
+      });
+      const adminSaveBody = (await adminSave.json()) as { data: { permissionPackage: { updatedBy: string } } };
+      assert.equal(adminSave.status, 200);
+      assert.equal(adminSaveBody.data.permissionPackage.updatedBy, '燕余');
     } finally {
       await server.close();
     }
