@@ -9,16 +9,33 @@ function source(path: string): string {
 }
 
 describe('newcomer page structure regressions', () => {
-  it('keeps the home bot bubble, four entry cards, and collapsible progress card hooks', () => {
+  it('keeps the home bot bubble, compact nav, and collapsible progress card hooks', () => {
     const pages = source('src/frontend/pages/newcomerPages.tsx');
 
     assert.match(pages, /className="home-bot-row"/);
     assert.match(pages, /className="bot-bubble-card"/);
-    assert.match(pages, /className="home-shortcut-row"/);
-    assert.match(pages, /home-shortcut-card/);
+    assert.match(pages, /className="home-greeting-line"/);
+    assert.match(pages, /className="home-quick-nav"/);
+    assert.match(pages, /home-quick-nav-item/);
+    assert.doesNotMatch(pages, /className="home-shortcut-row"/);
+    assert.doesNotMatch(pages, /home-shortcut-card/);
     assert.match(pages, /className="home-progress-card"/);
     assert.match(pages, /className="home-progress-head"/);
     assert.equal(getHomeShortcutItems().length, 4);
+  });
+
+  it('builds the home greeting from Feishu session first and newcomer data as fallback', () => {
+    const pages = source('src/frontend/pages/newcomerPages.tsx');
+    const state = source('src/frontend/appState.ts');
+    const data = source('src/frontend/dashboardData.ts');
+
+    assert.match(state, /api\.getAuthSession\(\)/);
+    assert.match(data, /authSession\?: AuthSession/);
+    assert.match(pages, /data\.authSession\?\.user\?\.name/);
+    assert.match(pages, /data\.authSession\?\.user\?\.departmentName/);
+    assert.match(pages, /data\.authSession\?\.user\?\.jobTitle/);
+    assert.match(pages, /welcomeHeadline/);
+    assert.match(pages, /welcomeBody/);
   });
 
   it('keeps D1 arrows attached to the three key path cards without duplicate action rows', () => {

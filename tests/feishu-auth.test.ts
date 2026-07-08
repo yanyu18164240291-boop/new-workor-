@@ -88,6 +88,18 @@ describe('Feishu OAuth login', () => {
       if (url.includes('/authen/v1/user_info')) {
         return Response.json({ code: 0, msg: 'ok', data: { open_id: 'ou_test', user_id: 'user_test', name: '燕余' } });
       }
+      if (url.includes('/auth/v3/tenant_access_token/internal')) {
+        return Response.json({ code: 0, msg: 'ok', tenant_access_token: 'tenant-token' });
+      }
+      if (url.includes('/contact/v3/users/user_test')) {
+        return Response.json({ code: 0, msg: 'ok', data: { user: { department_ids: ['od_child'], job_title: '产品实习生' } } });
+      }
+      if (url.includes('/contact/v3/departments/od_child')) {
+        return Response.json({ code: 0, msg: 'ok', data: { department: { name: '协同办公组', parent_department_id: 'od_parent' } } });
+      }
+      if (url.includes('/contact/v3/departments/od_parent')) {
+        return Response.json({ code: 0, msg: 'ok', data: { department: { name: '信息技术部', parent_department_id: '0' } } });
+      }
       return nativeFetch(input, init);
     }) as typeof fetch;
 
@@ -104,11 +116,16 @@ describe('Feishu OAuth login', () => {
       assert.match(cookie, /haina_feishu_session=/);
       assert.ok(calls.some((call) => call.url.includes('/authen/v2/oauth/token') && call.auth === undefined));
       assert.ok(calls.some((call) => call.url.includes('/authen/v1/user_info') && call.auth === 'Bearer user-token'));
+      assert.ok(calls.some((call) => call.url.includes('/contact/v3/users/user_test') && call.auth === 'Bearer tenant-token'));
 
       const session = await nativeFetch(`${server.baseUrl}/api/auth/session`, { headers: { cookie } });
-      const sessionBody = (await session.json()) as { data: { authenticated: boolean; user: { name: string; newcomerId: string } } };
+      const sessionBody = (await session.json()) as {
+        data: { authenticated: boolean; user: { name: string; newcomerId: string; departmentName?: string; jobTitle?: string } };
+      };
       assert.equal(sessionBody.data.authenticated, true);
       assert.equal(sessionBody.data.user.name, '燕余');
+      assert.equal(sessionBody.data.user.departmentName, '信息技术部-协同办公组');
+      assert.equal(sessionBody.data.user.jobTitle, '产品实习生');
       assert.equal(sessionBody.data.user.newcomerId, 'newcomer-yanyu');
     } finally {
       await server.close();

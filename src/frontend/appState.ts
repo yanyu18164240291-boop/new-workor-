@@ -34,7 +34,7 @@ function getDashboardCacheKey(pageNo: string, params: Record<string, string>, pr
 }
 
 async function loadNewcomerSurfaceData(previewRoleId?: string): Promise<DashboardData> {
-  const [newcomer, roles] = await Promise.all([api.getNewcomer(DEMO_NEWCOMER_ID), api.getRoles()]);
+  const [newcomer, roles, authSession] = await Promise.all([api.getNewcomer(DEMO_NEWCOMER_ID), api.getRoles(), api.getAuthSession()]);
   const enabledRoles = roles.filter((role) => role.enabled !== false);
   const selectedRoleId =
     previewRoleId && enabledRoles.some((role) => role.id === previewRoleId) ? previewRoleId : newcomer.roleId;
@@ -51,6 +51,7 @@ async function loadNewcomerSurfaceData(previewRoleId?: string): Promise<Dashboar
     newcomer: { ...newcomer, roleId: selectedRoleId },
     roles: enabledRoles,
     selectedRoleId,
+    authSession,
     package: permissionPackage,
     progress,
     followUps,

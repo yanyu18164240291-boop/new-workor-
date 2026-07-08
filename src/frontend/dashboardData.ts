@@ -15,6 +15,7 @@ import type {
   WeeklyFeedback,
   WeeklyFeedbackAnalysis,
   WeeklyFeedbackConfig,
+  AuthSession,
 } from './api.ts';
 
 export type DashboardData = {
@@ -23,6 +24,7 @@ export type DashboardData = {
   managerOverview?: ManagerOverview;
   roles?: Role[];
   selectedRoleId?: string;
+  authSession?: AuthSession;
   package?: PermissionPackage;
   progress?: PermissionProgress[];
   followUps?: FollowUpTask[];
