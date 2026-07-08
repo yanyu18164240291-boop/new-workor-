@@ -131,6 +131,7 @@ function adminActor(_body: Record<string, unknown>): string {
 }
 
 function assertAdminUrl(value: string, key: string, allowedSchemes: string[]): void {
+  if (!value.trim()) return;
   if (allowedSchemes.some((scheme) => value.startsWith(scheme))) return;
   try {
     const parsed = new URL(value);
@@ -189,12 +190,12 @@ function assertD1GuideItem(actionKey: string, item: Record<string, unknown>): vo
     requiredString(item, 'routePath');
   }
   if (actionKey === 'join_group') {
-    if (typeof item.applyUrl === 'string' && item.applyUrl.trim() && !isValidExternalUrl(item.applyUrl, ['mock-feishu:', 'http:', 'https:'])) {
+    if (typeof item.applyUrl === 'string' && item.applyUrl.trim() && !isValidExternalUrl(item.applyUrl, ['http:', 'https:'])) {
       throw badRequest('join_group applyUrl is invalid');
     }
   }
   if (actionKey === 'employee_guide') {
-    if (typeof item.documentUrl === 'string' && item.documentUrl.trim() && !isValidExternalUrl(item.documentUrl, ['mock-feishu:', 'http:', 'https:'])) {
+    if (typeof item.documentUrl === 'string' && item.documentUrl.trim() && !isValidExternalUrl(item.documentUrl, ['http:', 'https:'])) {
       throw badRequest('employee_guide documentUrl is invalid');
     }
   }
@@ -379,7 +380,7 @@ export const createPermissionItem: RouteMatch['handler'] = async ({ db, request 
           updatedAt: time,
           updatedBy: adminActor(body),
         };
-        assertAdminUrl(row.applyUrl, 'applyUrl', ['mock-feishu://approval/']);
+        assertAdminUrl(row.applyUrl, 'applyUrl', []);
         assertRequiredPermissionCanStayEnabled(db, row.id, row.permissionType, Boolean(row.enabled));
         db.prepare(
           `INSERT INTO permission_items
@@ -546,7 +547,7 @@ export const updatePermissionItem: RouteMatch['handler'] = async ({ db, request 
         const permissionType = assertPermissionType(body.permissionType, existing.permissionType);
         const applyUrl = typeof body.applyUrl === 'string' ? body.applyUrl.trim() : String(existing.applyUrl ?? '');
         const enabled = 'enabled' in body ? Boolean(body.enabled) : Boolean(existing.enabled);
-        assertAdminUrl(applyUrl, 'applyUrl', ['mock-feishu://approval/']);
+        assertAdminUrl(applyUrl, 'applyUrl', []);
         assertRequiredPermissionCanStayEnabled(db, id, permissionType, enabled);
         db.prepare(
           `UPDATE permission_items

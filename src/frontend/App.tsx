@@ -75,9 +75,9 @@ export function App() {
       {toastMessage && <div className="toast">{toastMessage}</div>}
       {modal === 'required' && (
         <ApplyModal
-          title="必开权限：一键申请"
+          title="必开权限：批量登记"
           items={selectableRequiredPermissions}
-          note="H5 原型仅模拟提交到审批系统，不调用真实审批接口；确认后权限进入进行中，并生成 4 小时回访。"
+          note="真实审批请进入权限详情页打开飞书审批入口；这里只登记你已在飞书提交的权限，并生成 4 小时回访。"
           onClose={() => setModal(null)}
           onConfirm={async (selectedIds) => {
             if (!data.newcomer) return;
@@ -94,7 +94,7 @@ export function App() {
       )}
       {modal === 'optional' && (
         <ApplyModal
-          title="可选权限：一键申请"
+          title="可选权限：批量登记"
           items={selectableOptionalPermissions}
           note="默认建议申请 ChatGPT 账号和 QoderWork 账号，BPM 系统需导师或权限 Owner 确认。"
           onClose={() => setModal(null)}
@@ -113,7 +113,7 @@ export function App() {
       )}
       {modal === 'owner' && (
         <Modal title="联系 Owner" onClose={() => setModal(null)}>
-          <DataRow title="刘长省" desc="协同办公权限Owner · H5 中仅展示模拟信息，不真实发消息。" chip="Owner" tone="blue" />
+          <DataRow title="刘长省" desc="协同办公权限 Owner · 请在飞书中联系确认审批进度。" chip="Owner" tone="blue" />
           <ActionButton
             onClick={() => {
               setModal(null);

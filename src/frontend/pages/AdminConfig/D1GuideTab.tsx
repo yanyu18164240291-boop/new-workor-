@@ -213,7 +213,7 @@ export function D1GuideTab({ data, toast, reload }: D1GuideTabProps) {
                   <input value={draft.targetGroupName ?? ''} onChange={(event) => patchDraft({ targetGroupName: event.target.value })} />
                 </label>
                 <label>
-                  模拟进群链接：mock-feishu://chat/...
+                  真实进群链接（飞书 AppLink / HTTPS）
                   <input value={draft.applyUrl ?? ''} onChange={(event) => patchDraft({ applyUrl: event.target.value })} />
                 </label>
                 <label>
@@ -234,7 +234,7 @@ export function D1GuideTab({ data, toast, reload }: D1GuideTabProps) {
                   <input value={draft.documentTitle ?? ''} onChange={(event) => patchDraft({ documentTitle: event.target.value })} />
                 </label>
                 <label>
-                  指南册链接：mock-feishu://doc/...
+                  员工指南册链接（飞书文档 HTTPS）
                   <input value={draft.documentUrl ?? ''} onChange={(event) => patchDraft({ documentUrl: event.target.value })} />
                 </label>
               </>

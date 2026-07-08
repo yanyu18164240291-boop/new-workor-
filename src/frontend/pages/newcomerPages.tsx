@@ -26,6 +26,13 @@ import { findMissingWeeklyRequiredQuestion } from '../weeklyFeedbackFormModel.ts
 
 const weeklyRequiredStarQuestionKeys = new Set(['overall_feeling', 'message', 'work_summary']);
 
+function openExternalUrl(url?: string | null): boolean {
+  const target = url?.trim();
+  if (!target || target.startsWith('mock-feishu://')) return false;
+  window.location.href = target;
+  return true;
+}
+
 function formatHomeTime(value?: string) {
   if (!value) return '';
   const date = new Date(value);
@@ -363,6 +370,10 @@ export function D1Page({
   onRoleChange?: (roleId: string) => Promise<void>;
 }) {
   const guide = data.d1GuideConfig;
+  async function completeD1Guide() {
+    if (!data.newcomer) return;
+    await api.updateNewcomerTaskState(data.newcomer.id, 'd1_guide', 'completed');
+  }
   const actions = [
     guide?.joinGroup
       ? {
@@ -371,7 +382,9 @@ export function D1Page({
           desc: `进入 ${guide.joinGroup.targetGroupName}，申请会发送给 ${guide.joinGroup.sendToEmployeeName}`,
           status: '已完成',
           label: '已完成',
-          onClick: () => toast(`已模拟打开 ${guide.joinGroup.applyUrl}`),
+          onClick: () => {
+            if (!openExternalUrl(guide.joinGroup.applyUrl)) toast('飞书部门群链接暂未配置，请联系管理员');
+          },
         }
       : null,
     guide?.employeeGuide
@@ -381,7 +394,9 @@ export function D1Page({
           desc: guide.employeeGuide.documentTitle ?? '办公规范、门禁、餐饮、常见问题',
           status: '进行中',
           label: '进行中',
-          onClick: () => toast(`已模拟打开 ${guide.employeeGuide.documentUrl}`),
+          onClick: () => {
+            if (!openExternalUrl(guide.employeeGuide.documentUrl)) toast('员工指南册链接暂未配置，请联系管理员');
+          },
         }
       : null,
     guide?.permissionPackage
@@ -391,7 +406,10 @@ export function D1Page({
           desc: guide.permissionPackage.description,
           status: '下一步',
           label: '下一步',
-          onClick: () => navigate(guide.permissionPackage.routePath ?? '/permissions'),
+          onClick: async () => {
+            await completeD1Guide();
+            navigate(guide.permissionPackage.routePath ?? '/permissions');
+          },
         }
       : null,
   ].filter(Boolean) as Array<{ no: string; title: string; desc: string; status: string; label: string; onClick: () => void }>;
@@ -407,7 +425,7 @@ export function D1Page({
         <StepList showArrow hideStatus steps={actions.map((item) => ({ no: item.no, title: item.title, desc: item.desc, status: item.status, onClick: item.onClick }))} />
       </SectionCard>
       <SectionCard title="Bot 提醒">
-        <p>加入飞书部门群仅模拟发送申请，不会调用真实飞书接口。员工指南册打开的是后台配置的飞书文档链接。</p>
+        <p>部门群、员工指南册和权限申请入口已接入真实飞书资源。完成 D1 引导后，我会继续帮你跟进权限开通进度。</p>
       </SectionCard>
     </>
   );
@@ -438,13 +456,13 @@ export function PermissionPage({
         </div>
         <StatusChip tone="blue">岗位默认推荐</StatusChip>
       </Card>
-      <SectionCard title="必开权限" action={<button className="mini-primary" onClick={() => openModal('required')}>必开权限：一键申请</button>}>
+      <SectionCard title="必开权限" action={<button className="mini-primary" onClick={() => openModal('required')}>必开权限：批量登记</button>}>
         {required.map((item) => {
           const status = mapPermissionUiStatus(progressByPermission.get(item.id)?.status);
           return <DataRow key={item.id} title={item.name} desc={`Owner：${item.ownerName}`} chip={status.chip} tone={status.tone} onClick={() => navigate(`/permission-detail/${item.id}`)} />;
         })}
       </SectionCard>
-      <SectionCard title="可选权限" action={<button className="mini-primary" onClick={() => openModal('optional')}>可选权限：一键申请</button>}>
+      <SectionCard title="可选权限" action={<button className="mini-primary" onClick={() => openModal('optional')}>可选权限：批量登记</button>}>
         {optional.map((item) => {
           const status = mapPermissionUiStatus(progressByPermission.get(item.id)?.status);
           return (
@@ -460,7 +478,7 @@ export function PermissionPage({
         })}
       </SectionCard>
       <Card className="notice-card">
-        BPM 系统等敏感权限需导师或权限 Owner 确认后再申请。一键申请会把未申请权限更新为进行中，并进入 4 小时回访。
+        BPM 系统等敏感权限需导师或权限 Owner 确认后再申请。真实审批入口在权限详情页打开；批量登记用于同步已提交状态并进入 4 小时回访。
       </Card>
     </>
   );
@@ -505,7 +523,7 @@ export function PermissionDetailPage({
         </div>
       </Card>
       <SectionCard title="申请入口">
-        <p className="link-text">{item?.applyUrl ?? 'approval.haina-ai.com/v1/tools/chatgpt-access'}</p>
+        <p className="link-text">{item?.applyUrl?.trim() || '待配置真实审批入口'}</p>
       </SectionCard>
       <SectionCard title="申请理由模板">
         <p>{item?.reasonTemplate ?? '本人为协同办公组新入职产品实习生，需申请 ChatGPT 账号用于 PRD 编写、资料整理、测试用例生成，提升办公效率。'}</p>
@@ -534,7 +552,11 @@ export function PermissionDetailPage({
           tone="secondary"
           hideIcon
           onClick={() => {
-            toast('已打开审批入口');
+            if (!openExternalUrl(item?.applyUrl)) {
+              toast('审批入口暂未配置，请联系管理员');
+              return;
+            }
+            toast('已打开真实审批入口');
           }}
         >
           打开入口
@@ -585,10 +607,13 @@ export function FollowUpPage({ navigate, toast, openOwner }: { navigate: (path: 
             <ActionButton
               hideIcon
               onClick={() => {
-                toast('已模拟发送催办信息');
+                navigator.clipboard?.writeText(
+                  '你好，我是协同办公组新入职同学，今天上午已提交 ChatGPT 账号申请。想确认下当前是否还需要我补充信息，辛苦帮忙看一下，谢谢。',
+                );
+                toast('已复制催办话术，请在飞书中发送给 Owner');
               }}
             >
-              发送催办信息
+              复制催办话术
             </ActionButton>
             <ActionButton tone="secondary" hideIcon onClick={openOwner}>
               联系 Owner
@@ -600,7 +625,7 @@ export function FollowUpPage({ navigate, toast, openOwner }: { navigate: (path: 
         </SectionCard>
       )}
       <SectionCard title="流程修正说明">
-        <p>点击“一键申请”会把未申请权限更新为进行中，并生成 4 小时回访任务；真实审批与飞书消息仍保持模拟。</p>
+        <p>真实审批请在权限详情页打开飞书审批入口；批量登记只用于同步已提交状态并生成 4 小时回访。</p>
       </SectionCard>
     </>
   );

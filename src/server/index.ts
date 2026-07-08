@@ -11,6 +11,7 @@ import {
   seedJoinFeishuOrgTasks,
   seedKnowledgeDocStatusGuard,
   seedManagerFeedbackActions,
+  seedRealFeishuFlowConfig,
   seedSubmittedPermissionFollowUps,
   seedWeeklyFeedbackConfig,
 } from './seed.ts';
@@ -26,6 +27,7 @@ if (seeded.total === 0) {
 }
 
 seedD1GuideConfig(db);
+seedRealFeishuFlowConfig(db);
 seedJoinFeishuOrgTasks(db);
 seedSubmittedPermissionFollowUps(db);
 seedWeeklyFeedbackConfig(db);
