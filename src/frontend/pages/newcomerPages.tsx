@@ -276,16 +276,6 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
             </Card>
           </div>
         )}
-        {!isHomeChatActive && (
-          <div className="home-quick-nav" aria-label="新人首页导航">
-            {homeShortcutItems.map((item) => (
-              <button className={`home-quick-nav-item home-quick-nav-${item.tone}`} key={item.path} onClick={() => navigate(item.path)}>
-                <IconTile icon={item.icon} tone={item.tone} />
-                <strong>{item.label}</strong>
-              </button>
-            ))}
-          </div>
-        )}
         <Card className="home-progress-card">
           <button className="home-progress-head" onClick={() => setProgressCollapsed((value) => !value)}>
             <h2>我的入职进度</h2>

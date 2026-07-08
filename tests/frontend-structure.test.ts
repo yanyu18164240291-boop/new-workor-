@@ -9,14 +9,16 @@ function source(path: string): string {
 }
 
 describe('newcomer page structure regressions', () => {
-  it('keeps the home bot bubble, compact nav, and collapsible progress card hooks', () => {
+  it('keeps the home bot bubble and collapsible progress card hooks without inline shortcut nav', () => {
     const pages = source('src/frontend/pages/newcomerPages.tsx');
+    const styles = source('src/frontend/styles.css');
 
     assert.match(pages, /className="home-bot-row"/);
     assert.match(pages, /className="bot-bubble-card"/);
     assert.match(pages, /className="home-greeting-line"/);
-    assert.match(pages, /className="home-quick-nav"/);
-    assert.match(pages, /home-quick-nav-item/);
+    assert.doesNotMatch(pages, /className="home-quick-nav"/);
+    assert.doesNotMatch(pages, /home-quick-nav-item/);
+    assert.doesNotMatch(styles, /\.home-quick-nav/);
     assert.doesNotMatch(pages, /className="home-shortcut-row"/);
     assert.doesNotMatch(pages, /home-shortcut-card/);
     assert.match(pages, /className="home-progress-card"/);
