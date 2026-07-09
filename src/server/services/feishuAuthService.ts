@@ -108,6 +108,7 @@ function canFeishuUserAccessAdminConfig(user: FeishuUser): boolean {
   if (matchesEnvList(user.openId, 'HAINA_ADMIN_OPEN_IDS')) return true;
   if (matchesEnvList(user.userId, 'HAINA_ADMIN_USER_IDS')) return true;
   if (matchesEnvList(user.email, 'HAINA_ADMIN_EMAILS')) return true;
+  if (matchesEnvList(user.name, 'HAINA_ADMIN_NAMES')) return true;
   const department = user.departmentName ?? '';
   const jobTitle = user.jobTitle ?? '';
   const adminDepartmentKeywords = ['\u4fe1\u606f\u6280\u672f\u90e8', '\u534f\u540c\u529e\u516c', '\u6280\u672f\u7ba1\u7406\u4e2d\u5fc3'];

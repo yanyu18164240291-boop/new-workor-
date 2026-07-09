@@ -39,13 +39,14 @@ export function AppContent({
   openOwnerModal: () => void;
 }) {
   function renderAdminGuard(children: ReactNode) {
-    const adminUser = data.authSession?.user
+    const currentUser = data.authSession?.user;
+    const adminUser = currentUser
       ? {
-          name: data.authSession.user.name,
-          role: data.authSession.user.jobTitle ?? '后台管理员',
-          departmentName: data.authSession.user.departmentName,
-          jobTitle: data.authSession.user.jobTitle,
-          canAccessAdminConfig: data.authSession.user.canAccessAdminConfig,
+          name: currentUser.name,
+          role: currentUser.jobTitle ?? '后台管理员',
+          departmentName: currentUser.departmentName,
+          jobTitle: currentUser.jobTitle,
+          canAccessAdminConfig: currentUser.canAccessAdminConfig,
         }
       : { name: 'demo-admin', role: '后台管理员' };
     if (canAccessAdminConfig(adminUser)) return children;
@@ -54,6 +55,16 @@ export function AppContent({
         <section className="admin-card admin-access-denied">
           <h1>无权访问后台配置</h1>
           <p>当前账号不具备后台管理员角色，已阻止进入 Page 08 后台配置维护台。</p>
+          {currentUser && (
+            <div className="admin-access-details">
+              <p>当前账号：{currentUser.name}</p>
+              {currentUser.email && <p>email：{currentUser.email}</p>}
+              <p>openId：{currentUser.openId}</p>
+              {currentUser.userId && <p>userId：{currentUser.userId}</p>}
+              {currentUser.departmentName && <p>部门：{currentUser.departmentName}</p>}
+              {currentUser.jobTitle && <p>职务：{currentUser.jobTitle}</p>}
+            </div>
+          )}
           <button className="admin-primary-action" type="button" onClick={() => navigate('/')}>
             返回新人首页
           </button>

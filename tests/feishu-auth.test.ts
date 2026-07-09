@@ -274,4 +274,54 @@ describe('Feishu OAuth login', () => {
       await server.close();
     }
   });
+
+  it('allows Feishu admin access by configured display name', async () => {
+    const server = await createServer();
+    configureFeishuAuth(server.baseUrl);
+    process.env.HAINA_ADMIN_NAMES = '燕余';
+    globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/authen/v2/oauth/token')) {
+        return Response.json({ code: 0, msg: 'ok', access_token: 'user-token' });
+      }
+      if (url.includes('/authen/v1/user_info')) {
+        return Response.json({
+          code: 0,
+          msg: 'ok',
+          data: {
+            open_id: 'ou_yanyu',
+            user_id: 'user_yanyu',
+            name: '燕余',
+          },
+        });
+      }
+      if (url.includes('/auth/v3/tenant_access_token/internal')) {
+        return Response.json({ code: 0, msg: 'ok', tenant_access_token: 'tenant-token' });
+      }
+      if (url.includes('/contact/v3/users/user_yanyu')) {
+        return Response.json({ code: 0, msg: 'ok', data: { user: { department_ids: ['od_general'], job_title: 'Developer' } } });
+      }
+      if (url.includes('/contact/v3/departments/od_general')) {
+        return Response.json({ code: 0, msg: 'ok', data: { department: { name: 'General Team', parent_department_id: '0' } } });
+      }
+      return nativeFetch(input, init);
+    }) as typeof fetch;
+
+    try {
+      const start = await nativeFetch(`${server.baseUrl}/api/auth/feishu/start?returnTo=%2Fadmin-config`, { redirect: 'manual' });
+      const state = new URL(start.headers.get('location') ?? '').searchParams.get('state');
+      assert.ok(state);
+
+      const callback = await nativeFetch(`${server.baseUrl}/api/auth/feishu/callback?code=login-code&state=${state}`, { redirect: 'manual' });
+      const cookie = callback.headers.get('set-cookie') ?? '';
+      assert.match(cookie, /haina_feishu_session=/);
+
+      const session = await nativeFetch(`${server.baseUrl}/api/auth/session`, { headers: { cookie } });
+      const sessionBody = (await session.json()) as { data: { user: { name: string; canAccessAdminConfig?: boolean } } };
+      assert.equal(sessionBody.data.user.name, '燕余');
+      assert.equal(sessionBody.data.user.canAccessAdminConfig, true);
+    } finally {
+      await server.close();
+    }
+  });
 });

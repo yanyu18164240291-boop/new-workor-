@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 import { createApiServer } from './app.ts';
 import { createDatabase } from './db.ts';
+import { loadServerEnv } from './env.ts';
 import { runMigrations } from './migrations.ts';
 import {
   seedD1GuideConfig,
@@ -17,6 +18,8 @@ import {
 } from './seed.ts';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+
+loadServerEnv(path.join(projectRoot, '.env'));
 
 const db = createDatabase();
 runMigrations(db);
