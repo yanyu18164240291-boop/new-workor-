@@ -2,6 +2,7 @@ import { badRequest } from '../errors.ts';
 import { incrementKnowledgeDocHitCounts, listRagReadyKnowledgeDocs } from '../repositories/knowledgeRepository.ts';
 import type { RouteMatch } from '../routeKit.ts';
 import { readBody, requiredString } from '../routeKit.ts';
+import { runCozeWorkflow } from './cozeAiProvider.ts';
 
 type RagCandidate = {
   doc: Record<string, unknown>;
@@ -58,6 +59,19 @@ function buildAnswer(matches: RagCandidate[]): string {
   return `根据新人入职知识库：${lines.join(' ')}`;
 }
 
+function buildLocalKnowledgeContext(matches: RagCandidate[]): string {
+  return matches.map((match) => `${String(match.doc.title ?? '')}: ${match.excerpt}`).join('\n');
+}
+
+function buildCitations(matches: RagCandidate[]) {
+  return matches.map((candidate) => ({
+    docId: candidate.doc.id,
+    title: candidate.doc.title,
+    ownerName: candidate.doc.ownerName,
+    sourceUrl: candidate.doc.sourceUrl,
+  }));
+}
+
 export const answerNewcomerAiChat: RouteMatch['handler'] = async ({ db, request }, match) => {
   const newcomerId = decodeURIComponent(match[1]);
   const body = await readBody(request);
@@ -76,6 +90,26 @@ export const answerNewcomerAiChat: RouteMatch['handler'] = async ({ db, request 
     .sort((left, right) => right.score - left.score)
     .slice(0, 2);
 
+  const citations = buildCitations(candidates);
+  const coze = await runCozeWorkflow({
+    question,
+    newcomerId,
+    roleId: newcomer.roleId,
+    localKnowledgeContext: buildLocalKnowledgeContext(candidates),
+    citations,
+  });
+
+  if (coze) {
+    if (candidates.length > 0) incrementKnowledgeDocHitCounts(db, candidates.map((candidate) => String(candidate.doc.id)));
+    return {
+      data: {
+        mode: 'coze',
+        answer: coze.answer,
+        citations,
+      },
+    };
+  }
+
   if (candidates.length === 0) {
     return {
       data: {
@@ -86,19 +120,13 @@ export const answerNewcomerAiChat: RouteMatch['handler'] = async ({ db, request 
     };
   }
 
-  const docIds = candidates.map((candidate) => String(candidate.doc.id));
-  incrementKnowledgeDocHitCounts(db, docIds);
+  incrementKnowledgeDocHitCounts(db, candidates.map((candidate) => String(candidate.doc.id)));
 
   return {
     data: {
       mode: 'local_rag',
       answer: buildAnswer(candidates),
-      citations: candidates.map((candidate) => ({
-        docId: candidate.doc.id,
-        title: candidate.doc.title,
-        ownerName: candidate.doc.ownerName,
-        sourceUrl: candidate.doc.sourceUrl,
-      })),
+      citations,
     },
   };
 };

@@ -203,4 +203,75 @@ describe('Feishu OAuth login', () => {
       await server.close();
     }
   });
+
+  it('allows explicit Feishu admin whitelist access without department keywords', async () => {
+    const server = await createServer();
+    configureFeishuAuth(server.baseUrl);
+    process.env.HAINA_ADMIN_OPEN_IDS = 'ou_whitelist_admin';
+    globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/authen/v2/oauth/token')) {
+        return Response.json({ code: 0, msg: 'ok', access_token: 'user-token' });
+      }
+      if (url.includes('/authen/v1/user_info')) {
+        return Response.json({
+          code: 0,
+          msg: 'ok',
+          data: {
+            open_id: 'ou_whitelist_admin',
+            user_id: 'user_whitelist_admin',
+            name: 'Pilot Admin',
+            email: 'pilot.admin@example.com',
+          },
+        });
+      }
+      if (url.includes('/auth/v3/tenant_access_token/internal')) {
+        return Response.json({ code: 0, msg: 'ok', tenant_access_token: 'tenant-token' });
+      }
+      if (url.includes('/contact/v3/users/user_whitelist_admin')) {
+        return Response.json({ code: 0, msg: 'ok', data: { user: { department_ids: ['od_sales'], job_title: 'Sales PM' } } });
+      }
+      if (url.includes('/contact/v3/departments/od_sales')) {
+        return Response.json({ code: 0, msg: 'ok', data: { department: { name: 'Sales Team', parent_department_id: '0' } } });
+      }
+      return nativeFetch(input, init);
+    }) as typeof fetch;
+
+    try {
+      const start = await nativeFetch(`${server.baseUrl}/api/auth/feishu/start?returnTo=%2Fadmin-config`, { redirect: 'manual' });
+      const state = new URL(start.headers.get('location') ?? '').searchParams.get('state');
+      assert.ok(state);
+
+      const callback = await nativeFetch(`${server.baseUrl}/api/auth/feishu/callback?code=login-code&state=${state}`, { redirect: 'manual' });
+      const cookie = callback.headers.get('set-cookie') ?? '';
+      assert.match(cookie, /haina_feishu_session=/);
+
+      const session = await nativeFetch(`${server.baseUrl}/api/auth/session`, { headers: { cookie } });
+      const sessionBody = (await session.json()) as { data: { user: { canAccessAdminConfig?: boolean } } };
+      assert.equal(sessionBody.data.user.canAccessAdminConfig, true);
+
+      const adminSave = await nativeFetch(`${server.baseUrl}/api/admin/d1-guide-config`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', cookie },
+        body: JSON.stringify({
+          items: [
+            {
+              actionKey: 'permission_package',
+              taskType: 'permission_package',
+              title: 'Whitelist admin permission package',
+              description: 'Saved by explicit Feishu admin whitelist.',
+              routePath: '/permissions',
+              label: 'Open permissions',
+              ownerName: 'Pilot Admin',
+              enabled: true,
+            },
+          ],
+        }),
+      });
+
+      assert.equal(adminSave.status, 200);
+    } finally {
+      await server.close();
+    }
+  });
 });
