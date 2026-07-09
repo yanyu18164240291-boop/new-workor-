@@ -224,7 +224,7 @@ export type D1GuideMessageDelivery = {
 };
 
 export type HomeAiAnswer = {
-  mode: 'local_rag' | 'no_match';
+  mode: 'coze' | 'local_rag' | 'no_match';
   answer: string;
   citations: Array<{
     docId: string;
@@ -367,6 +367,7 @@ export type AuthSession = {
     mobile?: string;
     avatarUrl?: string;
     newcomerId: string;
+    canAccessAdminConfig?: boolean;
   } | null;
 };
 

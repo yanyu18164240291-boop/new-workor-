@@ -37,10 +37,12 @@ describe('Phase 04A admin config workbench contract', () => {
 
   it('guards admin-only pages behind the current admin user contract', () => {
     assert.equal(canAccessAdminConfig(currentAdminUser), true);
+    assert.equal(canAccessAdminConfig({ name: 'Pilot Admin', canAccessAdminConfig: true }), true);
     assert.equal(canAccessAdminConfig({ name: 'newcomer-yanyu', role: '新人' }), false);
 
     const appContent = readFileSync('src/frontend/AppContent.tsx', 'utf8');
     assert.match(appContent, /canAccessAdminConfig/);
+    assert.match(appContent, /canAccessAdminConfig: data\.authSession\.user\.canAccessAdminConfig/);
     assert.match(appContent, /case '08'/);
     assert.match(appContent, /case '09'/);
   });

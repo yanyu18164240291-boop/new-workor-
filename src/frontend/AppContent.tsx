@@ -45,6 +45,7 @@ export function AppContent({
           role: data.authSession.user.jobTitle ?? '后台管理员',
           departmentName: data.authSession.user.departmentName,
           jobTitle: data.authSession.user.jobTitle,
+          canAccessAdminConfig: data.authSession.user.canAccessAdminConfig,
         }
       : { name: 'demo-admin', role: '后台管理员' };
     if (canAccessAdminConfig(adminUser)) return children;

@@ -92,19 +92,37 @@ export function getFeishuSessionUser(context: ApiContext): FeishuUser | undefine
   return currentSession(context)?.user;
 }
 
+function envList(name: string): string[] {
+  return (process.env[name] ?? '')
+    .split(',')
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function matchesEnvList(value: string | undefined, name: string): boolean {
+  if (!value) return false;
+  return envList(name).includes(value.trim().toLowerCase());
+}
+
+function canFeishuUserAccessAdminConfig(user: FeishuUser): boolean {
+  if (matchesEnvList(user.openId, 'HAINA_ADMIN_OPEN_IDS')) return true;
+  if (matchesEnvList(user.userId, 'HAINA_ADMIN_USER_IDS')) return true;
+  if (matchesEnvList(user.email, 'HAINA_ADMIN_EMAILS')) return true;
+  const department = user.departmentName ?? '';
+  const jobTitle = user.jobTitle ?? '';
+  const adminDepartmentKeywords = ['\u4fe1\u606f\u6280\u672f\u90e8', '\u534f\u540c\u529e\u516c', '\u6280\u672f\u7ba1\u7406\u4e2d\u5fc3'];
+  const adminJobTitleKeywords = ['\u7ba1\u7406\u5458', '\u4ea7\u54c1'];
+  return (
+    adminDepartmentKeywords.some((keyword) => department.includes(keyword)) ||
+    adminJobTitleKeywords.some((keyword) => jobTitle.includes(keyword))
+  );
+}
+
 export function isFeishuAdminSession(context: ApiContext): boolean {
   if (!authConfig()) return false;
   const session = currentSession(context);
   if (!session?.user) return false;
-  const department = session.user.departmentName ?? '';
-  const jobTitle = session.user.jobTitle ?? '';
-  return (
-    department.includes('信息技术部') ||
-    department.includes('协同办公') ||
-    department.includes('技术管理中心') ||
-    jobTitle.includes('管理员') ||
-    jobTitle.includes('产品')
-  );
+  return canFeishuUserAccessAdminConfig(session.user);
 }
 
 function sessionCookie(token: string, config: FeishuAuthConfig): string {
@@ -337,7 +355,7 @@ export function getFeishuAuthSession(context: ApiContext): ApiResult {
     data: {
       enabled: true,
       authenticated: Boolean(session),
-      user: session?.user ?? null,
+      user: session?.user ? { ...session.user, canAccessAdminConfig: canFeishuUserAccessAdminConfig(session.user) } : null,
       loginUrl: `/api/auth/feishu/start?returnTo=${encodeURIComponent(returnTo)}`,
     },
   };

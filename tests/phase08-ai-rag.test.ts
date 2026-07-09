@@ -14,6 +14,7 @@ let baseUrl = '';
 let closeServer: () => Promise<void>;
 let tempDir = '';
 const nativeFetch = globalThis.fetch.bind(globalThis);
+const originalEnv = { ...process.env };
 
 async function requestJson<T>(route: string, init?: RequestInit): Promise<{ status: number; body: T }> {
   const response = await nativeFetch(`${baseUrl}${route}`, {
@@ -44,6 +45,8 @@ describe('Phase 08 AI QA RAG knowledge base', () => {
   });
 
   after(async () => {
+    globalThis.fetch = nativeFetch;
+    process.env = originalEnv;
     await closeServer?.();
     await rm(tempDir, { recursive: true, force: true });
   });
@@ -149,5 +152,129 @@ describe('Phase 08 AI QA RAG knowledge base', () => {
     assert.equal(answer.body.data.mode, 'no_match');
     assert.equal(answer.body.data.citations.length, 0);
     assert.match(answer.body.data.answer, /暂时没有找到/);
+  });
+  it('uses configured Coze workflow before local RAG and sends local knowledge context', async () => {
+    process.env.COZE_API_TOKEN = 'coze-test-token';
+    process.env.COZE_WORKFLOW_ID = 'workflow_qa';
+    process.env.COZE_APP_ID = 'app_haina';
+    const created = await requestJson<{ data: { id: string } }>('/api/admin/knowledge-base-docs', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'VPN Coze context',
+        category: '系统权限',
+        applicableRoleId: 'role-product-intern',
+        applicableRole: 'Product Intern',
+        applicableStage: 'D1-D7',
+        ownerName: 'IT Support',
+        sourceUrl: 'mock-drive://vpn-coze',
+        contentText: 'VPN must be requested after OA account activation.',
+        retrievalKeywords: 'VPN,OA,access',
+      }),
+    });
+    await requestJson(`/api/admin-config/knowledge/${created.body.data.id}/trigger-mock-parse`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+    await requestJson(`/api/admin-config/knowledge/${created.body.data.id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: 'enabled' }),
+    });
+
+    let cozeRequestBody: { workflow_id?: string; app_id?: string; parameters?: Record<string, unknown> } | undefined;
+    globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/v1/workflow/run')) {
+        assert.equal((init?.headers as Record<string, string>).authorization, 'Bearer coze-test-token');
+        cozeRequestBody = JSON.parse(String(init?.body ?? '{}'));
+        return Response.json({
+          code: 0,
+          data: JSON.stringify({ answer: 'Coze says: open VPN after OA activation.' }),
+        });
+      }
+      return nativeFetch(input, init);
+    }) as typeof fetch;
+
+    try {
+      const answer = await requestJson<{
+        data: {
+          mode: string;
+          answer: string;
+          citations: Array<{ title: string; sourceUrl?: string }>;
+        };
+      }>('/api/newcomers/newcomer-yanyu/ai-chat', {
+        method: 'POST',
+        body: JSON.stringify({ question: 'How do I open VPN?' }),
+      });
+
+      assert.equal(answer.status, 200);
+      assert.equal(answer.body.data.mode, 'coze');
+      assert.equal(answer.body.data.answer, 'Coze says: open VPN after OA activation.');
+      assert.ok(answer.body.data.citations.some((citation) => citation.title === 'VPN Coze context'));
+      assert.equal(cozeRequestBody?.workflow_id, 'workflow_qa');
+      assert.equal(cozeRequestBody?.app_id, 'app_haina');
+      assert.equal(cozeRequestBody?.parameters?.question, 'How do I open VPN?');
+      assert.match(String(cozeRequestBody?.parameters?.localKnowledgeContext), /VPN must be requested after OA account activation/);
+    } finally {
+      globalThis.fetch = nativeFetch;
+      delete process.env.COZE_API_TOKEN;
+      delete process.env.COZE_WORKFLOW_ID;
+      delete process.env.COZE_APP_ID;
+    }
+  });
+
+  it('falls back to local RAG when Coze workflow fails', async () => {
+    process.env.COZE_API_TOKEN = 'coze-test-token';
+    process.env.COZE_WORKFLOW_ID = 'workflow_qa';
+    process.env.COZE_APP_ID = 'app_haina';
+    const created = await requestJson<{ data: { id: string } }>('/api/admin/knowledge-base-docs', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'Fallback VPN guide',
+        category: '系统权限',
+        applicableRoleId: 'role-product-intern',
+        applicableRole: 'Product Intern',
+        applicableStage: 'D1-D7',
+        ownerName: 'IT Support',
+        sourceUrl: 'mock-drive://vpn-fallback',
+        contentText: 'Fallback answer: VPN waits for OA account activation before permission submission.',
+        retrievalKeywords: 'VPN,OA,fallback',
+      }),
+    });
+    await requestJson(`/api/admin-config/knowledge/${created.body.data.id}/trigger-mock-parse`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+    await requestJson(`/api/admin-config/knowledge/${created.body.data.id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: 'enabled' }),
+    });
+
+    globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/v1/workflow/run')) {
+        return Response.json({ code: 5000, msg: 'workflow failed' }, { status: 500 });
+      }
+      return nativeFetch(input, init);
+    }) as typeof fetch;
+
+    try {
+      const answer = await requestJson<{ data: { mode: string; answer: string; citations: Array<{ title: string }> } }>(
+        '/api/newcomers/newcomer-yanyu/ai-chat',
+        {
+          method: 'POST',
+          body: JSON.stringify({ question: 'VPN fallback OA' }),
+        },
+      );
+
+      assert.equal(answer.status, 200);
+      assert.equal(answer.body.data.mode, 'local_rag');
+      assert.match(answer.body.data.answer, /Fallback answer/);
+      assert.ok(answer.body.data.citations.some((citation) => citation.title === 'Fallback VPN guide'));
+    } finally {
+      globalThis.fetch = nativeFetch;
+      delete process.env.COZE_API_TOKEN;
+      delete process.env.COZE_WORKFLOW_ID;
+      delete process.env.COZE_APP_ID;
+    }
   });
 });
