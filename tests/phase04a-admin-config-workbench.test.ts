@@ -42,7 +42,10 @@ describe('Phase 04A admin config workbench contract', () => {
 
     const appContent = readFileSync('src/frontend/AppContent.tsx', 'utf8');
     assert.match(appContent, /canAccessAdminConfig/);
-    assert.match(appContent, /canAccessAdminConfig: data\.authSession\.user\.canAccessAdminConfig/);
+    assert.match(appContent, /canAccessAdminConfig: currentUser\.canAccessAdminConfig/);
+    assert.match(appContent, /openId/);
+    assert.match(appContent, /email/);
+    assert.match(appContent, /userId/);
     assert.match(appContent, /case '08'/);
     assert.match(appContent, /case '09'/);
   });

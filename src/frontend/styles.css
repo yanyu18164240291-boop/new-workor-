@@ -477,6 +477,22 @@ button {
   line-height: 1.25;
 }
 
+.admin-access-details {
+  margin: 14px 0;
+  padding: 12px;
+  border: 1px solid #dbe6f5;
+  border-radius: 8px;
+  background: #f7faff;
+  color: #4d5f7a;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.admin-access-details p {
+  margin: 0;
+  word-break: break-all;
+}
+
 .admin-progress-list {
   display: grid;
   gap: 13px;
