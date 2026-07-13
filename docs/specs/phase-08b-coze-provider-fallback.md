@@ -2,13 +2,13 @@
 
 ## Goal
 
-Keep the homepage AI Q&A API stable while allowing the backend to use the existing Coze workflow when configured. If Coze is unavailable, the answer must fall back to the local SQLite knowledge-base RAG from Phase 08.
+Keep the homepage AI Q&A API stable while allowing the backend to use the published Coze agent when configured. If the agent is unavailable, the answer must fall back to the local SQLite knowledge-base RAG from Phase 08. The original workflow API remains a compatibility path when no Bot ID is configured.
 
 ## Scope
 
 - Fix admin access for real Feishu login by adding backend-controlled whitelist access.
 - Keep `/admin-config` guarded, but allow pilot admins through `HAINA_ADMIN_OPEN_IDS`, `HAINA_ADMIN_USER_IDS`, or `HAINA_ADMIN_EMAILS`.
-- Add a server-side Coze workflow provider behind `POST /api/newcomers/:id/ai-chat`.
+- Add a server-side Coze agent provider behind `POST /api/newcomers/:id/ai-chat`.
 - Keep the frontend contract unchanged.
 - Keep local RAG as the fallback path.
 
@@ -22,12 +22,18 @@ Keep the homepage AI Q&A API stable while allowing the backend to use the existi
 
 ## Runtime Contract
 
-- Coze is enabled only when `COZE_API_TOKEN` and `COZE_WORKFLOW_ID` are configured.
-- Default endpoint: `https://api.coze.cn/v1/workflow/run`.
+- Coze agent chat is enabled when `COZE_API_TOKEN` and `COZE_BOT_ID` are configured.
+- The backend creates a non-streaming `/v3/chat`, polls its status, and reads the final `assistant` / `answer` message.
+- When `COZE_BOT_ID` is absent, `COZE_API_TOKEN` plus `COZE_WORKFLOW_ID` keeps the original `/v1/workflow/run` compatibility path.
+- Default API base: `https://api.coze.cn`.
 - Optional overrides:
   - `COZE_API_BASE`
   - `COZE_APP_ID`
-- Request body sent to Coze:
+- Agent chat request body sent to Coze:
+  - `bot_id`
+  - `user_id`
+  - `additional_messages[].content`
+- Workflow compatibility request body sent to Coze:
   - `workflow_id`
   - `app_id` when configured
   - `parameters.question`
@@ -36,7 +42,7 @@ Keep the homepage AI Q&A API stable while allowing the backend to use the existi
   - `parameters.localKnowledgeContext`
   - `parameters.citations`
 - Successful Coze answer returns `mode: "coze"`.
-- Timeout, network error, non-OK HTTP response, non-zero Coze `code`, or empty answer text returns to local RAG.
+- Timeout, network error, non-OK HTTP response, non-zero Coze `code`, failed chat status, or empty answer text returns to local RAG.
 - Local RAG still returns `mode: "local_rag"` or `mode: "no_match"`.
 
 ## Admin Access Contract
@@ -48,8 +54,8 @@ Keep the homepage AI Q&A API stable while allowing the backend to use the existi
 ## Acceptance Criteria
 
 - A whitelisted real Feishu user can load and write admin config without department/job-title keyword matches.
-- Homepage AI Q&A calls Coze when Coze env vars are present.
-- Homepage AI Q&A sends local knowledge context to Coze.
+- Homepage AI Q&A calls the published Coze agent when token and Bot ID are present.
+- Homepage AI Q&A keeps the direct workflow and local knowledge context path when only a Workflow ID is configured.
 - Homepage AI Q&A falls back to local RAG when Coze fails.
 - No real approval workflow is introduced.
 - No MySQL migration is introduced.

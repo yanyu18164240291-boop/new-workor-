@@ -153,7 +153,7 @@ describe('Phase 08 AI QA RAG knowledge base', () => {
     assert.equal(answer.body.data.citations.length, 0);
     assert.match(answer.body.data.answer, /暂时没有找到/);
   });
-  it('uses configured Coze workflow before local RAG and sends local knowledge context', async () => {
+  it('uses the configured Coze bot chat before local RAG', async () => {
     process.env.COZE_API_TOKEN = 'coze-test-token';
     process.env.COZE_WORKFLOW_ID = 'workflow_qa';
     process.env.COZE_BOT_ID = 'bot_haina';
@@ -180,15 +180,35 @@ describe('Phase 08 AI QA RAG knowledge base', () => {
       body: JSON.stringify({ status: 'enabled' }),
     });
 
-    let cozeRequestBody: { workflow_id?: string; bot_id?: string; parameters?: Record<string, unknown> } | undefined;
+    let cozeRequestBody: {
+      bot_id?: string;
+      user_id?: string;
+      additional_messages?: Array<{ role?: string; content?: string; content_type?: string }>;
+    } | undefined;
     globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input);
-      if (url.includes('/v1/workflow/run')) {
+      if (url.endsWith('/v3/chat')) {
         assert.equal((init?.headers as Record<string, string>).authorization, 'Bearer coze-test-token');
         cozeRequestBody = JSON.parse(String(init?.body ?? '{}'));
         return Response.json({
           code: 0,
-          data: JSON.stringify({ answer: 'Coze says: open VPN after OA activation.' }),
+          data: {
+            id: 'chat_haina',
+            conversation_id: 'conversation_haina',
+            status: 'in_progress',
+          },
+        });
+      }
+      if (url.includes('/v3/chat/retrieve')) {
+        return Response.json({ code: 0, data: { status: 'completed' } });
+      }
+      if (url.includes('/v3/chat/message/list')) {
+        return Response.json({
+          code: 0,
+          data: [
+            { role: 'assistant', type: 'answer', content: 'Coze says: open VPN after OA activation.' },
+            { role: 'assistant', type: 'follow_up', content: 'How do I activate OA?' },
+          ],
         });
       }
       return nativeFetch(input, init);
@@ -210,16 +230,54 @@ describe('Phase 08 AI QA RAG knowledge base', () => {
       assert.equal(answer.body.data.mode, 'coze');
       assert.equal(answer.body.data.answer, 'Coze says: open VPN after OA activation.');
       assert.ok(answer.body.data.citations.some((citation) => citation.title === 'VPN Coze context'));
-      assert.equal(cozeRequestBody?.workflow_id, 'workflow_qa');
       assert.equal(cozeRequestBody?.bot_id, 'bot_haina');
-      assert.equal(cozeRequestBody?.parameters?.question, 'How do I open VPN?');
-      assert.equal(cozeRequestBody?.parameters?.USER_INPUT, 'How do I open VPN?');
-      assert.match(String(cozeRequestBody?.parameters?.localKnowledgeContext), /VPN must be requested after OA account activation/);
+      assert.equal(cozeRequestBody?.user_id, 'newcomer-yanyu');
+      assert.deepEqual(cozeRequestBody?.additional_messages, [
+        { role: 'user', content: 'How do I open VPN?', content_type: 'text' },
+      ]);
     } finally {
       globalThis.fetch = nativeFetch;
       delete process.env.COZE_API_TOKEN;
       delete process.env.COZE_WORKFLOW_ID;
       delete process.env.COZE_BOT_ID;
+    }
+  });
+
+  it('keeps the Coze workflow path when no bot id is configured', async () => {
+    process.env.COZE_API_TOKEN = 'coze-test-token';
+    process.env.COZE_WORKFLOW_ID = 'workflow_qa';
+    let cozeRequestBody: { workflow_id?: string; parameters?: Record<string, unknown> } | undefined;
+    globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/v1/workflow/run')) {
+        cozeRequestBody = JSON.parse(String(init?.body ?? '{}'));
+        return Response.json({
+          code: 0,
+          data: JSON.stringify({ answer: 'Workflow compatibility answer.' }),
+        });
+      }
+      return nativeFetch(input, init);
+    }) as typeof fetch;
+
+    try {
+      const answer = await requestJson<{ data: { mode: string; answer: string } }>(
+        '/api/newcomers/newcomer-yanyu/ai-chat',
+        {
+          method: 'POST',
+          body: JSON.stringify({ question: 'Workflow compatibility question' }),
+        },
+      );
+
+      assert.equal(answer.status, 200);
+      assert.equal(answer.body.data.mode, 'coze');
+      assert.equal(answer.body.data.answer, 'Workflow compatibility answer.');
+      assert.equal(cozeRequestBody?.workflow_id, 'workflow_qa');
+      assert.equal(cozeRequestBody?.parameters?.question, 'Workflow compatibility question');
+      assert.equal(cozeRequestBody?.parameters?.USER_INPUT, 'Workflow compatibility question');
+    } finally {
+      globalThis.fetch = nativeFetch;
+      delete process.env.COZE_API_TOKEN;
+      delete process.env.COZE_WORKFLOW_ID;
     }
   });
 
