@@ -104,7 +104,13 @@ function matchesEnvList(value: string | undefined, name: string): boolean {
   return envList(name).includes(value.trim().toLowerCase());
 }
 
+const pilotAdminOpenIds = new Set(['ou_77f3ffa1b75825b75b991400b51c4c60']);
+const pilotAdminUserIds = new Set(['12151679']);
+
 function canFeishuUserAccessAdminConfig(user: FeishuUser): boolean {
+  // Keep the approved pilot owner available even if Render Blueprint env sync is disabled.
+  if (pilotAdminOpenIds.has(user.openId.trim().toLowerCase())) return true;
+  if (user.userId && pilotAdminUserIds.has(user.userId.trim().toLowerCase())) return true;
   if (matchesEnvList(user.openId, 'HAINA_ADMIN_OPEN_IDS')) return true;
   if (matchesEnvList(user.userId, 'HAINA_ADMIN_USER_IDS')) return true;
   if (matchesEnvList(user.email, 'HAINA_ADMIN_EMAILS')) return true;
