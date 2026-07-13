@@ -156,7 +156,7 @@ describe('Phase 08 AI QA RAG knowledge base', () => {
   it('uses configured Coze workflow before local RAG and sends local knowledge context', async () => {
     process.env.COZE_API_TOKEN = 'coze-test-token';
     process.env.COZE_WORKFLOW_ID = 'workflow_qa';
-    process.env.COZE_APP_ID = 'app_haina';
+    process.env.COZE_BOT_ID = 'bot_haina';
     const created = await requestJson<{ data: { id: string } }>('/api/admin/knowledge-base-docs', {
       method: 'POST',
       body: JSON.stringify({
@@ -180,7 +180,7 @@ describe('Phase 08 AI QA RAG knowledge base', () => {
       body: JSON.stringify({ status: 'enabled' }),
     });
 
-    let cozeRequestBody: { workflow_id?: string; app_id?: string; parameters?: Record<string, unknown> } | undefined;
+    let cozeRequestBody: { workflow_id?: string; bot_id?: string; parameters?: Record<string, unknown> } | undefined;
     globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input);
       if (url.includes('/v1/workflow/run')) {
@@ -211,14 +211,14 @@ describe('Phase 08 AI QA RAG knowledge base', () => {
       assert.equal(answer.body.data.answer, 'Coze says: open VPN after OA activation.');
       assert.ok(answer.body.data.citations.some((citation) => citation.title === 'VPN Coze context'));
       assert.equal(cozeRequestBody?.workflow_id, 'workflow_qa');
-      assert.equal(cozeRequestBody?.app_id, 'app_haina');
+      assert.equal(cozeRequestBody?.bot_id, 'bot_haina');
       assert.equal(cozeRequestBody?.parameters?.question, 'How do I open VPN?');
       assert.match(String(cozeRequestBody?.parameters?.localKnowledgeContext), /VPN must be requested after OA account activation/);
     } finally {
       globalThis.fetch = nativeFetch;
       delete process.env.COZE_API_TOKEN;
       delete process.env.COZE_WORKFLOW_ID;
-      delete process.env.COZE_APP_ID;
+      delete process.env.COZE_BOT_ID;
     }
   });
 

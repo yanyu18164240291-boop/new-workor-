@@ -2,6 +2,7 @@ type CozeWorkflowConfig = {
   apiBase: string;
   apiToken: string;
   workflowId: string;
+  botId?: string;
   appId?: string;
 };
 
@@ -32,6 +33,7 @@ function cozeConfig(): CozeWorkflowConfig | undefined {
     apiBase: process.env.COZE_API_BASE?.trim() || 'https://api.coze.cn',
     apiToken,
     workflowId,
+    botId: process.env.COZE_BOT_ID?.trim() || undefined,
     appId: process.env.COZE_APP_ID?.trim() || undefined,
   };
 }
@@ -78,6 +80,7 @@ export async function runCozeWorkflow(input: CozeWorkflowInput): Promise<{ answe
       signal: controller.signal,
       body: JSON.stringify({
         workflow_id: config.workflowId,
+        ...(config.botId ? { bot_id: config.botId } : {}),
         ...(config.appId ? { app_id: config.appId } : {}),
         parameters: {
           question: input.question,
