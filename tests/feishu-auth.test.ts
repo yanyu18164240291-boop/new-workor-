@@ -326,6 +326,60 @@ describe('Feishu OAuth login', () => {
     }
   });
 
+  it('keeps named pilot managers available when Render env sync is unavailable', async () => {
+    for (const managerName of ['李瑞珉', '刘长省', '姚翔宇', '冯杰']) {
+      const server = await createServer();
+      configureFeishuAuth(server.baseUrl);
+      delete process.env.HAINA_ADMIN_OPEN_IDS;
+      delete process.env.HAINA_ADMIN_USER_IDS;
+      delete process.env.HAINA_ADMIN_EMAILS;
+      delete process.env.HAINA_ADMIN_NAMES;
+      globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+        const url = String(input);
+        if (url.includes('/authen/v2/oauth/token')) {
+          return Response.json({ code: 0, msg: 'ok', access_token: 'user-token' });
+        }
+        if (url.includes('/authen/v1/user_info')) {
+          return Response.json({
+            code: 0,
+            msg: 'ok',
+            data: {
+              open_id: `ou_${encodeURIComponent(managerName)}`,
+              user_id: `user_${encodeURIComponent(managerName)}`,
+              name: managerName,
+            },
+          });
+        }
+        if (url.includes('/auth/v3/tenant_access_token/internal')) {
+          return Response.json({ code: 0, msg: 'ok', tenant_access_token: 'tenant-token' });
+        }
+        if (url.includes('/contact/v3/users/')) {
+          return Response.json({ code: 0, msg: 'ok', data: { user: { department_ids: ['od_manager'], job_title: 'Manager' } } });
+        }
+        if (url.includes('/contact/v3/departments/od_manager')) {
+          return Response.json({ code: 0, msg: 'ok', data: { department: { name: 'Pilot Managers', parent_department_id: '0' } } });
+        }
+        return nativeFetch(input, init);
+      }) as typeof fetch;
+
+      try {
+        const start = await nativeFetch(`${server.baseUrl}/api/auth/feishu/start?returnTo=%2Fadmin-config`, { redirect: 'manual' });
+        const state = new URL(start.headers.get('location') ?? '').searchParams.get('state');
+        assert.ok(state);
+
+        const callback = await nativeFetch(`${server.baseUrl}/api/auth/feishu/callback?code=login-code&state=${state}`, { redirect: 'manual' });
+        const cookie = callback.headers.get('set-cookie') ?? '';
+        const session = await nativeFetch(`${server.baseUrl}/api/auth/session`, { headers: { cookie } });
+        const sessionBody = (await session.json()) as { data: { user: { name: string; canAccessAdminConfig?: boolean } } };
+
+        assert.equal(sessionBody.data.user.name, managerName);
+        assert.equal(sessionBody.data.user.canAccessAdminConfig, true);
+      } finally {
+        await server.close();
+      }
+    }
+  });
+
   it('allows Feishu admin access by configured display name', async () => {
     const server = await createServer();
     configureFeishuAuth(server.baseUrl);
