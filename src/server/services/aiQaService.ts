@@ -1,4 +1,5 @@
 import { badRequest } from '../errors.ts';
+import { nowIso } from '../db.ts';
 import { incrementKnowledgeDocHitCounts, listRagReadyKnowledgeDocs } from '../repositories/knowledgeRepository.ts';
 import type { RouteMatch } from '../routeKit.ts';
 import { readBody, requiredString } from '../routeKit.ts';
@@ -91,15 +92,33 @@ export const answerNewcomerAiChat: RouteMatch['handler'] = async ({ db, request 
     .slice(0, 2);
 
   const citations = buildCitations(candidates);
+  const cozeBotId = process.env.COZE_BOT_ID?.trim();
+  const cozeSession = cozeBotId
+    ? (db
+        .prepare('SELECT conversationId FROM ai_chat_sessions WHERE newcomerId = ? AND botId = ?')
+        .get(newcomerId, cozeBotId) as { conversationId: string } | undefined)
+    : undefined;
   const coze = await runCozeProvider({
     question,
     newcomerId,
     roleId: newcomer.roleId,
+    conversationId: cozeSession?.conversationId,
     localKnowledgeContext: buildLocalKnowledgeContext(candidates),
     citations,
   });
 
   if (coze) {
+    if (cozeBotId && coze.conversationId) {
+      const time = nowIso();
+      db.prepare(
+        `INSERT INTO ai_chat_sessions (newcomerId, botId, conversationId, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(newcomerId) DO UPDATE SET
+           botId = excluded.botId,
+           conversationId = excluded.conversationId,
+           updatedAt = excluded.updatedAt`,
+      ).run(newcomerId, cozeBotId, coze.conversationId, time, time);
+    }
     if (candidates.length > 0) incrementKnowledgeDocHitCounts(db, candidates.map((candidate) => String(candidate.doc.id)));
     return {
       data: {

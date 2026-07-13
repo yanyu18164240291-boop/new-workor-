@@ -65,6 +65,14 @@ CREATE TABLE IF NOT EXISTS newcomers (
 CREATE INDEX IF NOT EXISTS idx_newcomers_manager_name ON newcomers(managerName);
 CREATE INDEX IF NOT EXISTS idx_newcomers_role_id ON newcomers(roleId);
 
+CREATE TABLE IF NOT EXISTS ai_chat_sessions (
+  newcomerId TEXT PRIMARY KEY REFERENCES newcomers(id) ON DELETE CASCADE,
+  botId TEXT NOT NULL,
+  conversationId TEXT NOT NULL,
+  createdAt TEXT NOT NULL,
+  updatedAt TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS newcomer_task_states (
   id TEXT PRIMARY KEY,
   newcomerId TEXT NOT NULL REFERENCES newcomers(id) ON DELETE CASCADE,

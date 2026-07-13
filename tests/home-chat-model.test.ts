@@ -38,6 +38,17 @@ describe('newcomer home chat input', () => {
     assert.match(page, /buildHomeBotReply\(question\)/);
   });
 
+  it('blocks duplicate sends while the Coze answer is pending', () => {
+    const page = source('src/frontend/pages/newcomerPages.tsx');
+
+    assert.match(page, /const \[isHomeAiPending, setIsHomeAiPending\] = useState\(false\)/);
+    assert.match(page, /if \(!question \|\| isHomeAiPending\) return/);
+    assert.match(page, /setIsHomeAiPending\(true\)/);
+    assert.match(page, /setIsHomeAiPending\(false\)/);
+    assert.match(page, /disabled=\{isHomeAiPending\}/);
+    assert.match(page, /正在检索入职知识库/);
+  });
+
   it('expands the home page into a focused chat mode after input focus', () => {
     const page = source('src/frontend/pages/newcomerPages.tsx');
     const styles = source('src/frontend/styles.css');
