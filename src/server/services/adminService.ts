@@ -145,8 +145,8 @@ function parseCommonWaitingReasons(value: unknown, fallback: unknown): string {
   return JSON.stringify(Array.isArray(fallback) ? fallback : []);
 }
 
-function adminActor(_body: Record<string, unknown>): string {
-  return demoAdmin;
+function adminActor(context: Parameters<RouteMatch['handler']>[0]): string {
+  return getFeishuSessionUser(context)?.name ?? demoAdmin;
 }
 
 function inferDocumentTitleFromUrl(documentUrl: string): string {
@@ -327,7 +327,8 @@ function assertUniqueAnonymousKey(
   if (duplicate) throw badRequest(`${keyColumn} must be unique in the same module`);
 }
 
-export const createRole: RouteMatch['handler'] = async ({ db, request }) => {
+export const createRole: RouteMatch['handler'] = async (context) => {
+        const { db, request } = context;
         const body = await readBody(request);
         const name = requiredString(body, 'name');
         if (findPositionByName(db, name)) throw badRequest('role name already exists');
@@ -341,7 +342,7 @@ export const createRole: RouteMatch['handler'] = async ({ db, request }) => {
           enabled: 'enabled' in body ? boolToDb(body.enabled) : 1,
           createdAt: time,
           updatedAt: time,
-          updatedBy: adminActor(body),
+          updatedBy: adminActor(context),
         };
         db.prepare('INSERT INTO roles (id, name, departmentId, department, description, enabled, createdAt, updatedAt, updatedBy) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
           row.id,
@@ -357,7 +358,8 @@ export const createRole: RouteMatch['handler'] = async ({ db, request }) => {
         return { status: 201, data: normalizeRow(row) };
       };
 
-export const createPosition: RouteMatch['handler'] = async ({ db, request }) => {
+export const createPosition: RouteMatch['handler'] = async (context) => {
+        const { db, request } = context;
         const body = await readBody(request);
         const name = requiredString(body, 'name');
         if (findPositionByName(db, name)) throw badRequest('position name already exists');
@@ -372,12 +374,13 @@ export const createPosition: RouteMatch['handler'] = async ({ db, request }) => 
             department,
             description,
             enabled: 'enabled' in body ? Boolean(body.enabled) : true,
-            updatedBy: adminActor(body),
+            updatedBy: adminActor(context),
           }),
         };
       };
 
-export const updateRole: RouteMatch['handler'] = async ({ db, request }, match) => {
+export const updateRole: RouteMatch['handler'] = async (context, match) => {
+        const { db, request } = context;
         const id = decodeURIComponent(match[1]);
         const body = await readBody(request);
         const existing = normalizeRow(db.prepare('SELECT * FROM roles WHERE id = ?').get(id) as Record<string, unknown> | undefined);
@@ -393,13 +396,14 @@ export const updateRole: RouteMatch['handler'] = async ({ db, request }, match) 
           sqlValue(optionalString(body, 'description', existing.description)),
           enabled,
           time,
-          adminActor(body),
+          adminActor(context),
           id,
         );
         return { data: normalizeRow(db.prepare('SELECT * FROM roles WHERE id = ?').get(id) as Record<string, unknown>) };
       };
 
-export const createPermissionItem: RouteMatch['handler'] = async ({ db, request }) => {
+export const createPermissionItem: RouteMatch['handler'] = async (context) => {
+        const { db, request } = context;
         const body = await readBody(request);
         const time = nowIso();
         const row = {
@@ -419,7 +423,7 @@ export const createPermissionItem: RouteMatch['handler'] = async ({ db, request 
           enabled: 'enabled' in body ? boolToDb(body.enabled) : 1,
           createdAt: time,
           updatedAt: time,
-          updatedBy: adminActor(body),
+          updatedBy: adminActor(context),
         };
         assertAdminUrl(row.applyUrl, 'applyUrl', []);
         assertRequiredPermissionCanStayEnabled(db, row.id, row.permissionType, Boolean(row.enabled));
@@ -449,7 +453,8 @@ export const createPermissionItem: RouteMatch['handler'] = async ({ db, request 
         return { status: 201, data: getPermission(db, row.id) };
       };
 
-export const createRolePermissionItem: RouteMatch['handler'] = async ({ db, request }) => {
+export const createRolePermissionItem: RouteMatch['handler'] = async (context) => {
+        const { db, request } = context;
         const body = await readBody(request);
         const time = nowIso();
         const row = {
@@ -459,7 +464,7 @@ export const createRolePermissionItem: RouteMatch['handler'] = async ({ db, requ
           sortOrder: Number(body.sortOrder ?? 99),
           createdAt: time,
           updatedAt: time,
-          updatedBy: adminActor(body),
+          updatedBy: adminActor(context),
         };
         assertExists(db, 'roles', row.roleId, 'roleId');
         assertExists(db, 'permission_items', row.permissionItemId, 'permissionItemId');
@@ -477,7 +482,8 @@ export const createRolePermissionItem: RouteMatch['handler'] = async ({ db, requ
         return { status: 201, data: row };
       };
 
-export const createKnowledgeBaseDoc: RouteMatch['handler'] = async ({ db, request }) => {
+export const createKnowledgeBaseDoc: RouteMatch['handler'] = async (context) => {
+        const { db, request } = context;
         const body = await readBody(request);
         const category = requiredString(body, 'category');
         if (!isKnowledgeCategory(category)) throw badRequest('category is invalid');
@@ -503,20 +509,22 @@ export const createKnowledgeBaseDoc: RouteMatch['handler'] = async ({ db, reques
           contentText: typeof body.contentText === 'string' ? body.contentText.trim() : '',
           retrievalKeywords: typeof body.retrievalKeywords === 'string' ? body.retrievalKeywords.trim() : '',
           ownerName: requiredString(body, 'ownerName'),
-          updatedBy: adminActor(body),
+          updatedBy: adminActor(context),
         });
         return { status: 201, data: row };
       };
 
-export const triggerMockKnowledgeParse: RouteMatch['handler'] = async ({ db, request }, match) => {
+export const triggerMockKnowledgeParse: RouteMatch['handler'] = async (context, match) => {
+        const { db, request } = context;
         const id = decodeURIComponent(match[1]);
         const body = await readBody(request);
         const existing = getKnowledgeDoc(db, id);
         if (!existing) return { status: 404, error: 'Knowledge doc not found' };
-        return { data: markKnowledgeDocParsed(db, id, adminActor(body)) };
+        return { data: markKnowledgeDocParsed(db, id, adminActor(context)) };
       };
 
-export const updateKnowledgeBaseDocStatus: RouteMatch['handler'] = async ({ db, request }, match) => {
+export const updateKnowledgeBaseDocStatus: RouteMatch['handler'] = async (context, match) => {
+        const { db, request } = context;
         const id = decodeURIComponent(match[1]);
         const body = await readBody(request);
         const existing = getKnowledgeDoc(db, id);
@@ -526,10 +534,11 @@ export const updateKnowledgeBaseDocStatus: RouteMatch['handler'] = async ({ db, 
         if (status === 'enabled' && !canEnableKnowledgeDoc(String(existing.parseStatus), String(existing.vectorStatus))) {
           throw badRequest('knowledge doc must be parsed and vector ready before enabling');
         }
-        return { data: updateKnowledgeDocStatus(db, id, status, adminActor(body)) };
+        return { data: updateKnowledgeDocStatus(db, id, status, adminActor(context)) };
       };
 
-export const createWeeklyFeedbackQuestion: RouteMatch['handler'] = async ({ db, request }) => {
+export const createWeeklyFeedbackQuestion: RouteMatch['handler'] = async (context) => {
+        const { db, request } = context;
         const body = await readBody(request);
         const inputType = assertWeeklyInputType(body.inputType);
         const options = Array.isArray(body.options) ? (body.options as Array<Record<string, unknown>>) : [];
@@ -555,7 +564,7 @@ export const createWeeklyFeedbackQuestion: RouteMatch['handler'] = async ({ db, 
           sortOrder,
           time,
           time,
-          adminActor(body),
+          adminActor(context),
         );
         if (inputType !== 'text') {
           options.forEach((option, index) => {
@@ -573,14 +582,15 @@ export const createWeeklyFeedbackQuestion: RouteMatch['handler'] = async ({ db, 
               Number(option.sortOrder ?? index + 1),
               time,
               time,
-              adminActor(body),
+              adminActor(context),
             );
           });
         }
         return { status: 201, data: getAdminWeeklyFeedbackConfig(db) };
       };
 
-export const updatePermissionItem: RouteMatch['handler'] = async ({ db, request }, match) => {
+export const updatePermissionItem: RouteMatch['handler'] = async (context, match) => {
+        const { db, request } = context;
         const id = decodeURIComponent(match[1]);
         const body = await readBody(request);
         const existing = getPermission(db, id);
@@ -611,17 +621,18 @@ export const updatePermissionItem: RouteMatch['handler'] = async ({ db, request 
           parseCommonWaitingReasons(body.commonWaitingReasons, existing.commonWaitingReasons),
           boolToDb(enabled),
           time,
-          adminActor(body),
+          adminActor(context),
           id,
         );
         return { data: getPermission(db, id) };
       };
 
-export const updateWeeklyFeedbackConfig: RouteMatch['handler'] = async ({ db, request }) => {
+export const updateWeeklyFeedbackConfig: RouteMatch['handler'] = async (context) => {
+        const { db, request } = context;
         const body = await readBody(request);
         const questions = Array.isArray(body.questions) ? (body.questions as Array<Record<string, unknown>>) : [];
         const time = nowIso();
-        const actor = adminActor(body);
+        const actor = adminActor(context);
         const sortOrderUpdates: string[] = [];
         assertWeeklyConfigStillHasQuestion(db, questions);
         assertWeeklyChoiceQuestionsHaveEnabledOption(db, questions);
@@ -700,7 +711,7 @@ export const updateD1GuideConfig: RouteMatch['handler'] = async (context) => {
         const { db, request } = context;
         const body = await readBody(request);
         const items = Array.isArray(body.items) ? (body.items as Array<Record<string, unknown>>) : [];
-        const actor = getFeishuSessionUser(context)?.name ?? adminActor(body);
+        const actor = adminActor(context);
         const time = nowIso();
         for (const rawItem of items) {
           const item = { ...rawItem };
@@ -787,7 +798,8 @@ export const updateD1GuideConfig: RouteMatch['handler'] = async (context) => {
         return { data: getAdminD1GuideConfig(db) };
       };
 
-export const updateAnonymousFeedbackConfig: RouteMatch['handler'] = async ({ db, request }) => {
+export const updateAnonymousFeedbackConfig: RouteMatch['handler'] = async (context) => {
+        const { db, request } = context;
         const body = await readBody(request);
         const time = nowIso();
         const modules = Array.isArray(body.modules) ? (body.modules as Array<Record<string, unknown>>) : [];
@@ -802,7 +814,7 @@ export const updateAnonymousFeedbackConfig: RouteMatch['handler'] = async ({ db,
             sqlValue(optionalString(module, 'label', existing.label)),
             'enabled' in module ? boolToDb(module.enabled) : boolToDb(existing.enabled),
             time,
-            adminActor(body),
+            adminActor(context),
             id,
           );
         }
@@ -831,7 +843,7 @@ export const updateAnonymousFeedbackConfig: RouteMatch['handler'] = async ({ db,
               Number(problemType.sortOrder ?? 99),
               time,
               time,
-              adminActor(body),
+              adminActor(context),
             );
             continue;
           }
@@ -849,7 +861,7 @@ export const updateAnonymousFeedbackConfig: RouteMatch['handler'] = async ({ db,
             'enabled' in problemType ? boolToDb(problemType.enabled) : boolToDb(existing.enabled),
             'sortOrder' in problemType ? Number(problemType.sortOrder) : Number(existing.sortOrder ?? 99),
             time,
-            adminActor(body),
+            adminActor(context),
             id,
           );
         }
@@ -878,7 +890,7 @@ export const updateAnonymousFeedbackConfig: RouteMatch['handler'] = async ({ db,
               Number(action.sortOrder ?? 99),
               time,
               time,
-              adminActor(body),
+              adminActor(context),
             );
             continue;
           }
@@ -896,7 +908,7 @@ export const updateAnonymousFeedbackConfig: RouteMatch['handler'] = async ({ db,
             'enabled' in action ? boolToDb(action.enabled) : boolToDb(existing.enabled),
             'sortOrder' in action ? Number(action.sortOrder) : Number(existing.sortOrder ?? 99),
             time,
-            adminActor(body),
+            adminActor(context),
             id,
           );
         }
@@ -904,7 +916,8 @@ export const updateAnonymousFeedbackConfig: RouteMatch['handler'] = async ({ db,
         return { data: getAdminAnonymousFeedbackConfig(db) };
       };
 
-export const updateAnonymousFeedback: RouteMatch['handler'] = async ({ db, request }, match) => {
+export const updateAnonymousFeedback: RouteMatch['handler'] = async (context, match) => {
+        const { db, request } = context;
         const id = decodeURIComponent(match[1]);
         const body = await readBody(request);
         const existing = normalizeRow(db.prepare('SELECT * FROM anonymous_feedbacks WHERE id = ?').get(id) as Record<string, unknown> | undefined);
@@ -931,7 +944,7 @@ export const updateAnonymousFeedback: RouteMatch['handler'] = async ({ db, reque
           sqlValue(resolutionNote),
           'includedInReview' in body ? boolToDb(body.includedInReview) : boolToDb(existing.includedInReview),
           time,
-          adminActor(body),
+          adminActor(context),
           id,
         );
         return { data: normalizeRow(db.prepare('SELECT * FROM anonymous_feedbacks WHERE id = ?').get(id) as Record<string, unknown>) };

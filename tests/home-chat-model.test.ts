@@ -27,6 +27,12 @@ describe('newcomer home chat input', () => {
     assert.match(page, /home-chat-thread/);
   });
 
+  it('prevents iOS Safari from zooming when the home chat input receives focus', () => {
+    const styles = source('src/frontend/styles.css');
+
+    assert.match(styles, /\.home-chat-input-row input\s*\{[\s\S]*?font-size:\s*16px/);
+  });
+
   it('sends home AI questions to the backend RAG endpoint before falling back locally', () => {
     const page = source('src/frontend/pages/newcomerPages.tsx');
     const apiClient = source('src/frontend/api.ts');

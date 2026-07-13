@@ -7,6 +7,13 @@ function source(path: string): string {
 }
 
 describe('newcomer page structure regressions', () => {
+  it('hides secondary header actions on the four bottom-navigation task pages', () => {
+    const components = source('src/frontend/components.tsx');
+
+    assert.match(components, /hiddenSecondaryActionPageNos = new Set\(\['02', '03', '06', '07'\]\)/);
+    assert.match(components, /!hideSecondaryActions &&/);
+  });
+
   it('keeps the home bot bubble and collapsible progress card hooks without inline shortcut nav', () => {
     const pages = source('src/frontend/pages/newcomerPages.tsx');
     const styles = source('src/frontend/styles.css');

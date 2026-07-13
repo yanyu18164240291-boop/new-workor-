@@ -32,6 +32,7 @@ import { getBottomNavItems, getOwnerHomePath } from './routes.ts';
 
 type Navigate = (path: string) => void;
 type Tone = 'default' | 'success' | 'warning' | 'danger' | 'ai' | 'blue';
+const hiddenSecondaryActionPageNos = new Set(['02', '03', '06', '07']);
 
 export const icons = {
   alert: AlertTriangle,
@@ -92,6 +93,8 @@ export function AppHeader({
   onHomeSearch?: () => void;
   onHomeHistory?: () => void;
 }) {
+  const hideSecondaryActions = hiddenSecondaryActionPageNos.has(route.pageNo);
+
   if (route.pageNo === '01') {
     return (
       <header className="app-header app-header-home">
@@ -123,14 +126,16 @@ export function AppHeader({
         <h1>{route.shortTitle}</h1>
         <p>{subtitle ?? route.purpose}</p>
       </div>
-      <div className="header-actions">
-        <button className="plain-icon" aria-label="搜索">
-          <Search size={17} />
-        </button>
-        <button className="plain-icon" aria-label="更多">
-          <MoreHorizontal size={18} />
-        </button>
-      </div>
+      {!hideSecondaryActions && (
+        <div className="header-actions">
+          <button className="plain-icon" aria-label="搜索">
+            <Search size={17} />
+          </button>
+          <button className="plain-icon" aria-label="更多">
+            <MoreHorizontal size={18} />
+          </button>
+        </div>
+      )}
     </header>
   );
 }

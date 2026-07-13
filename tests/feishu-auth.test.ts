@@ -374,6 +374,21 @@ describe('Feishu OAuth login', () => {
 
         assert.equal(sessionBody.data.user.name, managerName);
         assert.equal(sessionBody.data.user.canAccessAdminConfig, true);
+
+        const adminSave = await nativeFetch(`${server.baseUrl}/api/admin/roles/role-product-intern`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json', cookie },
+          body: JSON.stringify({ description: `${managerName} configured this role for newcomers` }),
+        });
+        const adminSaveBody = (await adminSave.json()) as { data: { description: string; updatedBy: string } };
+        assert.equal(adminSave.status, 200);
+        assert.equal(adminSaveBody.data.updatedBy, managerName);
+
+        const newcomerPackage = await nativeFetch(`${server.baseUrl}/api/roles/role-product-intern/permission-package`);
+        const newcomerPackageBody = (await newcomerPackage.json()) as { data: { role: { description: string; updatedBy: string } } };
+        assert.equal(newcomerPackage.status, 200);
+        assert.equal(newcomerPackageBody.data.role.description, `${managerName} configured this role for newcomers`);
+        assert.equal(newcomerPackageBody.data.role.updatedBy, managerName);
       } finally {
         await server.close();
       }
