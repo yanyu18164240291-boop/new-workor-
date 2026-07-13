@@ -213,6 +213,7 @@ describe('Phase 08 AI QA RAG knowledge base', () => {
       assert.equal(cozeRequestBody?.workflow_id, 'workflow_qa');
       assert.equal(cozeRequestBody?.bot_id, 'bot_haina');
       assert.equal(cozeRequestBody?.parameters?.question, 'How do I open VPN?');
+      assert.equal(cozeRequestBody?.parameters?.USER_INPUT, 'How do I open VPN?');
       assert.match(String(cozeRequestBody?.parameters?.localKnowledgeContext), /VPN must be requested after OA account activation/);
     } finally {
       globalThis.fetch = nativeFetch;

@@ -84,6 +84,7 @@ export async function runCozeWorkflow(input: CozeWorkflowInput): Promise<{ answe
         ...(config.appId ? { app_id: config.appId } : {}),
         parameters: {
           question: input.question,
+          USER_INPUT: input.question,
           newcomerId: input.newcomerId,
           roleId: input.roleId,
           localKnowledgeContext: input.localKnowledgeContext,
