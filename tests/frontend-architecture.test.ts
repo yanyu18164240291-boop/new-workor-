@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
+import { resolveNewcomerSelectedRoleId } from '../src/frontend/appState.ts';
+
 describe('frontend architecture boundaries', () => {
   function collectSourceFiles(dir: string): string[] {
     return readdirSync(dir).flatMap((name) => {
@@ -81,6 +83,21 @@ describe('frontend architecture boundaries', () => {
     assert.equal(managerPages.includes('今日新员工 2 人'), false);
     assert.equal(managerPages.includes('协同办公产品实习生 · D7'), false);
     assert.equal(managerPages.includes('产品实习生'), false);
+  });
+
+  it('falls back to an enabled role when the newcomer role was disabled', () => {
+    assert.equal(
+      resolveNewcomerSelectedRoleId('role-product-intern', [{ id: 'role-ai-builder' }]),
+      'role-ai-builder',
+    );
+    assert.equal(
+      resolveNewcomerSelectedRoleId('role-product-intern', [{ id: 'role-ai-builder' }], 'role-preview'),
+      'role-ai-builder',
+    );
+    assert.equal(
+      resolveNewcomerSelectedRoleId('role-product-intern', [{ id: 'role-ai-builder' }], 'role-ai-builder'),
+      'role-ai-builder',
+    );
   });
 
   it('keeps frontend HTTP access behind the API client', () => {

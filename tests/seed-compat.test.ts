@@ -8,6 +8,7 @@ import { createDatabase } from '../src/server/db.ts';
 import { runMigrations } from '../src/server/migrations.ts';
 import {
   seedD1GuideConfig,
+  seedDefaultRoleAvailability,
   seedJoinFeishuOrgTasks,
   seedKnowledgeDocStatusGuard,
   seedManagerFeedbackActions,
@@ -268,6 +269,59 @@ describe('seed compatibility helpers', () => {
       );
       assert.ok(questions.some((question) => question.enabled === 1));
       assert.ok(options.length > 0);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('repairs a pilot database where every role was disabled by admin config', async () => {
+    const tempDir = await mkdtemp(path.join(tmpdir(), 'haina-seed-compat-'));
+    tempDirs.push(tempDir);
+    const db = createDatabase(path.join(tempDir, 'test.db'));
+    try {
+      runMigrations(db);
+      db.prepare(
+        `INSERT INTO roles
+         (id, name, department, description, enabled, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        'role-product-intern',
+        '协同办公产品实习生',
+        '协同办公部门',
+        '线上被误停用的默认岗位',
+        0,
+        '2026-06-24T01:00:00.000Z',
+        '2026-06-24T01:00:00.000Z',
+      );
+      db.prepare(
+        `INSERT INTO newcomers
+         (id, name, roleId, department, stage, managerName, mentorName, status, d1GuideCompleted, permissionPackageViewed, weeklyFeedbackSubmitted, managerViewedFeedback, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        'newcomer-yanyu',
+        '燕余',
+        'role-product-intern',
+        '协同办公部门',
+        'D7',
+        '刘长省',
+        '刘长省',
+        'onboarding',
+        0,
+        1,
+        1,
+        1,
+        '2026-06-24T01:00:00.000Z',
+        '2026-06-24T01:00:00.000Z',
+      );
+
+      seedDefaultRoleAvailability(db);
+
+      const role = db.prepare('SELECT enabled, updatedBy FROM roles WHERE id = ?').get('role-product-intern') as {
+        enabled: number;
+        updatedBy: string;
+      };
+      assert.equal(role.enabled, 1);
+      assert.equal(role.updatedBy, 'demo-admin');
     } finally {
       db.close();
     }

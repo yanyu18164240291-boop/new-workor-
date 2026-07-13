@@ -250,6 +250,27 @@ export function seedRealFeishuFlowConfig(db: Database): void {
   ).run(realChatgptApprovalUrl, seedTime, 'demo-admin', 'perm-chatgpt');
 }
 
+export function seedDefaultRoleAvailability(db: Database): void {
+  const enabled = db.prepare('SELECT COUNT(*) AS total FROM roles WHERE enabled = 1').get() as { total: number };
+  if (enabled.total > 0) return;
+
+  const defaultRole = db.prepare('SELECT id FROM roles WHERE id = ?').get('role-product-intern') as { id: string } | undefined;
+  const fallbackRole =
+    defaultRole ??
+    (db
+      .prepare(
+        `SELECT r.id
+         FROM roles r
+         JOIN newcomers n ON n.roleId = r.id
+         ORDER BY n.createdAt
+         LIMIT 1`,
+      )
+      .get() as { id: string } | undefined);
+  if (!fallbackRole) return;
+
+  db.prepare('UPDATE roles SET enabled = 1, updatedAt = ?, updatedBy = ? WHERE id = ?').run(seedTime, 'demo-admin', fallbackRole.id);
+}
+
 export function seedD1GuideConfig(db: Database): void {
   for (const item of d1GuideDefaults) {
     const existing = db.prepare('SELECT * FROM d1_guide_configs WHERE actionKey = ?').get(item.actionKey) as Record<string, unknown> | undefined;

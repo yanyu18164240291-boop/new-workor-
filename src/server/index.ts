@@ -9,6 +9,7 @@ import {
   seedD1GuideConfig,
   seedAnonymousFeedbackConfig,
   seedDatabase,
+  seedDefaultRoleAvailability,
   seedJoinFeishuOrgTasks,
   seedKnowledgeDocStatusGuard,
   seedManagerFeedbackActions,
@@ -31,6 +32,7 @@ if (seeded.total === 0) {
 
 seedD1GuideConfig(db);
 seedRealFeishuFlowConfig(db);
+seedDefaultRoleAvailability(db);
 seedJoinFeishuOrgTasks(db);
 seedSubmittedPermissionFollowUps(db);
 seedWeeklyFeedbackConfig(db);

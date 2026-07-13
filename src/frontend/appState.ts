@@ -33,11 +33,20 @@ function getDashboardCacheKey(pageNo: string, params: Record<string, string>, pr
   return `page:${pageNo}:${JSON.stringify(params)}`;
 }
 
+export function resolveNewcomerSelectedRoleId(
+  newcomerRoleId: string,
+  enabledRoles: Array<{ id: string }>,
+  previewRoleId?: string,
+): string {
+  if (previewRoleId && enabledRoles.some((role) => role.id === previewRoleId)) return previewRoleId;
+  if (enabledRoles.some((role) => role.id === newcomerRoleId)) return newcomerRoleId;
+  return enabledRoles[0]?.id ?? newcomerRoleId;
+}
+
 async function loadNewcomerSurfaceData(previewRoleId?: string): Promise<DashboardData> {
   const [newcomer, roles, authSession] = await Promise.all([api.getNewcomer(DEMO_NEWCOMER_ID), api.getRoles(), api.getAuthSession()]);
   const enabledRoles = roles.filter((role) => role.enabled !== false);
-  const selectedRoleId =
-    previewRoleId && enabledRoles.some((role) => role.id === previewRoleId) ? previewRoleId : newcomer.roleId;
+  const selectedRoleId = resolveNewcomerSelectedRoleId(newcomer.roleId, enabledRoles, previewRoleId);
   const [permissionPackage, progress, followUps, d1GuideConfig, weeklyConfig, anonymousConfig, weekly] = await Promise.all([
     api.getPermissionPackage(selectedRoleId),
     api.getPermissionProgress(newcomer.id),
