@@ -9,6 +9,7 @@ Keep the homepage AI Q&A API stable while allowing the backend to use the publis
 - Fix admin access for real Feishu login by adding backend-controlled whitelist access.
 - Keep `/admin-config` guarded, but allow pilot admins through `HAINA_ADMIN_OPEN_IDS`, `HAINA_ADMIN_USER_IDS`, or `HAINA_ADMIN_EMAILS`.
 - Add a server-side Coze agent provider behind `POST /api/newcomers/:id/ai-chat`.
+- Persist the Coze conversation ID per newcomer and Bot so follow-up questions keep the same agent context.
 - Keep the frontend contract unchanged.
 - Keep local RAG as the fallback path.
 
@@ -24,6 +25,9 @@ Keep the homepage AI Q&A API stable while allowing the backend to use the publis
 
 - Coze agent chat is enabled when `COZE_API_TOKEN` and `COZE_BOT_ID` are configured.
 - The backend creates a non-streaming `/v3/chat`, polls its status, and reads the final `assistant` / `answer` message.
+- The first Bot request creates a Coze conversation. Later requests for the same newcomer and Bot call `/v3/chat?conversation_id=...`.
+- Bot chat may wait up to 90 seconds because knowledge/database workflows can exceed 30 seconds.
+- While a homepage question is pending, the frontend shows a retrieval state and blocks duplicate submission.
 - When `COZE_BOT_ID` is absent, `COZE_API_TOKEN` plus `COZE_WORKFLOW_ID` keeps the original `/v1/workflow/run` compatibility path.
 - Default API base: `https://api.coze.cn`.
 - Optional overrides:
@@ -55,6 +59,9 @@ Keep the homepage AI Q&A API stable while allowing the backend to use the publis
 
 - A whitelisted real Feishu user can load and write admin config without department/job-title keyword matches.
 - Homepage AI Q&A calls the published Coze agent when token and Bot ID are present.
+- A Coze knowledge/database workflow that completes after 30 seconds still returns its final agent answer instead of local `no_match`.
+- Consecutive questions from the same newcomer reuse the persisted Coze conversation ID.
+- The homepage prevents duplicate questions while a Coze response is pending.
 - Homepage AI Q&A keeps the direct workflow and local knowledge context path when only a Workflow ID is configured.
 - Homepage AI Q&A falls back to local RAG when Coze fails.
 - No real approval workflow is introduced.

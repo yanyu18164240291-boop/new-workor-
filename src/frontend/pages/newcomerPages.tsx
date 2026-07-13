@@ -84,6 +84,7 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
   const [answer, setAnswer] = useState('');
   const [homeChatMessages, setHomeChatMessages] = useState<HomeChatMessage[]>([]);
   const [isHomeChatActive, setIsHomeChatActive] = useState(false);
+  const [isHomeAiPending, setIsHomeAiPending] = useState(false);
   const [progressCollapsed, setProgressCollapsed] = useState(true);
   const [activeHomePanel, setActiveHomePanel] = useState<'search' | 'history' | null>(null);
   const [homeSearchQuery, setHomeSearchQuery] = useState('');
@@ -158,24 +159,29 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
 
   async function handleSendHomeChat() {
     const question = answer.trim();
-    if (!question) return;
+    if (!question || isHomeAiPending) return;
 
     setIsHomeChatActive(true);
+    setIsHomeAiPending(true);
     setAnswer('');
     const userMessage: HomeChatMessage = { id: `${Date.now()}-user`, role: 'user', text: question };
     setHomeChatMessages((messages) => [...messages.slice(-6), userMessage]);
-    let reply = buildHomeBotReply(question);
-    if (data.newcomer?.id) {
-      try {
-        reply = formatHomeAiReply(await api.askHomeAi(data.newcomer.id, { question }));
-      } catch {
-        reply = buildHomeBotReply(question) || '后端问答暂时不可用，请稍后重试。';
+    try {
+      let reply = buildHomeBotReply(question);
+      if (data.newcomer?.id) {
+        try {
+          reply = formatHomeAiReply(await api.askHomeAi(data.newcomer.id, { question }));
+        } catch {
+          reply = buildHomeBotReply(question) || '后端问答暂时不可用，请稍后重试。';
+        }
       }
+      setHomeChatMessages((messages) => [
+        ...messages.slice(-6),
+        { id: `${Date.now()}-bot`, role: 'bot', text: reply },
+      ]);
+    } finally {
+      setIsHomeAiPending(false);
     }
-    setHomeChatMessages((messages) => [
-      ...messages.slice(-6),
-      { id: `${Date.now()}-bot`, role: 'bot', text: reply },
-    ]);
   }
 
   function handleOpenAttachmentSheet() {
@@ -285,6 +291,12 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
                 <div className="home-chat-message-bubble">{message.text}</div>
               </div>
             ))}
+            {isHomeAiPending && (
+              <div className="home-chat-message home-chat-message-bot" aria-busy="true">
+                <span className="home-chat-avatar home-chat-avatar-bot" aria-hidden="true">海</span>
+                <div className="home-chat-message-bubble">正在检索入职知识库...</div>
+              </div>
+            )}
             {isHomeChatActive && homeChatMessages.length === 0 && (
               <div className="home-suggested-questions">
                 {getHomeQuickQuestions().map((question) => (
@@ -302,6 +314,7 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
           <button type="button" onClick={handleOpenAttachmentSheet}>＋</button>
           <input
             value={answer}
+            disabled={isHomeAiPending}
             placeholder="请输入你的问题，例如：ChatGPT账号怎么申请？"
             onChange={(event) => setAnswer(event.target.value)}
             onFocus={() => setIsHomeChatActive(true)}
@@ -309,7 +322,9 @@ export function HomePage({ data, navigate }: { data: DashboardData; navigate: (p
               if (event.key === 'Enter') void handleSendHomeChat();
             }}
           />
-          <button type="button" onClick={() => void handleSendHomeChat()}>发送</button>
+          <button type="button" disabled={isHomeAiPending} onClick={() => void handleSendHomeChat()}>
+            {isHomeAiPending ? '等待' : '发送'}
+          </button>
         </div>
         {showAttachSheet && (
           <div className="home-attach-sheet home-attach-sheet-below">

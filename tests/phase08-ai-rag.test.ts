@@ -53,6 +53,8 @@ describe('Phase 08 AI QA RAG knowledge base', () => {
 
   it('documents Phase 08 scope without MySQL migration or real approval flow', () => {
     const spec = readFileSync('docs/specs/phase-08-ai-qa-rag-knowledgebase.md', 'utf8');
+    const migration = readFileSync('db/migrations/001_initial.sql', 'utf8');
+    const provider = readFileSync('src/server/services/cozeAiProvider.ts', 'utf8');
 
     assert.match(spec, /首页 AI 对话问答/);
     assert.match(spec, /最小可用 RAG/);
@@ -60,6 +62,8 @@ describe('Phase 08 AI QA RAG knowledge base', () => {
     assert.match(spec, /不进入真实审批流程/);
     assert.match(spec, /SQLite/);
     assert.match(spec, /Acceptance Criteria/);
+    assert.match(migration, /CREATE TABLE IF NOT EXISTS ai_chat_sessions/);
+    assert.match(provider, /config\.botId \? 90_000 : 8_000/);
   });
 
   it('stores admin knowledge content as retrievable backend data', async () => {
@@ -185,10 +189,12 @@ describe('Phase 08 AI QA RAG knowledge base', () => {
       user_id?: string;
       additional_messages?: Array<{ role?: string; content?: string; content_type?: string }>;
     } | undefined;
+    const cozeCreateUrls: string[] = [];
     globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input);
-      if (url.endsWith('/v3/chat')) {
+      if (url.includes('/v3/chat') && !url.includes('/retrieve') && !url.includes('/message/list')) {
         assert.equal((init?.headers as Record<string, string>).authorization, 'Bearer coze-test-token');
+        cozeCreateUrls.push(url);
         cozeRequestBody = JSON.parse(String(init?.body ?? '{}'));
         return Response.json({
           code: 0,
@@ -235,6 +241,19 @@ describe('Phase 08 AI QA RAG knowledge base', () => {
       assert.deepEqual(cozeRequestBody?.additional_messages, [
         { role: 'user', content: 'How do I open VPN?', content_type: 'text' },
       ]);
+
+      const followUp = await requestJson<{ data: { mode: string; answer: string } }>(
+        '/api/newcomers/newcomer-yanyu/ai-chat',
+        {
+          method: 'POST',
+          body: JSON.stringify({ question: 'What should I do next?' }),
+        },
+      );
+      assert.equal(followUp.status, 200);
+      assert.equal(followUp.body.data.mode, 'coze');
+      assert.equal(cozeCreateUrls.length, 2);
+      assert.match(cozeCreateUrls[0], /\/v3\/chat$/);
+      assert.match(cozeCreateUrls[1], /\/v3\/chat\?conversation_id=conversation_haina$/);
     } finally {
       globalThis.fetch = nativeFetch;
       delete process.env.COZE_API_TOKEN;

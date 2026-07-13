@@ -16,6 +16,7 @@ export type CozeWorkflowInput = {
   question: string;
   newcomerId: string;
   roleId: string;
+  conversationId?: string;
   localKnowledgeContext: string;
   citations: Array<{
     docId: unknown;
@@ -113,10 +114,13 @@ async function runCozeBotChat(
   config: CozeWorkflowConfig & { botId: string },
   input: CozeWorkflowInput,
   signal: AbortSignal,
-): Promise<{ answer: string }> {
+): Promise<{ answer: string; conversationId: string }> {
+  const chatPath = input.conversationId
+    ? `/v3/chat?conversation_id=${encodeURIComponent(input.conversationId)}`
+    : '/v3/chat';
   const created = await readCozePayload(
     config,
-    '/v3/chat',
+    chatPath,
     {
       method: 'POST',
       body: JSON.stringify({
@@ -141,7 +145,7 @@ async function runCozeBotChat(
   let status = String(chat.status ?? '');
   if (!chatId || !conversationId) throw new Error('Coze chat identifiers were missing');
 
-  for (let attempt = 0; status !== 'completed' && attempt < 55; attempt += 1) {
+  for (let attempt = 0; status !== 'completed' && attempt < 175; attempt += 1) {
     if (['failed', 'requires_action', 'canceled'].includes(status)) {
       throw new Error(`Coze chat ended with status ${status}`);
     }
@@ -162,7 +166,7 @@ async function runCozeBotChat(
     { method: 'GET' },
     signal,
   );
-  return { answer: chatAnswer(messages) };
+  return { answer: chatAnswer(messages), conversationId };
 }
 
 async function runCozeWorkflow(
@@ -193,12 +197,12 @@ async function runCozeWorkflow(
   return { answer: extractCozeAnswer(payload) };
 }
 
-export async function runCozeProvider(input: CozeWorkflowInput): Promise<{ answer: string } | undefined> {
+export async function runCozeProvider(input: CozeWorkflowInput): Promise<{ answer: string; conversationId?: string } | undefined> {
   const config = cozeConfig();
   if (!config) return undefined;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), config.botId ? 30_000 : 8_000);
+  const timeout = setTimeout(() => controller.abort(), config.botId ? 90_000 : 8_000);
   try {
     if (config.botId) return await runCozeBotChat(config as CozeWorkflowConfig & { botId: string }, input, controller.signal);
     if (config.workflowId) {
