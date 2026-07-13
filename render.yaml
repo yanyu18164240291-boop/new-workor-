@@ -6,3 +6,8 @@ services:
     buildCommand: npm install && npm run build
     startCommand: npm start
     healthCheckPath: /api/roles
+    envVars:
+      - key: HAINA_ADMIN_OPEN_IDS
+        value: "ou_77f3ffa1b75825b75b991400b51c4c60"
+      - key: HAINA_ADMIN_USER_IDS
+        value: "12151679"

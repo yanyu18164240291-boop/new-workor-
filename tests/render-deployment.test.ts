@@ -22,6 +22,13 @@ test('declares Render-friendly production start settings', async () => {
   assert.match(serverEntry, /host:\s*'0\.0\.0\.0'/);
 });
 
+test('keeps the pilot admin identity in the Render whitelist', async () => {
+  const renderConfig = await readFile('render.yaml', 'utf8');
+
+  assert.match(renderConfig, /key:\s*HAINA_ADMIN_OPEN_IDS\s+value:\s*"ou_77f3ffa1b75825b75b991400b51c4c60"/);
+  assert.match(renderConfig, /key:\s*HAINA_ADMIN_USER_IDS\s+value:\s*"12151679"/);
+});
+
 test('serves the production frontend build and preserves API routes from one server', async () => {
   const root = await mkdtemp(join(tmpdir(), 'haina-render-deployment-'));
   const dist = join(root, 'dist');
