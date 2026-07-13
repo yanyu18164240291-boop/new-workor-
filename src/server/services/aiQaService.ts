@@ -2,7 +2,7 @@ import { badRequest } from '../errors.ts';
 import { incrementKnowledgeDocHitCounts, listRagReadyKnowledgeDocs } from '../repositories/knowledgeRepository.ts';
 import type { RouteMatch } from '../routeKit.ts';
 import { readBody, requiredString } from '../routeKit.ts';
-import { runCozeWorkflow } from './cozeAiProvider.ts';
+import { runCozeProvider } from './cozeAiProvider.ts';
 
 type RagCandidate = {
   doc: Record<string, unknown>;
@@ -91,7 +91,7 @@ export const answerNewcomerAiChat: RouteMatch['handler'] = async ({ db, request 
     .slice(0, 2);
 
   const citations = buildCitations(candidates);
-  const coze = await runCozeWorkflow({
+  const coze = await runCozeProvider({
     question,
     newcomerId,
     roleId: newcomer.roleId,
