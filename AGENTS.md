@@ -2,158 +2,95 @@
 
 ## Project
 
-海纳 AI 入职 Bot H5 高保真原型。
+This repository is transitioning from the legacy 海纳 AI 入职 Bot H5 into the proposed 海纳权限助手 V4.
 
-This repository is developed from the final PRD at:
-
-`C:\yanyu\新人入职BAT\阶段二\开发文档2(1).md`
-
-The product is a mobile-first H5 MVP for small pilot use. It must simulate the Feishu mobile Bot / message-card experience, and P0 business data must use a real backend and database. External Feishu, approval, RAG, upload, and messaging integrations are still simulated unless the user explicitly expands scope.
+The latest product document supplied by the user is a draft discovery input, not the final development PRD. Until the user supplies and approves the final PRD, do not treat draft page details, field lists, statuses, or workflow examples as frozen acceptance criteria.
 
 ## Required Project Skill
 
-Before planning or implementing project work, use the project skill:
+Before planning or implementing project work, read:
 
-`.agents/skills/haina-onboarding-h5/SKILL.md`
-
-Use the skill together with the phase specs in `docs/specs/`. The skill defines product boundaries, page map, state rules, and development discipline. The specs define what to build and verify in each phase.
+1. `.agents/skills/haina-onboarding-h5/SKILL.md`
+2. `docs/decisions/permission-assistant-v4-baseline.md`
+3. `docs/specs/phase-v4-00-product-engineering-baseline.md`
+4. The relevant later V4 phase spec, once approved
 
 ## Source Of Truth
 
 Priority order:
 
-1. User's latest explicit instruction.
-2. `C:\yanyu\新人入职BAT\阶段二\开发文档2(1).md`
-3. `.agents/skills/haina-onboarding-h5/SKILL.md`
-4. `docs/specs/*.md`
-5. Existing codebase conventions once implementation exists.
+1. The user's latest explicit instruction.
+2. The final 海纳权限助手 V4 PRD after the user explicitly marks it final.
+3. Approved V4 decision records and phase specs.
+4. Existing implementation and tests for retained platform capabilities.
+5. Legacy onboarding PRDs and Phase 00-09 specs as historical evidence only.
 
-If any spec appears to conflict with the final PRD, stop and reconcile the conflict before implementing.
+If the final PRD conflicts with a V4 decision or phase spec, stop implementation and reconcile the conflict in documentation and tests first.
 
-## Active Product Scope (Phase 09)
+## Current Engineering State
 
-The latest approved product direction supersedes the original 12-page pilot map:
+- Commit `382bf6b` is the reversible legacy-module convergence checkpoint.
+- The active work is isolated on `codex/permission-assistant-v4-foundation`.
+- The runtime still contains interim permission, AI/RAG, knowledge, and follow-up behavior. That runtime is not the final V4 product definition.
+- Do not merge or deploy the V4 foundation branch until its phase acceptance criteria pass and the user approves the merge.
 
-- Keep only the newcomer H5 and admin configuration console.
-- Remove D1 guide, weekly feedback, anonymous feedback, V1 review, and manager surfaces from the active runtime.
-- Keep permission, AI/RAG, authentication, admin permission, and knowledge capabilities.
-- Do not finalize the next newcomer/admin page map until the user explicitly approves it.
-- Preserve legacy SQLite tables and historical records; physical deletion requires a separate migration and backup decision.
+## Confirmed V4-00 Decisions
 
-See `docs/specs/phase-09-product-scope-convergence.md` before new product work.
+- Continue in this repository; do not create a separate product repository.
+- Reuse Feishu login, admin authentication, runtime, deployment, database migration, and test foundations.
+- Employee identity and organization fields are system supplied; users do not enter approvers manually.
+- Real Feishu approval API integration is approved as a target capability.
+- Real approval calls must be implemented behind a dedicated adapter after the final approval definition, credentials/scopes, test tenant, callback behavior, and acceptance cases are available.
+- Before real provisioning integrations exist, administrators record permission activation, failure, expiry, and revocation outcomes.
+- Database migration to MySQL or another production database remains a separate infrastructure phase.
 
-## Legacy P0 Backend MVP Scope
+## V4-00 Hard Boundaries
 
-P0 must use real backend APIs and database tables for these capabilities:
+- Do not finalize the employee or admin page map from the draft PRD.
+- Do not implement new V4 product pages or domain tables in V4-00.
+- Do not call the real Feishu approval API in V4-00.
+- Do not drop, rename, or destructively rewrite legacy SQLite tables.
+- Do not restore removed D1, weekly feedback, anonymous feedback, review, or manager modules.
+- Do not expand AI/Coze/RAG work; its final archive/removal decision is deferred to the final PRD baseline.
+- Keep the app buildable and the active runtime regression suite passing.
 
-| Capability | Backend requirement |
-|---|---|
-| 岗位权限包表 | Backend can configure role, required permissions, optional permissions, Owner, and apply entry. |
-| 权限申请路由表 | Store apply entry, reason template, approver, and common waiting reasons. |
-| 新人入职任务状态 | Persist D1 guide state, permission page viewed state, submit state, and completion state. |
-| 权限进度登记 | When user clicks “我已提交”, write the progress record to the database. |
-| 4 小时回访任务 | Backend stores `submittedAt`, `followUpAt`, and `status`. |
-| 匿名反馈 | Submit to the real `anonymous_feedbacks` table. |
-| 新人首周反馈 | Submit to the real `weekly_feedbacks` table. |
-| 管理者查看记录 | Persist `managerViewed` and `managerActionStatus`. |
-| 后台配置维护台 | Read and update real configuration tables and feedback tables. |
+## Architecture Direction
 
-## Non-Negotiable Product Boundaries
-
-- Build a mobile-first H5 pilot MVP with a high-fidelity mobile experience and P0 backend persistence.
-- Do not implement real login.
-- Do not call real Feishu APIs.
-- Do not call real approval APIs.
-- Do not call a real RAG, vector, or LLM service.
-- Do not implement real file upload, parsing, vectorization, or knowledge retrieval.
-- Do not send real messages, reminders, or approvals.
-- Do not expose anonymous feedback原文 to managers.
-- Do not add performance evaluation, ability scoring, or employee ranking.
-
-Mock is allowed only for non-P0 external integrations and demo-only UI behaviors. P0 data listed above must not be implemented as front-end-only state.
-
-## Legacy Page Map
-
-The following map documents the pre-Phase-09 implementation only. It is not the active product scope.
-
-The H5 contains exactly 12 pages:
-
-1. 新人首页 / 智能体主入口
-2. D1 到达引导包
-3. 岗位权限包
-4. 权限详情 / 进度登记
-5. 4 小时回访 / 未完成处理
-6. 新人首周反馈填写
-7. 匿名反馈
-8. 后台配置维护台
-9. V1 灰度试点复盘
-10. 管理者首页 / 今日新员工概览
-11. 新人首周跟踪详情
-12. 管理者视角 / 新人首周反馈
-
-Page 06 and page 07 must remain separate:
-
-- Page 06: named, non-anonymous weekly feedback written by the newcomer for the manager.
-- Page 07: anonymous process feedback for product/content owners, not shown to managers as原文.
-
-## Required Routes
+New V4 business logic must not be added to the legacy mixed onboarding services. Use feature-oriented boundaries:
 
 ```text
-/                              新人首页
-/d1                            D1 到达引导
-/permissions                   岗位权限包
-/permission-detail/:id         权限详情
-/follow-up/:taskId             4 小时回访
-/weekly-feedback               新人首周反馈填写
-/anonymous-feedback            匿名反馈
-/admin-config                  后台配置维护台
-/admin-config?tab=knowledge    后台知识库管理
-/admin-config?tab=feedback     后台匿名反馈池
-/review                        V1 灰度试点复盘
-/manager                       管理者首页
-/manager/newcomer/:id          新人首周跟踪详情
-/manager/feedback/:id          管理者视角 / 新人首周反馈
+src/server/modules/permission-catalog
+src/server/modules/applications
+src/server/modules/approval-routing
+src/server/modules/entitlements
+src/server/modules/audit
+src/server/integrations/feishu-approval
+src/frontend/features/permission-center
+src/frontend/features/my-applications
+src/frontend/features/admin-permissions
 ```
 
-## Phase Specs
+External approval, notification, provisioning, and organization systems must be accessed through adapters. Core application state must remain testable without network access.
 
-Implement in this order:
+## Data And Migration Discipline
 
-1. `docs/specs/phase-00-backend-mvp.md`
-2. `docs/specs/phase-01-foundation-shell.md`
-3. `docs/specs/phase-02-newcomer-permission-flow.md`
-4. `docs/specs/phase-03-feedback-flows.md`
-5. `docs/specs/phase-04-admin-and-review.md`
-6. `docs/specs/phase-05-manager-flow.md`
-7. `docs/specs/phase-06-final-qa.md`
-8. `docs/specs/phase-07-deployment-pilot-readiness.md`
-9. `docs/specs/phase-08-ai-qa-rag-knowledgebase.md`
-10. `docs/specs/phase-09-product-scope-convergence.md`
+- Add new V4 migrations; never rewrite an applied migration.
+- Preserve legacy tables and records until a separately approved backup and archival migration exists.
+- Do not overload legacy `newcomers`, `permission_progress`, or `follow_up_tasks` with the new application aggregate.
+- Define the V4 application aggregate, item/sub-application split, approval events, entitlements, dynamic form values, and audit records in a later approved phase.
+- Every write path must support save-refresh persistence, backend validation, audit identity, and deterministic tests.
 
-Each phase must leave the app runnable and visually coherent.
+## Delivery Discipline
 
-Phase 07 is deployment pilot readiness. It prepares runtime, access, database, backup, and runbook decisions for a small internal pilot. It must not connect real Feishu, approval, RAG, upload, or message-sending integrations unless the user explicitly approves a new integration phase.
+For every V4 phase:
 
-## Implementation Discipline
+1. Freeze the phase scope and acceptance criteria before coding.
+2. Keep one concern per commit where practical.
+3. Add or update regression tests with the behavior change.
+4. Run the full test suite and production build.
+5. Verify migration compatibility and rollback boundaries.
+6. Merge only after review and explicit approval.
 
-- Keep the first screen as the actual product experience, not a marketing landing page.
-- Preserve the blue/white Feishu mobile card style from the PRD.
-- Make mobile layout the primary target; desktop may center the phone prototype.
-- Use real backend APIs for P0 persisted data and seeded database fixtures for demo data.
-- Use local mock data only for non-P0 external integrations such as Feishu, approval submission, RAG answers, upload parsing, and message sending.
-- Make route/page names, data field names, and acceptance criteria match the PRD exactly.
-- Prefer small focused components over one large page file once code exists.
-- Verify each phase against its spec before moving to the next phase.
+## Historical Material
 
-## Suggested Commit Rhythm
-
-Commit after each phase reaches its acceptance criteria:
-
-- `feat: scaffold haina onboarding h5 shell`
-- `feat: add backend mvp schema and api`
-- `feat: implement newcomer permission flow`
-- `feat: implement weekly and anonymous feedback flows`
-- `feat: implement admin config and review pages`
-- `feat: implement manager feedback workflow`
-- `test: complete final h5 qa pass`
-- `chore: prepare pilot deployment readiness`
+The legacy source PRD, 12-page route map, onboarding phase specs, Coze/RAG phase, D1 delivery, feedback, review, and manager requirements are retained for traceability. They are not active V4 requirements unless the user reintroduces them in the final PRD.

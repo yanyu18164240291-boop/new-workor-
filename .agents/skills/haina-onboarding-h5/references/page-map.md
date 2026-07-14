@@ -1,6 +1,6 @@
-# Page Map Reference
+# Legacy Page Map Reference
 
-> Legacy reference: Phase 09 removed D1, weekly feedback, anonymous feedback, V1 review, and manager surfaces from the active runtime. The final newcomer/admin page map is intentionally deferred. See `docs/specs/phase-09-product-scope-convergence.md`.
+> This file documents the pre-V4 onboarding product only. The V4 page map is not frozen while the final development PRD is pending. Read `docs/specs/phase-v4-00-product-engineering-baseline.md` before using any route listed here.
 
 ## Pages
 

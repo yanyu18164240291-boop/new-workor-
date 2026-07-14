@@ -1,100 +1,62 @@
 ---
 name: haina-onboarding-h5
-description: Use when developing, reviewing, planning, or QAing the 海纳 AI 入职 Bot H5 MVP from the final PRD. Applies to AGENTS.md-driven project work, phase specs in docs/specs, P0 real backend/database scope, page routing, seeded data, newcomer permission flows, weekly feedback, anonymous feedback, admin/review pages, and manager views.
+description: Use when planning, developing, reviewing, migrating, or QAing the Haina permission assistant transition in this repository. Applies to V4 draft governance, retained Feishu/auth/runtime foundations, permission-domain boundaries, additive migrations, real Feishu approval adapters, and legacy onboarding compatibility.
 ---
 
-# 海纳入职 H5 开发 Skill
+# 海纳权限助手 V4 过渡开发 Skill
 
 ## Purpose
 
-Use this skill to keep development aligned with the final PRD for the 海纳 AI 入职 Bot H5 pilot MVP.
+Keep work in this repository aligned while the product transitions from the legacy onboarding H5 to the proposed employee permission assistant.
 
-The output must be a mobile-first H5 MVP that can support product review, leadership demo, development alignment, and small pilot usage. P0 business data must use a real backend and database.
-
-## Current Phase 09 Override
-
-The latest approved scope keeps only the newcomer H5 and admin configuration console. D1 guide, weekly feedback, anonymous feedback, V1 review, and manager surfaces are legacy modules and must not be restored to the active runtime. The final replacement page map is intentionally undecided. Read `docs/specs/phase-09-product-scope-convergence.md` before planning or implementation.
-
-Keep legacy SQLite tables and historical records for rollback compatibility. Do not physically delete them without a separately approved migration and backup plan.
+The current product document is a draft. Do not convert draft examples into permanent routes, schemas, status enums, or UI acceptance criteria before the user supplies and approves the final development PRD.
 
 ## Always Start Here
 
 1. Read `AGENTS.md`.
-2. Read the relevant phase spec under `docs/specs/`.
-3. If page numbering, routes, persisted data, seeded data, or acceptance criteria are unclear, read `references/page-map.md`.
-4. Treat the final PRD as the product source of truth:
-   `C:\yanyu\新人入职BAT\阶段二\开发文档2(1).md`
+2. Read `docs/decisions/permission-assistant-v4-baseline.md`.
+3. Read `docs/specs/phase-v4-00-product-engineering-baseline.md`.
+4. Read the relevant approved V4 phase spec.
+5. Treat Phase 00-09 onboarding documents as historical unless an active V4 document explicitly references them.
 
-## Legacy P0 Real Backend Scope
+## Current Boundary
 
-Build real backend APIs and database tables for:
+- Only V4-00 governance and engineering baseline work is approved now.
+- The final employee/admin page design is not frozen.
+- Existing AI/RAG, knowledge, permission, and follow-up runtime code is interim, not a promise to keep those capabilities in final V4.
+- Do not restore D1, weekly feedback, anonymous feedback, review, or manager runtime modules.
+- Preserve legacy SQLite data for rollback and audit compatibility.
 
-- 岗位权限包表: role, required permissions, optional permissions, Owner, apply entry.
-- 权限申请路由表: apply entry, reason template, approver, common waiting reasons.
-- 新人入职任务状态: D1 guide, permission view, submit state, completion state.
-- 权限进度登记: write database record when “我已提交” is clicked.
-- 4 小时回访任务: persist `submittedAt`, `followUpAt`, `status`.
-- 匿名反馈: write to `anonymous_feedbacks`.
-- 新人首周反馈: write to `weekly_feedbacks`.
-- 管理者查看记录: persist `managerViewed` and `managerActionStatus`.
-- 后台配置维护台: read/write real configuration and feedback tables.
+## Confirmed Integration Direction
 
-Use seed data for demos, but route P0 UI through backend APIs rather than front-end-only state.
+- Continue to use real Feishu login for identity.
+- System-supplied employee and organization data replaces user-entered approvers.
+- Real Feishu approval API calls are allowed in a later integration phase.
+- Put Feishu approval behind an adapter; domain services must not import provider-specific HTTP behavior.
+- Do not send real approval requests until approval definition identifiers, scopes, credentials, callback/event rules, test users, and acceptance cases are approved.
+- Permission activation and revocation remain administrator-recorded until target-system integrations are separately approved.
 
-## Hard Boundaries
+## Architecture Guardrails
 
-Do not build real external integrations unless explicitly requested:
+- Build new permission catalog, application, approval routing, entitlement, and audit modules outside legacy mixed onboarding services.
+- Keep provider APIs behind adapters and persist provider request IDs, instance IDs, status events, and failures without exposing secrets.
+- Use additive migrations and retain legacy tables. No destructive migration in the V4 foundation phase.
+- Keep core workflows deterministic and testable without Feishu network access.
+- Validate all writes on the backend and preserve save-refresh behavior.
 
-- No real login.
-- No real Feishu APIs.
-- No real approval APIs.
-- No real RAG, vector database, or LLM call.
-- No real file upload, parsing, vectorization, or knowledge retrieval.
-- No real message sending,催办,提醒, or approval submission.
+## Phase Workflow
 
-Use front-end state, route changes, modals, and toast messages only to simulate non-P0 external behaviors. Do not simulate P0 persistence purely in the browser.
+Before implementation, every phase must define:
 
-## Legacy Product Logic Guardrails
+- Included and excluded product behavior.
+- Data ownership and lifecycle.
+- API and integration boundaries.
+- Migration and rollback behavior.
+- Automated acceptance tests.
+- Manual mobile/admin verification where relevant.
 
-- Page 06 is 新人首周反馈填写: named, non-anonymous, written by the newcomer, visible to managers.
-- Page 07 is 匿名反馈: anonymous process feedback for product/content owners, not manager原文.
-- Page 12 is 管理者视角 / 新人首周反馈: manager read-only view of page 06 feedback.
-- 4 小时回访 is triggered after the newcomer registers a permission as submitted, including page 04 “我已提交” and the confirmed page 03 one-click permission application flow in this MVP.
-- Clicking “一键申请” updates selected permission applications to in-progress/submitted demo state, persists the records, creates 4-hour follow-up tasks, and still must not call real approval or Feishu APIs.
-- Manager views must support onboarding help and follow-up only. Do not add绩效评价,能力评分,排名, or chat history exposure.
-
-## Development Workflow
-
-Use the phase specs in order:
-
-0. Backend MVP schema, seed data, and API contracts.
-1. Foundation shell wired to backend data access boundaries.
-2. Newcomer permission flow with persisted task/progress/follow-up state.
-3. Weekly feedback and anonymous feedback with real table writes.
-4. Admin config and V1 review reading real backend data.
-5. Manager overview, newcomer detail, and manager feedback view with persisted manager actions.
-6. Final QA and consistency pass.
-7. Pilot deployment readiness for runtime, access, database backup, and runbook preparation. This is not a real Feishu or approval integration phase.
-
-After each phase:
-
-- Run the app locally.
-- Verify all routes introduced in that phase.
-- Check mobile layout first.
-- Check route/page number consistency.
-- Check that P0 API calls persist and reload correctly.
-- Check that seed data remains valid and repeatable.
-- Record any deviation from the PRD before continuing.
-
-## UI Guidance
-
-- The first screen should be the product experience, not a landing page.
-- Preserve the blue/white mobile Feishu card style.
-- Use cards for contained information and repeated items.
-- Keep page copy short enough for mobile screens.
-- Use green for completed/success, orange for pending/attention, red for risk/error, and purple only as a secondary cue for AI/knowledge/feedback.
-- Desktop view may center the phone prototype; mobile view must be primary.
+After implementation, run the full test suite and production build. Do not merge or deploy merely because a draft prototype renders.
 
 ## Reference
 
-Read `references/page-map.md` when you need exact page numbers, routes, route transitions, or ownership boundaries.
+`references/page-map.md` documents the legacy onboarding route map only. Do not use it to infer the final V4 page map.
