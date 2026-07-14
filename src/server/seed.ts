@@ -885,9 +885,7 @@ export function seedDatabase(db: Database): void {
   });
 
   const docs = [
-    ['kb-001', 'D1 到达引导清单', '入职流程', '协同办公产品实习生', 'D1', 'mock-drive://d1-guide', 'HRBP', 'enabled', 'parsed', 'ready'],
-    ['kb-002', '协同办公产品常用系统说明', '系统权限', '协同办公产品实习生', 'D1-D3', 'mock-drive://systems', '产品运营', 'enabled', 'parsed', 'ready'],
-    ['kb-003', '首周反馈填写说明', '反馈机制', '协同办公产品实习生', 'W1', 'mock-drive://weekly-feedback', '组织发展', 'enabled', 'parsed', 'ready'],
+    ['kb-002', '协同办公产品常用系统说明', '系统权限', '协同办公产品实习生', '通用', 'mock-drive://systems', '产品运营', 'enabled', 'parsed', 'ready'],
   ];
 
   docs.forEach((doc, index) => {

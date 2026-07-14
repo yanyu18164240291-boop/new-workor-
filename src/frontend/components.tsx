@@ -32,7 +32,7 @@ import { getBottomNavItems, getOwnerHomePath } from './routes.ts';
 
 type Navigate = (path: string) => void;
 type Tone = 'default' | 'success' | 'warning' | 'danger' | 'ai' | 'blue';
-const hiddenSecondaryActionPageNos = new Set(['02', '03', '06', '07']);
+const hiddenSecondaryActionPageNos = new Set(['03']);
 
 export const icons = {
   alert: AlertTriangle,

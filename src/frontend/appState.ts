@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { api, formatApiErrorMessage, isApiClientError } from './api.ts';
+import { api, formatApiErrorMessage } from './api.ts';
 import type { DashboardData } from './dashboardData.ts';
-import { DEMO_NEWCOMER_ID, DEMO_WEEKLY_FEEDBACK_ID } from './demoConfig.ts';
+import { DEMO_NEWCOMER_ID } from './demoConfig.ts';
 
 export function usePathname() {
   const [location, setLocation] = useState(`${window.location.pathname}${window.location.search}`);
@@ -21,15 +21,12 @@ export function usePathname() {
   return { pathname: location.split('?')[0], search: location.includes('?') ? location.split('?')[1] : '', navigate };
 }
 
-const newcomerPageNos = new Set(['01', '02', '03', '04', '05', '06', '07']);
-const managerPageNos = new Set(['10', '11', '12']);
+const newcomerPageNos = new Set(['01', '03', '04', '05']);
 const dashboardDataCache = new Map<string, DashboardData>();
 
 function getDashboardCacheKey(pageNo: string, params: Record<string, string>, previewRoleId?: string) {
   if (newcomerPageNos.has(pageNo)) return `newcomer:${previewRoleId ?? 'default'}`;
   if (pageNo === '08') return 'admin-config';
-  if (pageNo === '09') return 'review';
-  if (managerPageNos.has(pageNo)) return `manager:${pageNo}:${JSON.stringify(params)}`;
   return `page:${pageNo}:${JSON.stringify(params)}`;
 }
 
@@ -47,14 +44,10 @@ async function loadNewcomerSurfaceData(previewRoleId?: string): Promise<Dashboar
   const [newcomer, roles, authSession] = await Promise.all([api.getNewcomer(DEMO_NEWCOMER_ID), api.getRoles(), api.getAuthSession()]);
   const enabledRoles = roles.filter((role) => role.enabled !== false);
   const selectedRoleId = resolveNewcomerSelectedRoleId(newcomer.roleId, enabledRoles, previewRoleId);
-  const [permissionPackage, progress, followUps, d1GuideConfig, weeklyConfig, anonymousConfig, weekly] = await Promise.all([
+  const [permissionPackage, progress, followUps] = await Promise.all([
     api.getPermissionPackage(selectedRoleId),
     api.getPermissionProgress(newcomer.id),
     api.getFollowUpTasks(newcomer.id),
-    api.getD1GuideConfig(selectedRoleId),
-    api.getWeeklyFeedbackConfig(),
-    api.getAnonymousFeedbackConfig(),
-    api.getWeeklyFeedback(newcomer.id),
   ]);
   return {
     newcomer: { ...newcomer, roleId: selectedRoleId },
@@ -64,95 +57,24 @@ async function loadNewcomerSurfaceData(previewRoleId?: string): Promise<Dashboar
     package: permissionPackage,
     progress,
     followUps,
-    d1GuideConfig,
-    weeklyConfig,
-    anonymousConfig,
-    weekly,
   };
 }
 
 async function loadAdminConfigSurfaceData(): Promise<DashboardData> {
-  const [admin, adminD1GuideConfig, knowledgeDocs, metrics, weeklyAnalysis, anonymous, authSession] = await Promise.all([
+  const [admin, knowledgeDocs, authSession] = await Promise.all([
     api.getAdminConfig(),
-    api.getAdminD1GuideConfig(),
     api.getKnowledgeDocs(),
-    api.getReviewMetrics(),
-    api.getWeeklyFeedbackAnalysis(),
-    api.getAnonymousFeedbacks(),
     api.getAuthSession(),
   ]);
-  const adminConfig = { ...admin, d1GuideConfig: adminD1GuideConfig };
   return {
-    admin: adminConfig,
+    admin,
     knowledgeDocs,
-    metrics,
-    weeklyAnalysis,
-    anonymous,
     authSession,
-    d1GuideConfig: adminD1GuideConfig,
-    weeklyConfig: admin.weeklyFeedbackConfig,
-    anonymousConfig: admin.anonymousFeedbackConfig,
-  };
-}
-
-async function loadReviewSurfaceData(): Promise<DashboardData> {
-  const newcomer = await api.getNewcomer(DEMO_NEWCOMER_ID);
-  const [metrics, knowledgeDocs, anonymousConfig, weekly] = await Promise.all([
-    api.getReviewMetrics(),
-    api.getKnowledgeDocs(),
-    api.getAnonymousFeedbackConfig(),
-    api.getWeeklyFeedback(newcomer.id),
-  ]);
-  return {
-    newcomer,
-    metrics,
-    knowledgeDocs,
-    anonymousConfig,
-    weekly,
-  };
-}
-
-async function getOptionalManagerFeedback(feedbackId: string) {
-  try {
-    return await api.getManagerFeedback(feedbackId);
-  } catch (caught) {
-    if (isApiClientError(caught) && caught.code === 'NOT_FOUND') return undefined;
-    throw caught;
-  }
-}
-
-async function loadManagerSurfaceData(pageNo: string, params: Record<string, string>): Promise<DashboardData> {
-  if (pageNo === '10') {
-    const managerOverview = await api.getManagerOverview({ limit: 20, offset: 0 });
-    return {
-      managerOverview,
-    };
-  }
-
-  if (pageNo === '12') {
-    const feedbackId = params.id ?? DEMO_WEEKLY_FEEDBACK_ID;
-    const weekly = await getOptionalManagerFeedback(feedbackId);
-    const newcomerId = weekly?.newcomerId ?? feedbackId;
-    const managerDetail = await api.getManagerNewcomerDetail(newcomerId);
-    return {
-      managerDetail,
-      newcomer: managerDetail.newcomer,
-      weekly,
-    };
-  }
-
-  const newcomerId = params.id ?? DEMO_NEWCOMER_ID;
-  const managerDetail = await api.getManagerNewcomerDetail(newcomerId);
-  return {
-    managerDetail,
-    newcomer: managerDetail.newcomer,
   };
 }
 
 async function loadDashboardDataForPage(pageNo: string, params: Record<string, string>, previewRoleId?: string): Promise<DashboardData> {
   if (pageNo === '08') return loadAdminConfigSurfaceData();
-  if (pageNo === '09') return loadReviewSurfaceData();
-  if (managerPageNos.has(pageNo)) return loadManagerSurfaceData(pageNo, params);
   if (newcomerPageNos.has(pageNo)) return loadNewcomerSurfaceData(previewRoleId);
   return {};
 }

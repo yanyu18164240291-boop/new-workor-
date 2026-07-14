@@ -10,10 +10,7 @@ describe('newcomer home page model', () => {
       navItems.map((item) => [item.label, item.path]),
       [
         ['首页', '/'],
-        ['D1引导', '/d1'],
         ['权限申请', '/permissions'],
-        ['首周反馈', '/weekly-feedback'],
-        ['匿名反馈', '/anonymous-feedback'],
       ],
     );
   });

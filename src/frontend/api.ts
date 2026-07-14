@@ -82,10 +82,6 @@ export type AdminConfig = {
   roles: Role[];
   permissionItems: PermissionItem[];
   rolePermissionItems: RolePermissionItem[];
-  d1GuideConfig?: D1GuideConfig;
-  weeklyFeedbackConfig?: WeeklyFeedbackConfig;
-  anonymousFeedbackConfig?: AnonymousFeedbackConfig;
-  anonymousFeedbacks: AnonymousFeedback[];
 };
 
 export type AnonymousFeedback = {
@@ -420,9 +416,6 @@ async function requestApi<T>(path: string, init?: RequestInit): Promise<T> {
     ...(path.startsWith('/api/admin/') || path.startsWith('/api/admin-config/')
       ? { 'x-haina-role': 'admin', 'x-haina-actor': 'demo-admin' }
       : {}),
-    ...(path.startsWith('/api/manager/')
-      ? { 'x-haina-role': 'manager', 'x-haina-actor': 'demo-manager' }
-      : {}),
     ...(init?.headers ?? {}),
   };
   try {
@@ -463,10 +456,7 @@ export const api = {
   getPermissionPackage: (roleId: string) => apiGet<PermissionPackage>(`/api/roles/${roleId}/permission-package`),
   getPermissionProgress: (newcomerId: string) => apiGet<PermissionProgress[]>(`/api/newcomers/${newcomerId}/permission-progress`),
   getFollowUpTasks: (newcomerId: string) => apiGet<FollowUpTask[]>(`/api/newcomers/${newcomerId}/follow-up-tasks`),
-  getD1GuideConfig: (roleId?: string) => apiGet<D1GuideConfig>(`/api/d1-guide-config${roleId ? `?roleId=${encodeURIComponent(roleId)}` : ''}`),
-  getAdminD1GuideConfig: () => apiGet<D1GuideConfig>('/api/admin/d1-guide-config'),
   getAdminConfig: () => apiGet<AdminConfig>('/api/admin/config'),
-  getAnonymousFeedbacks: () => apiGet<AnonymousFeedback[]>('/api/admin/anonymous-feedbacks'),
   getKnowledgeDocs: () => apiGet<KnowledgeDoc[]>('/api/admin/knowledge-base-docs'),
   createKnowledgeDoc: (body: {
     title: string;
@@ -531,55 +521,6 @@ export const api = {
       >
     > & { expectedUpdatedAt?: string },
   ) => apiSend<PermissionItem>(`/api/admin/permission-items/${id}`, 'PATCH', body),
-  updateD1GuideConfig: (items: Array<Partial<D1GuideConfigItem> & { actionKey: string }>, updatedBy?: string) =>
-    apiSend<D1GuideConfig>('/api/admin/d1-guide-config', 'PATCH', { items, updatedBy }),
-  updateAnonymousFeedbackConfig: (body: {
-    modules?: Array<{ id: string; label?: string; enabled?: boolean }>;
-    problemTypes?: Array<{ id: string; moduleId?: string; typeKey?: string; label?: string; requiresText?: boolean; enabled?: boolean; sortOrder?: number }>;
-    expectedActions?: Array<{ id: string; moduleId?: string; actionKey?: string; label?: string; requiresText?: boolean; enabled?: boolean; sortOrder?: number }>;
-    updatedBy?: string;
-  }) => apiSend<AnonymousFeedbackConfig>('/api/admin/anonymous-feedback-config', 'PATCH', body),
-  updateAnonymousFeedback: (id: string, body: { status?: string; ownerName?: string; result?: string; handlerName?: string; resolutionNote?: string; includedInReview?: boolean; updatedBy?: string }) =>
-    apiSend<AnonymousFeedback>(`/api/admin/anonymous-feedbacks/${id}`, 'PATCH', body),
-  getReviewMetrics: () => apiGet<ReviewMetrics>('/api/review/metrics'),
-  getWeeklyFeedbackConfig: () => apiGet<WeeklyFeedbackConfig>('/api/weekly-feedback-config'),
-  getWeeklyFeedbackAnalysis: () => apiGet<WeeklyFeedbackAnalysis>('/api/admin/weekly-feedback-analysis'),
-  getAnonymousFeedbackConfig: () => apiGet<AnonymousFeedbackConfig>('/api/anonymous-feedback-config'),
-  createWeeklyFeedbackQuestion: (body: {
-    questionKey?: string;
-    title: string;
-    description?: string | null;
-    inputType: 'single' | 'multi' | 'text';
-    required?: boolean;
-    maxLength?: number | null;
-    enabled?: boolean;
-    options?: Array<{ optionKey?: string; label: string; enabled?: boolean; sortOrder?: number }>;
-    updatedBy?: string;
-  }) => apiSend<WeeklyFeedbackConfig>('/api/admin/weekly-feedback-config/questions', 'POST', body),
-  updateWeeklyFeedbackConfig: (
-    questions: Array<{
-      id: string;
-      title?: string;
-      description?: string | null;
-      required?: boolean;
-      maxLength?: number | null;
-      enabled?: boolean;
-      sortOrder?: number;
-      options?: Array<{ id?: string; optionKey?: string; label: string; enabled?: boolean; sortOrder?: number }>;
-    }>,
-    updatedBy?: string,
-  ) =>
-    apiSend<WeeklyFeedbackConfig>('/api/admin/weekly-feedback-config', 'PATCH', { questions, updatedBy }),
-  getWeeklyFeedback: (newcomerId: string) => apiGet<WeeklyFeedback>(`/api/newcomers/${newcomerId}/weekly-feedback`),
-  getManagerOverview: (options?: { limit?: number; offset?: number }) => {
-    const params = new URLSearchParams();
-    if (options?.limit !== undefined) params.set('limit', String(options.limit));
-    if (options?.offset !== undefined) params.set('offset', String(options.offset));
-    const query = params.toString();
-    return apiGet<ManagerOverview>(`/api/manager/overview${query ? `?${query}` : ''}`);
-  },
-  getManagerNewcomerDetail: (newcomerId: string) => apiGet<ManagerNewcomerDetail>(`/api/manager/newcomer/${newcomerId}`),
-  getManagerFeedback: (weeklyFeedbackId: string) => apiGet<WeeklyFeedback>(`/api/manager/feedback/${weeklyFeedbackId}`),
   syncPermissionApplications: (newcomerId: string, selectedPermissionItemIds: string[], scopePermissionItemIds: string[]) =>
     apiSend<{ selectedPermissionItemIds: string[]; removedPermissionItemIds: string[] }>(
       `/api/newcomers/${newcomerId}/permission-applications`,
@@ -600,41 +541,6 @@ export const api = {
       permissionItemId,
       status: 'submitted',
     }),
-  sendD1GuideMessage: (
-    newcomerId: string,
-    options?: { roleId?: string; force?: boolean; triggerSource?: 'd1_auto' | 'admin_resend' | string },
-  ) =>
-    apiSend<D1GuideMessageDelivery>(`/api/newcomers/${newcomerId}/d1-guide-message`, 'POST', options ?? {}),
   askHomeAi: (newcomerId: string, body: { question: string }) =>
     apiSend<HomeAiAnswer>(`/api/newcomers/${newcomerId}/ai-chat`, 'POST', body),
-  submitAnonymousFeedback: (body: {
-    type?: string;
-    module?: string;
-    description: string;
-    expectedAction?: string;
-    moduleKey?: string;
-    problemTypeKey?: string;
-    problemTypeOtherText?: string;
-    expectedActionKeys?: string[];
-    expectedActionOtherText?: string;
-    isAnonymous: boolean;
-    contactName?: string;
-    contactInfo?: string;
-    submittedByNewcomerId?: string;
-  }) => apiSend<AnonymousFeedback>('/api/anonymous-feedbacks', 'POST', body),
-  submitWeeklyFeedback: (body: {
-    newcomerId: string;
-    overallFeeling?: string;
-    blockers?: string;
-    supportNeeded?: string;
-    message?: string;
-    workSummary?: string;
-    answers?: Array<{ questionId: string; selectedOptionIds?: string[]; textValue?: string }>;
-  }) => apiSend<WeeklyFeedback>('/api/weekly-feedbacks', 'POST', body),
-  updateManagerFeedbackAction: (weeklyFeedbackId: string, managerActionStatus: string, actionNote: string) =>
-    apiSend<{ managerViewed: boolean; managerActionStatus: string; actionNote: string }>(
-      `/api/manager/feedback/${weeklyFeedbackId}/action`,
-      'PATCH',
-      { managerActionStatus, actionNote },
-    ),
 };

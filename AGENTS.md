@@ -30,7 +30,19 @@ Priority order:
 
 If any spec appears to conflict with the final PRD, stop and reconcile the conflict before implementing.
 
-## P0 Backend MVP Scope
+## Active Product Scope (Phase 09)
+
+The latest approved product direction supersedes the original 12-page pilot map:
+
+- Keep only the newcomer H5 and admin configuration console.
+- Remove D1 guide, weekly feedback, anonymous feedback, V1 review, and manager surfaces from the active runtime.
+- Keep permission, AI/RAG, authentication, admin permission, and knowledge capabilities.
+- Do not finalize the next newcomer/admin page map until the user explicitly approves it.
+- Preserve legacy SQLite tables and historical records; physical deletion requires a separate migration and backup decision.
+
+See `docs/specs/phase-09-product-scope-convergence.md` before new product work.
+
+## Legacy P0 Backend MVP Scope
 
 P0 must use real backend APIs and database tables for these capabilities:
 
@@ -60,7 +72,9 @@ P0 must use real backend APIs and database tables for these capabilities:
 
 Mock is allowed only for non-P0 external integrations and demo-only UI behaviors. P0 data listed above must not be implemented as front-end-only state.
 
-## Final Page Map
+## Legacy Page Map
+
+The following map documents the pre-Phase-09 implementation only. It is not the active product scope.
 
 The H5 contains exactly 12 pages:
 
@@ -113,6 +127,8 @@ Implement in this order:
 6. `docs/specs/phase-05-manager-flow.md`
 7. `docs/specs/phase-06-final-qa.md`
 8. `docs/specs/phase-07-deployment-pilot-readiness.md`
+9. `docs/specs/phase-08-ai-qa-rag-knowledgebase.md`
+10. `docs/specs/phase-09-product-scope-convergence.md`
 
 Each phase must leave the app runnable and visually coherent.
 

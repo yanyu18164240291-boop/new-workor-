@@ -44,12 +44,6 @@ export const getAdminConfig: RouteMatch['handler'] = ({ db }) => ({
           roles: normalizeRows(db.prepare('SELECT * FROM roles ORDER BY createdAt').all() as Array<Record<string, unknown>>),
           permissionItems: normalizeRows(db.prepare('SELECT * FROM permission_items ORDER BY createdAt').all() as Array<Record<string, unknown>>),
           rolePermissionItems: normalizeRows(db.prepare('SELECT * FROM role_permission_items ORDER BY sortOrder').all() as Array<Record<string, unknown>>),
-          d1GuideConfig: getAdminD1GuideConfig(db),
-          weeklyFeedbackConfig: getAdminWeeklyFeedbackConfig(db),
-          anonymousFeedbackConfig: getAdminAnonymousFeedbackConfig(db),
-          anonymousFeedbacks: normalizeRows(db.prepare('SELECT * FROM anonymous_feedbacks ORDER BY submittedAt DESC').all() as Array<Record<string, unknown>>).map((row) =>
-            withAnonymousFeedbackDetail(db, row),
-          ),
         },
       });
 

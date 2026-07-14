@@ -3,9 +3,7 @@ import { forbidden, toApiError } from './errors.ts';
 import { adminRoutes } from './routes/adminRoutes.ts';
 import { authRoutes } from './routes/authRoutes.ts';
 import { isFeishuAdminSession } from './services/feishuAuthService.ts';
-import { managerRoutes } from './routes/managerRoutes.ts';
 import { newcomerRoutes } from './routes/newcomerRoutes.ts';
-import { reviewRoutes } from './routes/reviewRoutes.ts';
 
 function mergeRoutes(...groups: Array<Record<string, RouteMatch[]>>): Record<string, RouteMatch[]> {
   const merged: Record<string, RouteMatch[]> = {};
@@ -17,7 +15,7 @@ function mergeRoutes(...groups: Array<Record<string, RouteMatch[]>>): Record<str
   return merged;
 }
 
-const routes = mergeRoutes(authRoutes, newcomerRoutes, adminRoutes, managerRoutes, reviewRoutes);
+const routes = mergeRoutes(authRoutes, newcomerRoutes, adminRoutes);
 
 function assertAdminRouteGuard(context: ApiContext): void {
   if (!context.pathname.startsWith('/api/admin/') && !context.pathname.startsWith('/api/admin-config/')) return;
@@ -29,15 +27,6 @@ function assertAdminRouteGuard(context: ApiContext): void {
   }
 }
 
-function assertManagerRouteGuard(context: ApiContext): void {
-  if (!context.pathname.startsWith('/api/manager/')) return;
-  const role = String(context.request.headers['x-haina-role'] ?? '').trim().toLowerCase();
-  const actor = String(context.request.headers['x-haina-actor'] ?? '').trim();
-  if (role !== 'manager' || !['demo-manager', 'demo-other-manager'].includes(actor)) {
-    throw forbidden('Manager role is required for manager API access');
-  }
-}
-
 export async function handleApiRequest(context: ApiContext): Promise<ApiResult> {
   const matches = routes[context.method] ?? [];
   for (const route of matches) {
@@ -45,7 +34,6 @@ export async function handleApiRequest(context: ApiContext): Promise<ApiResult> 
     if (match) {
       try {
         assertAdminRouteGuard(context);
-        assertManagerRouteGuard(context);
         return await route.handler(context, match);
       } catch (error) {
         const apiError = toApiError(error);

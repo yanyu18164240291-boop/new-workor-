@@ -11,15 +11,8 @@ import {
   listPermissionProgress,
   listFollowUpTasks,
   listFollowUpMessageCards,
-  loadD1GuideConfig,
-  sendD1GuideMessage,
-  loadWeeklyFeedbackConfig,
-  loadAnonymousFeedbackConfig,
   getFollowUpTask,
-  getNewcomerWeeklyFeedback,
   createPermissionProgress,
-  createAnonymousFeedback,
-  createWeeklyFeedback,
   dispatchFollowUpMessageCards,
   updateNewcomerTaskState,
   updateNewcomer,
@@ -62,25 +55,9 @@ export const newcomerRoutes: Record<string, RouteMatch[]> = {
       handler: listFollowUpMessageCards,
     },
     {
-      pattern: /^\/api\/d1-guide-config$/,
-      handler: loadD1GuideConfig,
-    },
-    {
-      pattern: /^\/api\/weekly-feedback-config$/,
-      handler: loadWeeklyFeedbackConfig,
-    },
-    {
-      pattern: /^\/api\/anonymous-feedback-config$/,
-      handler: loadAnonymousFeedbackConfig,
-    },
-    {
       pattern: /^\/api\/follow-up-tasks\/([^/]+)$/,
       handler: getFollowUpTask,
     },
-    {
-      pattern: /^\/api\/newcomers\/([^/]+)\/weekly-feedback$/,
-      handler: getNewcomerWeeklyFeedback,
-    }
   ],
   POST: [
     {
@@ -88,25 +65,13 @@ export const newcomerRoutes: Record<string, RouteMatch[]> = {
       handler: createPermissionProgress,
     },
     {
-      pattern: /^\/api\/anonymous-feedbacks$/,
-      handler: createAnonymousFeedback,
-    },
-    {
-      pattern: /^\/api\/weekly-feedbacks$/,
-      handler: createWeeklyFeedback,
-    },
-    {
       pattern: /^\/api\/follow-up-message-cards\/dispatch$/,
       handler: dispatchFollowUpMessageCards,
     },
     {
-      pattern: /^\/api\/newcomers\/([^/]+)\/d1-guide-message$/,
-      handler: sendD1GuideMessage,
-    },
-    {
       pattern: /^\/api\/newcomers\/([^/]+)\/ai-chat$/,
       handler: answerNewcomerAiChat,
-    }
+    },
   ],
   PATCH: [
     {
@@ -124,6 +89,6 @@ export const newcomerRoutes: Record<string, RouteMatch[]> = {
     {
       pattern: /^\/api\/newcomers\/([^/]+)\/permission-applications$/,
       handler: syncPermissionApplications,
-    }
+    },
   ],
 };

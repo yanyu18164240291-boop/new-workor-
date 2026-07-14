@@ -1,4 +1,4 @@
-import { BookOpen, BriefcaseBusiness, ClipboardList, MessageCircle, Plus, ShieldCheck, UploadCloud } from 'lucide-react';
+import { BookOpen, BriefcaseBusiness, Plus, UploadCloud } from 'lucide-react';
 
 import { MetricCard } from '../../components/admin-config/MetricCard.tsx';
 import { StatusTag } from '../../components/admin-config/StatusTag.tsx';
@@ -55,16 +55,7 @@ function getRecentChanges(data: DashboardData, selectedDate: string): ChangeReco
       updatedAt: (item as { updatedAt?: string }).updatedAt,
       summary: `更新 ${item.category} 资料元数据。`,
     })) ?? [];
-  const feedback =
-    data.anonymous?.map((item) => ({
-      configType: '匿名反馈池',
-      objectName: item.feedbackNo,
-      updatedBy: item.updatedBy,
-      updatedAt: (item as { updatedAt?: string }).updatedAt,
-      summary: item.result || item.resolutionNote || '更新匿名反馈处理状态。',
-    })) ?? [];
-
-  return [...permissions, ...knowledge, ...feedback]
+  return [...permissions, ...knowledge]
     .filter((item) => isOnOrBeforeDate(item.updatedAt, selectedDate))
     .sort((left, right) => String(right.updatedAt ?? '').localeCompare(String(left.updatedAt ?? '')))
     .slice(0, 5);
@@ -74,26 +65,14 @@ export function OverviewTab({ data, filters, navigate }: OverviewTabProps) {
   const roles = data.admin?.roles ?? [];
   const permissions = data.admin?.permissionItems ?? [];
   const knowledgeDocs = data.knowledgeDocs ?? [];
-  const anonymousFeedbacks = data.anonymous ?? [];
-  const d1Config = data.admin?.d1GuideConfig ?? data.d1GuideConfig;
-  const d1Items = d1Config?.items?.length
-    ? d1Config.items
-    : [d1Config?.joinGroup, d1Config?.employeeGuide, d1Config?.permissionPackage].filter(Boolean);
-  const weeklyQuestions = data.weeklyConfig?.questions ?? [];
-  const anonymousModules = data.anonymousConfig?.modules ?? [];
-  const pendingAnonymous = anonymousFeedbacks.filter((item) => ['pending', 'open', 'in_progress'].includes(item.status)).length;
   const recentChanges = getRecentChanges(data, filters.date);
 
   const completenessRows = [
     { label: '岗位权限包', done: countEnabled(permissions), total: Math.max(permissions.length, 1), path: '/admin-config?tab=role-packages' },
-    { label: 'D1 引导配置', done: d1Items.filter((item) => item?.enabled !== false).length, total: Math.max(d1Items.length, 1), path: '/admin-config?tab=d1-guide' },
-    { label: '首周反馈表', done: countEnabled(weeklyQuestions), total: Math.max(weeklyQuestions.length, 1), path: '/admin-config?tab=weekly-feedback' },
-    { label: '匿名反馈配置', done: countEnabled(anonymousModules), total: Math.max(anonymousModules.length, 1), path: '/admin-config?tab=anonymous-config' },
     { label: '知识库管理', done: knowledgeDocs.filter((item) => item.status !== 'offline').length, total: Math.max(knowledgeDocs.length, 1), path: '/admin-config?tab=knowledge' },
   ];
 
   const pendingItems = [
-    { type: '匿名反馈', desc: `${pendingAnonymous} 条匿名反馈待处理`, tone: 'danger' as const, path: '/admin-config?tab=feedback-pool' },
     { type: '权限配置', desc: `${permissions.filter((item) => !item.enabled).length} 个权限项已停用或待确认`, tone: 'warning' as const, path: '/admin-config?tab=role-packages' },
     {
       type: '知识库',
@@ -101,17 +80,12 @@ export function OverviewTab({ data, filters, navigate }: OverviewTabProps) {
       tone: 'success' as const,
       path: '/admin-config?tab=knowledge',
     },
-    { type: '首周反馈', desc: `${weeklyQuestions.filter((item) => !item.enabled).length} 个问题处于停用状态`, tone: 'blue' as const, path: '/admin-config?tab=weekly-feedback' },
-    { type: 'D1 引导', desc: `${d1Items.filter((item) => item?.enabled === false).length} 个任务未启用`, tone: 'ai' as const, path: '/admin-config?tab=d1-guide' },
   ];
 
   const quickActions = [
     { label: '新增权限项', icon: Plus, path: '/admin-config?tab=role-packages' },
     { label: '新增岗位', icon: BriefcaseBusiness, path: '/admin-config?tab=role-packages&action=new-role' },
-    { label: '设置 D1 引导', icon: ShieldCheck, path: '/admin-config?tab=d1-guide' },
-    { label: '新增反馈问题', icon: ClipboardList, path: '/admin-config?tab=weekly-feedback' },
     { label: '上传知识库资料', icon: UploadCloud, path: '/admin-config?tab=knowledge' },
-    { label: '查看反馈池', icon: MessageCircle, path: '/admin-config?tab=feedback-pool' },
   ];
 
   return (
@@ -125,7 +99,7 @@ export function OverviewTab({ data, filters, navigate }: OverviewTabProps) {
         <MetricCard label="岗位数" value={`${roles.length} 个`} hint="较昨日 0" tone="blue" />
         <MetricCard label="权限项数" value={`${permissions.length} 项`} hint={`启用 ${countEnabled(permissions)}`} tone="success" />
         <MetricCard label="知识库资料数" value={`${knowledgeDocs.length} 份`} hint={`命中 ${knowledgeDocs.reduce((sum, item) => sum + item.hitCount, 0)}`} tone="ai" />
-        <MetricCard label="待处理匿名反馈数" value={`${pendingAnonymous} 条`} hint="进入反馈池处理" tone="warning" />
+        <MetricCard label="配置模块数" value="2 个" hint="权限与知识库" tone="warning" />
       </div>
 
       <div className="admin-overview-grid">
@@ -210,7 +184,7 @@ export function OverviewTab({ data, filters, navigate }: OverviewTabProps) {
 
       <div className="admin-info-strip">
         <BookOpen size={17} />
-        所有配置将影响新人端和复盘端展示，请确认信息准确后保存。
+        所有配置将影响新人端展示，请确认信息准确后保存。
       </div>
     </div>
   );

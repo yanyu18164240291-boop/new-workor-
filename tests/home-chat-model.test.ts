@@ -12,8 +12,12 @@ describe('newcomer home chat input', () => {
   it('returns simulated bot replies for common onboarding questions', () => {
     assert.match(buildHomeBotReply('ChatGPT账号怎么申请？'), /权限申请/);
     assert.match(buildHomeBotReply('OA系统怎么登录？'), /OA/);
-    assert.match(buildHomeBotReply('我今天应该先做什么？'), /D1/);
-    assert.match(buildHomeBotReply('其他问题'), /演示版/);
+    const dailyGuidance = buildHomeBotReply('我今天应该先做什么？');
+    assert.match(dailyGuidance, /岗位权限包/);
+    assert.doesNotMatch(dailyGuidance, /D1|首周反馈|匿名反馈/);
+    const fallbackReply = buildHomeBotReply('其他问题');
+    assert.match(fallbackReply, /安全兜底提示/);
+    assert.doesNotMatch(fallbackReply, /D1|首周反馈|匿名反馈|演示版/);
   });
 
   it('keeps the home chat input editable and wired to send user text', () => {

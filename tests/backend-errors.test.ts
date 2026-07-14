@@ -67,7 +67,7 @@ describe('backend error responses', () => {
   });
 
   it('returns stable invalid-json errors for malformed JSON bodies', async () => {
-    const response = await requestJson('/api/anonymous-feedbacks', {
+    const response = await requestJson('/api/newcomers/newcomer-yanyu/permission-progress', {
       method: 'POST',
       body: '{bad json',
     });
@@ -104,20 +104,12 @@ describe('backend error responses', () => {
     assert.match(body.error, /admin/i);
   });
 
-  it('rejects manager API requests without the demo manager role guard', async () => {
+  it('returns not found for removed manager APIs', async () => {
     const missing = await nativeFetch(`${baseUrl}/api/manager/overview`);
     const missingBody = (await missing.json()) as { error: string; code: string };
-    const unknown = await nativeFetch(`${baseUrl}/api/manager/overview`, {
-      headers: { 'x-haina-role': 'manager', 'x-haina-actor': 'unknown-manager' },
-    });
-    const unknownBody = (await unknown.json()) as { error: string; code: string };
-
-    assert.equal(missing.status, 403);
-    assert.equal(missingBody.code, 'FORBIDDEN');
-    assert.match(missingBody.error, /manager/i);
-    assert.equal(unknown.status, 403);
-    assert.equal(unknownBody.code, 'FORBIDDEN');
-    assert.match(unknownBody.error, /manager/i);
+    assert.equal(missing.status, 404);
+    assert.equal(missingBody.code, 'NOT_FOUND');
+    assert.equal(missingBody.error, 'Route not found');
   });
 
   it('returns JSON 500 errors when SQLite writes fail', async () => {

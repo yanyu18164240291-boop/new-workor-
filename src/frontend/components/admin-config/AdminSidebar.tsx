@@ -1,10 +1,6 @@
 import {
-  Archive,
   BookOpen,
   BriefcaseBusiness,
-  ClipboardList,
-  MessageCircle,
-  ShieldCheck,
   TableProperties,
 } from 'lucide-react';
 
@@ -18,11 +14,7 @@ type AdminSidebarProps = {
 const icons = {
   overview: TableProperties,
   'role-packages': BriefcaseBusiness,
-  'd1-guide': ShieldCheck,
-  'weekly-feedback': ClipboardList,
-  'anonymous-config': MessageCircle,
   knowledge: BookOpen,
-  'feedback-pool': Archive,
 } satisfies Record<AdminConfigTabId, typeof TableProperties>;
 
 export function AdminSidebar({ activeTab, navigate }: AdminSidebarProps) {

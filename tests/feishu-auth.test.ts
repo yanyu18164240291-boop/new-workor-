@@ -91,15 +91,6 @@ describe('Feishu OAuth login', () => {
       if (url.includes('/auth/v3/tenant_access_token/internal')) {
         return Response.json({ code: 0, msg: 'ok', tenant_access_token: 'tenant-token' });
       }
-      if (url.includes('/im/v1/messages')) {
-        const body = JSON.parse(String(init?.body ?? '{}')) as { receive_id?: string; msg_type?: string; content?: string };
-        const content = JSON.parse(body.content ?? '{}') as { text?: string };
-        assert.equal(body.receive_id, 'ou_test');
-        assert.equal(body.msg_type, 'text');
-        assert.match(content.text ?? '', /燕余您好呀！这是你的 D1 到达引导/);
-        assert.match(content.text ?? '', /飞书管理员保存的权限包/);
-        return Response.json({ code: 0, msg: 'ok', data: { message_id: 'om_d1_guide' } });
-      }
       if (url.includes('/contact/v3/users/user_test')) {
         return Response.json({ code: 0, msg: 'ok', data: { user: { department_ids: ['od_child'], job_title: '产品实习生' } } });
       }
@@ -137,68 +128,9 @@ describe('Feishu OAuth login', () => {
       assert.equal(sessionBody.data.user.jobTitle, '产品实习生');
       assert.equal(sessionBody.data.user.newcomerId, 'newcomer-yanyu');
 
-      const adminSave = await nativeFetch(`${server.baseUrl}/api/admin/d1-guide-config`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json', cookie },
-        body: JSON.stringify({
-          items: [
-            {
-              actionKey: 'permission_package',
-              taskType: 'permission_package',
-              title: '飞书管理员保存的权限包',
-              description: '通过飞书登录用户保存。',
-              routePath: '/permissions',
-              label: '开通权限',
-              ownerName: '燕余',
-              enabled: true,
-            },
-          ],
-        }),
-      });
-      const adminSaveBody = (await adminSave.json()) as { data: { permissionPackage: { updatedBy: string } } };
-      assert.equal(adminSave.status, 200);
-      assert.equal(adminSaveBody.data.permissionPackage.updatedBy, '燕余');
-
-      const d1Push = await nativeFetch(`${server.baseUrl}/api/newcomers/newcomer-yanyu/d1-guide-message`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', cookie },
-        body: JSON.stringify({ roleId: 'role-product-intern', triggerSource: 'd1_auto' }),
-      });
-      const d1PushBody = (await d1Push.json()) as {
-        data: { deliveryStatus: string; messageId: string; recipientName: string; itemCount: number; alreadySent?: boolean };
-      };
-      assert.equal(d1Push.status, 200);
-      assert.equal(d1PushBody.data.deliveryStatus, 'sent');
-      assert.equal(d1PushBody.data.messageId, 'om_d1_guide');
-      assert.equal(d1PushBody.data.recipientName, '燕余');
-      assert.ok(calls.some((call) => call.url.includes('/im/v1/messages') && call.auth === 'Bearer tenant-token'));
-
-      const sentMessageCalls = () => calls.filter((call) => call.url.includes('/im/v1/messages')).length;
-      const sentCountAfterFirstPush = sentMessageCalls();
-      const d1Repeat = await nativeFetch(`${server.baseUrl}/api/newcomers/newcomer-yanyu/d1-guide-message`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', cookie },
-        body: JSON.stringify({ roleId: 'role-product-intern', triggerSource: 'd1_auto' }),
-      });
-      const d1RepeatBody = (await d1Repeat.json()) as {
-        data: { deliveryStatus: string; alreadySent?: boolean; messageId?: string };
-      };
-      assert.equal(d1Repeat.status, 200);
-      assert.equal(d1RepeatBody.data.deliveryStatus, 'skipped');
-      assert.equal(d1RepeatBody.data.alreadySent, true);
-      assert.equal(d1RepeatBody.data.messageId, 'om_d1_guide');
-      assert.equal(sentMessageCalls(), sentCountAfterFirstPush);
-
-      const d1AdminResend = await nativeFetch(`${server.baseUrl}/api/newcomers/newcomer-yanyu/d1-guide-message`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', cookie },
-        body: JSON.stringify({ roleId: 'role-product-intern', force: true, triggerSource: 'admin_resend' }),
-      });
-      const d1AdminResendBody = (await d1AdminResend.json()) as { data: { deliveryStatus: string; messageId: string } };
-      assert.equal(d1AdminResend.status, 200);
-      assert.equal(d1AdminResendBody.data.deliveryStatus, 'sent');
-      assert.equal(d1AdminResendBody.data.messageId, 'om_d1_guide');
-      assert.equal(sentMessageCalls(), sentCountAfterFirstPush + 1);
+      const adminConfig = await nativeFetch(`${server.baseUrl}/api/admin/config`, { headers: { cookie } });
+      assert.equal(adminConfig.status, 200);
+      assert.equal(calls.some((call) => call.url.includes('/im/v1/messages')), false);
     } finally {
       await server.close();
     }
@@ -250,24 +182,7 @@ describe('Feishu OAuth login', () => {
       const sessionBody = (await session.json()) as { data: { user: { canAccessAdminConfig?: boolean } } };
       assert.equal(sessionBody.data.user.canAccessAdminConfig, true);
 
-      const adminSave = await nativeFetch(`${server.baseUrl}/api/admin/d1-guide-config`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json', cookie },
-        body: JSON.stringify({
-          items: [
-            {
-              actionKey: 'permission_package',
-              taskType: 'permission_package',
-              title: 'Whitelist admin permission package',
-              description: 'Saved by explicit Feishu admin whitelist.',
-              routePath: '/permissions',
-              label: 'Open permissions',
-              ownerName: 'Pilot Admin',
-              enabled: true,
-            },
-          ],
-        }),
-      });
+      const adminSave = await nativeFetch(`${server.baseUrl}/api/admin/config`, { headers: { cookie } });
 
       assert.equal(adminSave.status, 200);
     } finally {

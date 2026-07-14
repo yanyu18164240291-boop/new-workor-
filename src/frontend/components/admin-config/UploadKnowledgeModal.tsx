@@ -31,7 +31,7 @@ const initialDraft: KnowledgeUploadDraft = {
   category: '入职知识',
   applicableRoleId: 'role-product-intern',
   applicableRole: '协同办公产品实习生',
-  applicableStage: 'D1',
+  applicableStage: '通用',
   ownerName: '',
   sourceUrl: 'mock-drive://admin-upload',
   contentText: '',

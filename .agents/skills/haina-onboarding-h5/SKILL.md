@@ -11,6 +11,12 @@ Use this skill to keep development aligned with the final PRD for the 海纳 AI 
 
 The output must be a mobile-first H5 MVP that can support product review, leadership demo, development alignment, and small pilot usage. P0 business data must use a real backend and database.
 
+## Current Phase 09 Override
+
+The latest approved scope keeps only the newcomer H5 and admin configuration console. D1 guide, weekly feedback, anonymous feedback, V1 review, and manager surfaces are legacy modules and must not be restored to the active runtime. The final replacement page map is intentionally undecided. Read `docs/specs/phase-09-product-scope-convergence.md` before planning or implementation.
+
+Keep legacy SQLite tables and historical records for rollback compatibility. Do not physically delete them without a separately approved migration and backup plan.
+
 ## Always Start Here
 
 1. Read `AGENTS.md`.
@@ -19,7 +25,7 @@ The output must be a mobile-first H5 MVP that can support product review, leader
 4. Treat the final PRD as the product source of truth:
    `C:\yanyu\新人入职BAT\阶段二\开发文档2(1).md`
 
-## P0 Real Backend Scope
+## Legacy P0 Real Backend Scope
 
 Build real backend APIs and database tables for:
 
@@ -48,7 +54,7 @@ Do not build real external integrations unless explicitly requested:
 
 Use front-end state, route changes, modals, and toast messages only to simulate non-P0 external behaviors. Do not simulate P0 persistence purely in the browser.
 
-## Product Logic Guardrails
+## Legacy Product Logic Guardrails
 
 - Page 06 is 新人首周反馈填写: named, non-anonymous, written by the newcomer, visible to managers.
 - Page 07 is 匿名反馈: anonymous process feedback for product/content owners, not manager原文.

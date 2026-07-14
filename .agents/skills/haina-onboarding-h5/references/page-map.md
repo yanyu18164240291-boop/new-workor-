@@ -1,5 +1,7 @@
 # Page Map Reference
 
+> Legacy reference: Phase 09 removed D1, weekly feedback, anonymous feedback, V1 review, and manager surfaces from the active runtime. The final newcomer/admin page map is intentionally deferred. See `docs/specs/phase-09-product-scope-convergence.md`.
+
 ## Pages
 
 | Page | Route | Name | Owner View |

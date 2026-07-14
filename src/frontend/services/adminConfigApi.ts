@@ -1,12 +1,8 @@
 import {
   api,
-  type AnonymousFeedback,
-  type D1GuideConfigItem,
   type KnowledgeDoc,
   type PermissionItem,
   type Role,
-  type WeeklyFeedbackOption,
-  type WeeklyFeedbackQuestion,
 } from '../api.ts';
 import { currentAdminUser } from '../types/adminConfig.ts';
 
@@ -61,62 +57,6 @@ export function bindExistingPermissionForRole(roleId: string, permissionItemId: 
   return api.createRolePermissionItem({ roleId, permissionItemId, updatedBy: adminActorName });
 }
 
-export function saveD1GuideItem(item: Partial<D1GuideConfigItem> & { actionKey: string }) {
-  return api.updateD1GuideConfig([item], adminActorName);
-}
-
-type WeeklyFeedbackQuestionSave = Omit<WeeklyFeedbackQuestion, 'options'> & {
-  options: Array<Pick<WeeklyFeedbackOption, 'label'> & Partial<WeeklyFeedbackOption>>;
-};
-
-export function saveWeeklyFeedbackQuestion(question: WeeklyFeedbackQuestionSave) {
-  return api.updateWeeklyFeedbackConfig(
-    [
-      {
-        id: question.id,
-        title: question.title,
-        description: question.description ?? null,
-        required: question.required,
-        maxLength: question.maxLength ?? null,
-        enabled: question.enabled,
-        options: question.options.map((option) => ({
-          id: option.id,
-          optionKey: option.optionKey,
-          label: option.label,
-          enabled: option.enabled,
-          sortOrder: option.sortOrder,
-        })),
-      },
-    ],
-    adminActorName,
-  );
-}
-
-export function reorderWeeklyFeedbackQuestions(questions: Array<Pick<WeeklyFeedbackQuestion, 'id' | 'sortOrder'>>) {
-  return api.updateWeeklyFeedbackConfig(
-    questions.map((question) => ({ id: question.id, sortOrder: question.sortOrder })),
-    adminActorName,
-  );
-}
-
-export function createWeeklyFeedbackQuestion(
-  question: Pick<WeeklyFeedbackQuestion, 'title' | 'inputType' | 'required' | 'maxLength' | 'enabled'> & {
-    description?: string | null;
-    options?: Array<{ label: string; enabled?: boolean; sortOrder?: number }>;
-  },
-) {
-  return api.createWeeklyFeedbackQuestion({
-    ...question,
-    questionKey: `admin_${Date.now()}`,
-    options: question.options ?? [],
-    updatedBy: adminActorName,
-  });
-}
-
-export function saveAnonymousFeedbackConfig(body: Parameters<typeof api.updateAnonymousFeedbackConfig>[0]) {
-  return api.updateAnonymousFeedbackConfig({ ...body, updatedBy: adminActorName });
-}
-
 export function uploadKnowledgeMetadata(
   body: Pick<
     KnowledgeDoc,
@@ -130,25 +70,10 @@ export function uploadKnowledgeMetadata(
   });
 }
 
-export function listKnowledgeDocsForFeedbackAction() {
-  return api.getKnowledgeDocs();
-}
-
 export function triggerKnowledgeMockParse(id: string) {
   return api.triggerMockKnowledgeParse(id);
 }
 
 export function setKnowledgeDocStatus(id: string, status: 'disabled' | 'enabled' | 'offline') {
   return api.updateKnowledgeDocStatus(id, status);
-}
-
-export function processAnonymousFeedback(
-  id: string,
-  body: Pick<AnonymousFeedback, 'status' | 'ownerName' | 'result' | 'resolutionNote' | 'includedInReview'>,
-) {
-  return api.updateAnonymousFeedback(id, {
-    ...body,
-    handlerName: adminActorName,
-    updatedBy: adminActorName,
-  });
 }

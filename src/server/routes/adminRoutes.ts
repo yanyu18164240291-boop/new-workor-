@@ -1,10 +1,7 @@
 import type { RouteMatch } from '../routeKit.ts';
 import {
-  listAdminAnonymousFeedbacks,
   getAdminConfig,
-  getAdminD1GuideConfigEndpoint,
   listKnowledgeBaseDocs,
-  getWeeklyFeedbackAnalysis,
   createRole,
   createPosition,
   updateRole,
@@ -13,37 +10,20 @@ import {
   createKnowledgeBaseDoc,
   triggerMockKnowledgeParse,
   updateKnowledgeBaseDocStatus,
-  createWeeklyFeedbackQuestion,
   updatePermissionItem,
-  updateWeeklyFeedbackConfig,
-  updateD1GuideConfig,
-  updateAnonymousFeedbackConfig,
-  updateAnonymousFeedback,
-  acceptAdminConfigPatch
+  acceptAdminConfigPatch,
 } from '../services/adminService.ts';
 
 export const adminRoutes: Record<string, RouteMatch[]> = {
   GET: [
     {
-      pattern: /^\/api\/admin\/anonymous-feedbacks$/,
-      handler: listAdminAnonymousFeedbacks,
-    },
-    {
       pattern: /^\/api\/admin\/config$/,
       handler: getAdminConfig,
-    },
-    {
-      pattern: /^\/api\/admin\/d1-guide-config$/,
-      handler: getAdminD1GuideConfigEndpoint,
     },
     {
       pattern: /^\/api\/admin\/knowledge-base-docs$/,
       handler: listKnowledgeBaseDocs,
     },
-    {
-      pattern: /^\/api\/admin\/weekly-feedback-analysis$/,
-      handler: getWeeklyFeedbackAnalysis,
-    }
   ],
   POST: [
     {
@@ -70,10 +50,6 @@ export const adminRoutes: Record<string, RouteMatch[]> = {
       pattern: /^\/api\/admin-config\/knowledge\/([^/]+)\/trigger-mock-parse$/,
       handler: triggerMockKnowledgeParse,
     },
-    {
-      pattern: /^\/api\/admin\/weekly-feedback-config\/questions$/,
-      handler: createWeeklyFeedbackQuestion,
-    }
   ],
   PATCH: [
     {
@@ -89,24 +65,8 @@ export const adminRoutes: Record<string, RouteMatch[]> = {
       handler: updateKnowledgeBaseDocStatus,
     },
     {
-      pattern: /^\/api\/admin\/d1-guide-config$/,
-      handler: updateD1GuideConfig,
-    },
-    {
-      pattern: /^\/api\/admin\/weekly-feedback-config$/,
-      handler: updateWeeklyFeedbackConfig,
-    },
-    {
-      pattern: /^\/api\/admin\/anonymous-feedback-config$/,
-      handler: updateAnonymousFeedbackConfig,
-    },
-    {
-      pattern: /^\/api\/admin\/anonymous-feedbacks\/([^/]+)$/,
-      handler: updateAnonymousFeedback,
-    },
-    {
       pattern: /^\/api\/admin\/config$/,
       handler: acceptAdminConfigPatch,
-    }
+    },
   ],
 };

@@ -3,16 +3,11 @@ import type { ReactNode } from 'react';
 import { canAccessAdminConfig } from './auth.ts';
 import type { DashboardData } from './dashboardData.ts';
 import { AdminConfigPage } from './pages/AdminConfig/AdminConfigPage.tsx';
-import { ReviewPage } from './pages/ReviewPage.tsx';
-import { ManagerDetailPage, ManagerFeedbackPage, ManagerPage } from './pages/managerPages.tsx';
 import {
-  AnonymousFeedbackPage,
-  D1Page,
   FollowUpPage,
   HomePage,
   PermissionDetailPage,
   PermissionPage,
-  WeeklyFeedbackPage,
 } from './pages/newcomerPages.tsx';
 
 export function AppContent({
@@ -76,28 +71,14 @@ export function AppContent({
   switch (pageNo) {
     case '01':
       return <HomePage data={data} navigate={navigate} />;
-    case '02':
-      return <D1Page data={data} navigate={navigate} toast={toast} onRoleChange={selectPreviewRole} />;
     case '03':
       return <PermissionPage data={data} navigate={navigate} openModal={openApplyModal} onRoleChange={selectPreviewRole} />;
     case '04':
       return <PermissionDetailPage data={data} params={params} navigate={navigate} toast={toast} reload={reload} />;
     case '05':
-      return <FollowUpPage navigate={navigate} toast={toast} openOwner={openOwnerModal} />;
-    case '06':
-      return <WeeklyFeedbackPage data={data} reload={reload} toast={toast} />;
-    case '07':
-      return <AnonymousFeedbackPage data={data} reload={reload} toast={toast} />;
+      return <FollowUpPage toast={toast} openOwner={openOwnerModal} />;
     case '08':
       return renderAdminGuard(<AdminConfigPage data={data} search={search} toast={toast} reload={reload} navigate={navigate} />);
-    case '09':
-      return renderAdminGuard(<ReviewPage data={data} navigate={navigate} toast={toast} />);
-    case '10':
-      return <ManagerPage data={data} navigate={navigate} toast={toast} />;
-    case '11':
-      return <ManagerDetailPage data={data} navigate={navigate} toast={toast} />;
-    case '12':
-      return <ManagerFeedbackPage data={data} navigate={navigate} reload={reload} toast={toast} />;
     default:
       return null;
   }

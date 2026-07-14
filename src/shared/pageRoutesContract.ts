@@ -1,17 +1,12 @@
-export const allowedPageRoutePatterns = [
+export const activePageRoutePaths = [
   '/',
-  '/d1',
   '/permissions',
   '/permission-detail/:id',
   '/follow-up/:taskId',
-  '/weekly-feedback',
-  '/anonymous-feedback',
   '/admin-config',
-  '/review',
-  '/manager',
-  '/manager/newcomer/:id',
-  '/manager/feedback/:id',
 ] as const;
+
+export const allowedPageRoutePatterns = activePageRoutePaths;
 
 function patternToRegExp(pattern: string): RegExp {
   const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/:[^/]+/g, '[^/]+');

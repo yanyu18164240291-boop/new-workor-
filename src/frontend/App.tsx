@@ -18,7 +18,7 @@ import {
   filterSelectablePermissions,
 } from './permissionSelection.ts';
 import { ApplyModal } from './pages/newcomerPages.tsx';
-import { getBottomNavItems, getShellKind, matchRoute } from './routes.ts';
+import { getBottomNavItems, matchRoute } from './routes.ts';
 
 export function App() {
   const { pathname, search, navigate } = usePathname();
@@ -32,24 +32,7 @@ export function App() {
     window.setTimeout(() => setToastMessage(''), 2200);
   }
 
-  function handleBottomNavNavigate(path: string) {
-    if (route.owner === 'manager' && path.startsWith('/manager/feedback/')) {
-      if (data.managerOverview?.recentWeeklyFeedbackId) {
-        navigate(`/manager/feedback/${data.managerOverview.recentWeeklyFeedbackId}`);
-        return;
-      }
-      if (data.weekly) {
-        navigate(`/manager/feedback/${data.weekly.id}`);
-        return;
-      }
-      toast('暂无新人首周反馈');
-      return;
-    }
-    navigate(path);
-  }
-
   const subtitle = route.pageNo === '01' ? '你的入职好帮手' : route.purpose;
-  const shellKind = getShellKind(route);
   const bottomNavItems = getBottomNavItems(route.pageNo);
   const selectableRequiredPermissions = filterSelectablePermissions(data.package?.requiredPermissions ?? [], data.progress ?? []);
   const selectableOptionalPermissions = filterSelectablePermissions(data.package?.optionalPermissions ?? [], data.progress ?? []);
@@ -137,64 +120,6 @@ export function App() {
     );
   }
 
-  if (shellKind === 'desktop') {
-    return (
-      <div className="admin-canvas">
-        <aside className="admin-sidebar">
-          <div className="admin-brand">
-            <span>海</span>
-            <div>
-              <strong>海纳入职后台</strong>
-              <p>配置维护 / 试点复盘</p>
-            </div>
-          </div>
-          <nav className="admin-side-nav" aria-label="后台导航">
-            {[
-              ['权限配置', '/admin-config', '08'],
-              ['知识库管理', '/admin-config?tab=knowledge', '08k'],
-              ['匿名反馈池', '/admin-config?tab=feedback', '08f'],
-              ['V1 试点复盘', '/review', '09'],
-            ].map(([label, path, key]) => {
-              const active =
-                (key === '08' && route.pageNo === '08' && !search) ||
-                (key === '08k' && route.pageNo === '08' && search.includes('knowledge')) ||
-                (key === '08f' && route.pageNo === '08' && search.includes('feedback')) ||
-                (key === '09' && route.pageNo === '09');
-              return (
-                <button key={key} className={active ? 'active' : ''} onClick={() => navigate(path)}>
-                  {label}
-                </button>
-              );
-            })}
-          </nav>
-        </aside>
-        <main className="admin-main">
-          <header className="admin-topbar">
-            <div>
-              <span>Page {route.pageNo}</span>
-              <h1>{route.title}</h1>
-              <p>{route.purpose}</p>
-            </div>
-            <button
-              className="admin-primary"
-              onClick={async () => {
-                await reload();
-                toast('已从后端刷新配置数据');
-              }}
-            >
-              刷新后端数据
-            </button>
-          </header>
-          <section className="admin-content">
-            <LoadingState status={canRenderContent ? 'ready' : status} error={error} />
-            {content}
-          </section>
-          {modalLayer}
-        </main>
-      </div>
-    );
-  }
-
   return (
     <div className="app-canvas">
       <div className="mobile-surface-layout">
@@ -211,7 +136,7 @@ export function App() {
               <LoadingState status={canRenderContent ? 'ready' : status} error={error} />
               {content}
             </PageBoard>
-            {bottomNavItems.length > 0 && <BottomNav currentPage={route.pageNo} navigate={handleBottomNavNavigate} />}
+            {bottomNavItems.length > 0 && <BottomNav currentPage={route.pageNo} navigate={navigate} />}
             {modalLayer}
           </PhoneFrame>
         </PrototypePage>
